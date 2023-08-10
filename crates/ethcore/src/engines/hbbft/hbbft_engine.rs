@@ -458,6 +458,9 @@ impl HoneyBadgerBFT {
             .map(|(_, c)| c.timestamp)
             .sorted();
 
+        // todo: use timstamps for calculating negative score.
+        // https://github.com/DMDcoin/diamond-node/issues/37
+
         let timestamp = match timestamps.iter().nth(timestamps.len() / 2) {
             Some(t) => t.clone(),
             None => {
@@ -483,9 +486,19 @@ impl HoneyBadgerBFT {
             .write()
             .insert(batch.epoch, random_number);
 
-        if let Some(header) = client.create_pending_block_at(batch_txns, timestamp, batch.epoch) {
+        if let Some(mut header) = client.create_pending_block_at(batch_txns, timestamp, batch.epoch)
+        {
             let block_num = header.number();
             let hash = header.bare_hash();
+            if let Some(reward_contract_address) = self.params.block_reward_contract_address {
+                header.set_author(reward_contract_address);
+            } else {
+                warn!(
+                    "Creating block with no blockRewardContractAddress {}",
+                    block_num
+                );
+            }
+
             trace!(target: "consensus", "Sending signature share of {} for block {}", hash, block_num);
             let step = match self
                 .sealing
@@ -1514,6 +1527,8 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
         if let Some(address) = self.params.block_reward_contract_address {
             // only if no block reward skips are defined for this block.
             let header_number = block.header.number();
+
+            block.header.set_author(address);
 
             if self
                 .params

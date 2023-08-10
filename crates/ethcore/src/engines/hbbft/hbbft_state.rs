@@ -333,7 +333,7 @@ impl HbbftState {
 
         if let Some(latest_block) = client.block_number(BlockId::Latest) {
             if honey_badger.epoch() != latest_block + 1 {
-                info!(target: "consensus", "Detected an attempt to send a hbbft contribution for block {} before the previous block was imported to the chain.", honey_badger.epoch());
+                info!(target: "consensus", "Detected an attempt to send a hbbft contribution for block {} before the previous block was imported to the chain. (latest block: {})", honey_badger.epoch(), latest_block);
                 return None;
             }
         }
