@@ -134,6 +134,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 
 [[package]]
+name = "arrayvec"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
+
+[[package]]
 name = "assert_matches"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1405,7 +1411,7 @@ name = "ethcore-logger"
 version = "1.12.0"
 dependencies = [
  "ansi_term 0.10.2",
- "arrayvec 0.4.12",
+ "arrayvec 0.7.4",
  "atty",
  "env_logger 0.5.13",
  "lazy_static",

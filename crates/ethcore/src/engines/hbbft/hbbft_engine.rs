@@ -1,7 +1,6 @@
 use super::{
     block_reward_hbbft::BlockRewardContract,
     hbbft_early_epoch_end_manager::HbbftEarlyEpochEndManager,
-    hbbft_network_fork_manager::HbbftNetworkForkManager,
 };
 use crate::{
     client::BlockChainClient,

@@ -50,7 +50,7 @@ pub struct RotatingLogger {
     /// Defined logger levels
     levels: String,
     /// Logs array. Latest log is always at index 0
-    logs: RwLock<ArrayVec<[String; LOG_SIZE]>>,
+    logs: RwLock<ArrayVec<String, LOG_SIZE>>,
 }
 
 impl RotatingLogger {
@@ -59,7 +59,7 @@ impl RotatingLogger {
     pub fn new(levels: String) -> Self {
         RotatingLogger {
             levels: levels,
-            logs: RwLock::new(ArrayVec::<[_; LOG_SIZE]>::new()),
+            logs: RwLock::new(ArrayVec::<_, LOG_SIZE>::new()),
         }
     }
 
@@ -78,7 +78,7 @@ impl RotatingLogger {
     }
 
     /// Return logs
-    pub fn logs(&self) -> RwLockReadGuard<ArrayVec<[String; LOG_SIZE]>> {
+    pub fn logs(&self) -> RwLockReadGuard<ArrayVec<String, LOG_SIZE>> {
         self.logs.read()
     }
 }

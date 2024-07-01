@@ -104,6 +104,7 @@ fn to_toml_array(vec: Vec<&str>) -> Value {
 
 fn to_toml(
     i: usize,
+    open_ports: bool,
     config_type: &ConfigType,
     external_ip: Option<&str>,
     signer_address: &Address,
@@ -116,6 +117,7 @@ fn to_toml(
     base_ws_port: u16,
 ) -> Value {
     let mut parity = Map::new();
+
     match config_type {
         ConfigType::PosdaoSetup => {
             parity.insert("chain".into(), Value::String("./spec/spec.json".into()));
@@ -169,33 +171,37 @@ fn to_toml(
     }
 
     let mut rpc = Map::new();
-    rpc.insert("interface".into(), Value::String("all".into()));
-    rpc.insert("cors".into(), to_toml_array(vec!["all"]));
-    rpc.insert("hosts".into(), to_toml_array(vec!["all"]));
-    let apis = to_toml_array(vec![
-        "web3",
-        "eth",
-        "pubsub",
-        "net",
-        "parity",
-        "parity_set",
-        "parity_pubsub",
-        "personal",
-        "traces",
-    ]);
-    rpc.insert("apis".into(), apis);
-    rpc.insert(
-        "port".into(),
-        Value::Integer((base_rpc_port as usize + i) as i64),
-    );
-
     let mut websockets = Map::new();
-    websockets.insert("interface".into(), Value::String("all".into()));
-    websockets.insert("origins".into(), to_toml_array(vec!["all"]));
-    websockets.insert(
-        "port".into(),
-        Value::Integer((base_ws_port as usize + i) as i64),
-    );
+
+    if open_ports {
+        rpc.insert("interface".into(), Value::String("all".into()));
+        rpc.insert("cors".into(), to_toml_array(vec!["all"]));
+        rpc.insert("hosts".into(), to_toml_array(vec!["all"]));
+        let apis = to_toml_array(vec![
+            "web3",
+            "eth",
+            "pubsub",
+            "net",
+            "parity",
+            "parity_pubsub",
+            "traces",
+        ]);
+        rpc.insert("apis".into(), apis);
+        rpc.insert(
+            "port".into(),
+            Value::Integer((base_rpc_port as usize + i) as i64),
+        );
+
+        websockets.insert("interface".into(), Value::String("all".into()));
+        websockets.insert("origins".into(), to_toml_array(vec!["all"]));
+        websockets.insert(
+            "port".into(),
+            Value::Integer((base_ws_port as usize + i) as i64),
+        );
+    } else {
+        rpc.insert("disable".into(), Value::Boolean(true));
+        websockets.insert("disable".into(), Value::Boolean(true));
+    }
 
     let mut ipc = Map::new();
     ipc.insert("disable".into(), Value::Boolean(true));
@@ -231,11 +237,10 @@ fn to_toml(
     }
 
     mining.insert("force_sealing".into(), Value::Boolean(true));
-    mining.insert("min_gas_price".into(), Value::Integer(1000000000));
-    mining.insert(
-        "gas_floor_target".into(),
-        Value::String("1000000000".into()),
-    );
+    // we put an extremly low min gas price in the config
+    // the min gas price is gathered from the DAO
+    // this makes sure that the min_gas_price wont be higher then the gas pricce the DAO decides.
+    mining.insert("min_gas_price".into(), Value::Integer(1000));
     mining.insert("reseal_on_txs".into(), Value::String("none".into()));
     mining.insert("reseal_min_period".into(), Value::Integer(0));
 
@@ -252,7 +257,7 @@ fn to_toml(
     // Value::String("txqueue=trace,consensus=debug,engine=trace,own_tx=trace,miner=trace,tx_filter=trace".into())
     misc.insert(
         "logging".into(),
-        Value::String("txqueue=info,consensus=debug,engine=trace,tx_own=trace".into()),
+        Value::String("txqueue=info,consensus=debug,engine=debug,tx_own=trace".into()),
     );
     misc.insert("log_file".into(), Value::String("diamond-node.log".into()));
 
@@ -431,12 +436,12 @@ fn main() {
             )
         });
 
-    let fork_block_number: Option<i64> = matches.value_of("fork_block_number").map_or(None, |v| {
-        Some(
-            v.parse::<i64>()
-                .expect("fork_block_number need to be of integer type"),
-        )
-    });
+    // let fork_block_number: Option<i64> = matches.value_of("fork_block_number").map_or(None, |v| {
+    //     Some(
+    //         v.parse::<i64>()
+    //             .expect("fork_block_number need to be of integer type"),
+    //     )
+    // });
 
     let metrics_port_base: Option<u16> = matches.value_of("metrics_port_base").map_or(None, |v| {
         Some(
@@ -525,6 +530,7 @@ fn main() {
         // the unwrap is safe, because there is a default value defined.
         let toml_string = toml::to_string(&to_toml(
             i,
+            false,
             &config_type,
             external_ip,
             &enode.address,
@@ -565,6 +571,7 @@ fn main() {
     // Write rpc node config
     let rpc_string = toml::to_string(&to_toml(
         0,
+        true,
         &ConfigType::Rpc,
         external_ip,
         &Address::default(), // todo: insert HBBFT Contracts pot here.

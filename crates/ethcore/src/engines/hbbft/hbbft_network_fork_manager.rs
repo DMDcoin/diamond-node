@@ -3,10 +3,9 @@ use std::{
     sync::Arc,
 };
 
-use ethereum_types::{Address, H512};
+use ethereum_types::H512;
 use ethjson::spec::hbbft::HbbftNetworkFork;
 use hbbft::{
-    crypto::PublicKeySet,
     sync_key_gen::{Ack, AckOutcome, Part, PartOutcome, SyncKeyGen},
     util::max_faulty,
     NetworkInfo,
