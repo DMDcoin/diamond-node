@@ -17,7 +17,7 @@ use engines::{
     SealingState,
 };
 use error::{BlockError, Error};
-use ethereum_types::{Address, Public, H256, H512, U256};
+use ethereum_types::{Address, Bloom, Public, H256, H512, U256};
 use ethjson::spec::HbbftParams;
 use hbbft::{NetworkInfo, Target};
 use io::{IoContext, IoHandler, IoService, TimerToken};
@@ -1673,6 +1673,12 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
     }
 
     fn on_close_block(&self, block: &mut ExecutedBlock) -> Result<(), Error> {
+        warn!(
+            "faking bloom filter on_close_block for block {}",
+            block.header.number()
+        );
+        block.header.set_log_bloom(Bloom::repeat_byte(255));
+
         if let Some(address) = self.params.block_reward_contract_address {
             // only if no block reward skips are defined for this block.
             let header_number = block.header.number();
