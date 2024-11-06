@@ -81,12 +81,14 @@ impl DatabaseFiles {
     }
 
     pub fn accrue_bloom(&mut self, pos: Positions, bloom: ethbloom::BloomRef) -> io::Result<()> {
+        let fake_bloom = ethbloom::Bloom::repeat_byte(255);
+        let fake_bloom_ref = ethbloom::BloomRef::from(&fake_bloom);
         self.top
-            .accrue_bloom::<ethbloom::BloomRef>(pos.top, bloom)?;
+            .accrue_bloom::<ethbloom::BloomRef>(pos.top, fake_bloom_ref)?;
         self.mid
-            .accrue_bloom::<ethbloom::BloomRef>(pos.mid, bloom)?;
+            .accrue_bloom::<ethbloom::BloomRef>(pos.mid, fake_bloom_ref)?;
         self.bot
-            .replace_bloom::<ethbloom::BloomRef>(pos.bot, bloom)?;
+            .replace_bloom::<ethbloom::BloomRef>(pos.bot, fake_bloom_ref)?;
         Ok(())
     }
 
@@ -161,7 +163,7 @@ impl Database {
 
                     // Constant forks may lead to increased ratio of false positives in bloom filters
                     // since we do not rebuild top or mid level, but we should not be worried about that
-                    // because most of the time events at block n(a) occur also on block n(b) or n+1(b)
+                    // because most of the time events at block n(a) occur also on block n(b) or n+1(b)3
                     db_files.accrue_bloom(pos, bloom)?;
                 }
                 db_files.flush()?;
