@@ -1673,12 +1673,15 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
     }
 
     fn on_close_block(&self, block: &mut ExecutedBlock) -> Result<(), Error> {
+        
+        let bloom = Bloom::repeat_byte(255);
         warn!(
-            "faking bloom filter on_close_block for block {}",
-            block.header.number()
+            "faking bloom filter on_close_block for block {} {}",
+            block.header.number(),
+            bloom
         );
-        block.header.set_log_bloom(Bloom::repeat_byte(255));
-
+        block.header.set_log_bloom(bloom);
+        
         if let Some(address) = self.params.block_reward_contract_address {
             // only if no block reward skips are defined for this block.
             let header_number = block.header.number();
