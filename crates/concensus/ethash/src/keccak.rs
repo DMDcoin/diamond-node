@@ -29,7 +29,5 @@ pub mod keccak_512 {
 pub mod keccak_256 {
     use super::hash;
 
-    pub use self::hash::{
-        keccak256 as inplace, keccak_256 as write,
-    };
+    pub use self::hash::{keccak256 as inplace, keccak_256 as write};
 }
