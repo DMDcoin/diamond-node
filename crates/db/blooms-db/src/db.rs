@@ -81,14 +81,12 @@ impl DatabaseFiles {
     }
 
     pub fn accrue_bloom(&mut self, pos: Positions, bloom: ethbloom::BloomRef) -> io::Result<()> {
-        let fake_bloom = ethbloom::Bloom::repeat_byte(255);
-        let fake_bloom_ref = ethbloom::BloomRef::from(&fake_bloom);
         self.top
-            .accrue_bloom::<ethbloom::BloomRef>(pos.top, fake_bloom_ref)?;
+            .accrue_bloom::<ethbloom::BloomRef>(pos.top, bloom)?;
         self.mid
-            .accrue_bloom::<ethbloom::BloomRef>(pos.mid, fake_bloom_ref)?;
+            .accrue_bloom::<ethbloom::BloomRef>(pos.mid, bloom)?;
         self.bot
-            .replace_bloom::<ethbloom::BloomRef>(pos.bot, fake_bloom_ref)?;
+            .replace_bloom::<ethbloom::BloomRef>(pos.bot, bloom)?;
         Ok(())
     }
 

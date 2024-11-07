@@ -22,9 +22,10 @@ use std::{
     sync::Arc,
 };
 
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, Bloom, H256, U256};
 use types::{
     header::Header,
+    receipt::TransactionOutcome,
     transaction::{
         self, SignedTransaction, TypedTransaction, UnverifiedTransaction, SYSTEM_ADDRESS,
         UNSIGNED_SENDER,
@@ -209,6 +210,20 @@ impl EthereumMachine {
             .call(params, &mut substate, &mut NoopTracer, &mut NoopVMTracer)
             .map_err(|e| ::engines::EngineError::FailedSystemCall(format!("{}", e)))?;
         let output = res.return_data.to_vec();
+
+        let logs = substate.logs.clone();
+        let gas_used = gas;
+        let mut log_bloom = Bloom::zero();
+        //log_bloom.accrue(logs);
+
+        for log in substate.logs {
+            let bloom = log.bloom();
+            log_bloom.accrue_bloom(&bloom);
+        }
+
+        block.receipts.push(types::receipt::TypedReceipt::Legacy(
+            types::receipt::LegacyReceipt::new(TransactionOutcome::StatusCode(1), gas_used, logs),
+        ));
 
         Ok(output)
     }

@@ -1459,20 +1459,9 @@ impl BlockChain {
         }
 
         if let Some((block, blooms)) = update.blocks_blooms {
-            // we fake the blooms and write ff for all bloom fields.
-
-            let mut fake_blooms = Vec::new();
-
-            for _ in blooms.iter() {
-                let fake_bloom = Bloom::repeat_byte(255);
-                fake_blooms.push(fake_bloom);
-            }
-
-            warn!(target: "engine", "Block {} writing fake blooms {}?", block, fake_blooms.len());
-
             self.db
                 .blooms()
-                .insert_blooms(block, fake_blooms.iter())
+                .insert_blooms(block, blooms.iter())
                 .expect("Low level database error when updating blooms. Some issue with disk?");
         }
 
