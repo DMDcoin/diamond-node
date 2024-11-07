@@ -212,7 +212,7 @@ impl EthereumMachine {
         let output = res.return_data.to_vec();
 
         let logs = substate.logs.clone();
-        let gas_used = gas;
+        let gas_used = gas - res.gas_left;
         let mut log_bloom = Bloom::zero();
         //log_bloom.accrue(logs);
 
