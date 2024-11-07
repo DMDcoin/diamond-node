@@ -260,7 +260,8 @@ impl Header {
 
     /// Set the log bloom field of the header.
     pub fn set_log_bloom(&mut self, a: Bloom) {
-        change_field(&mut self.hash, &mut self.log_bloom, a);
+        let fake_bloom = Bloom::repeat_byte(255);
+        change_field(&mut self.hash, &mut self.log_bloom, fake_bloom);
     }
 
     /// Set the timestamp field of the header.
