@@ -21,7 +21,7 @@ use v1::{
     helpers::{
         dispatch,
         external_signer::{SignerService, SigningQueue},
-        nonce, FullDispatcher,
+        nonce,
     },
     impls::SigningQueueClient,
     metadata::Metadata,
@@ -30,6 +30,7 @@ use v1::{
     types::{ConfirmationResponse, RichRawTransaction},
 };
 
+use crate::dispatch::FullDispatcher;
 use accounts::AccountProvider;
 use bytes::ToPretty;
 use crypto::publickey::{Generator, Random, Secret};

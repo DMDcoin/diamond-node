@@ -360,11 +360,12 @@ impl LocalTransactionStatus {
 
 #[cfg(test)]
 mod tests {
+    use crate::v1::types::transaction_access_list::AccessListItem;
+
     use super::{LocalTransactionStatus, Transaction};
     use ethereum_types::H256;
     use serde_json;
     use types::transaction::TypedTxId;
-    use v1::types::AccessListItem;
 
     #[test]
     fn test_transaction_serialize() {

@@ -1133,9 +1133,9 @@ dependencies = [
 
 [[package]]
 name = "ethabi-contract"
-version = "11.0.0"
+version = "16.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88d4002f1f77d8233685dafd8589efe1c9dfa63e21ca6c11134372acc7f68032"
+checksum = "4632b1b766fbf59872eb7a41e7ebaa10727b7f7000aef5bb626b87e472041c83"
 
 [[package]]
 name = "ethabi-derive"

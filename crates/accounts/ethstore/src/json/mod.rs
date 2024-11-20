@@ -32,13 +32,13 @@ mod version;
 pub use self::{
     bytes::Bytes,
     cipher::{Aes128Ctr, Cipher, CipherSer, CipherSerParams},
-    crypto::{CipherText, Crypto},
+    crypto::Crypto,
     error::Error,
     hash::{H128, H160, H256},
     id::Uuid,
     kdf::{Kdf, KdfSer, KdfSerParams, Pbkdf2, Prf, Scrypt},
     key_file::{KeyFile, OpaqueKeyFile},
-    presale::{Encseed, PresaleWallet},
+    presale::PresaleWallet,
     vault_file::VaultFile,
     vault_key_file::{
         insert_vault_name_to_json_meta, remove_vault_name_from_json_meta, VaultKeyFile,

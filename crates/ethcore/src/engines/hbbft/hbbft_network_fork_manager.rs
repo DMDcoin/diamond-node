@@ -324,7 +324,7 @@ mod tests {
         let signer = from_keypair(key1);
 
         //let signer = Box::new(Signer (key1));
-        let signer_lock = Arc::new(RwLock::new(Some(signer)));
+        let signer_lock = std::sync::Arc::new(RwLock::new(Some(signer)));
 
         let own_id = NodeId::default();
         fork_manager.initialize(own_id, 8, vec![test_fork]);
