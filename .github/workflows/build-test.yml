@@ -13,7 +13,6 @@ jobs:
       matrix:
         platform:
           - ubuntu-latest
-        #  - macos-latest
         toolchain:
           -  1.75
     runs-on:                    ${{ matrix.platform }}
@@ -21,8 +20,7 @@ jobs:
       - name:                   Checkout sources
         uses:                   actions/checkout@main
         with:
-           submodules:           false
-        #  submodules:           true // we do not need submodules, if we are not running the JSON tests.
+          submodules:           true
       - name:                   Install toolchain
         uses:                   actions-rs/toolchain@v1
         with:
