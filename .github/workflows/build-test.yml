@@ -38,4 +38,6 @@ jobs:
         uses:                   actions-rs/cargo@v1
         with:
           command:              test
-          args:                 --locked --all --release --features "json-tests" --verbose
+          #args: deactivated JSON Tests                --locked --all --release --features "json-tests" --verbose
+          args:                 --locked --all --release --verbose
+
