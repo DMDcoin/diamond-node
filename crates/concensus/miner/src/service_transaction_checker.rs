@@ -20,15 +20,13 @@ use call_contract::{CallContract, RegistryInfo};
 use ethabi::FunctionOutputDecoder;
 use ethereum_types::Address;
 use parking_lot::RwLock;
-use std::{collections::HashMap, mem, sync::Arc};
+use std::{collections::HashMap, mem, str::FromStr, sync::Arc};
 use types::{ids::BlockId, transaction::SignedTransaction};
 
 use_contract!(
     service_transaction,
     "res/contracts/service_transaction.json"
 );
-
-const SERVICE_TRANSACTION_CONTRACT_REGISTRY_NAME: &'static str = "service_transaction_checker";
 
 /// Service transactions checker.
 #[derive(Default, Clone)]
@@ -67,12 +65,8 @@ impl ServiceTransactionChecker {
         {
             return Ok(*allowed);
         }
-        let contract_address = client
-            .registry_address(
-                SERVICE_TRANSACTION_CONTRACT_REGISTRY_NAME.to_owned(),
-                BlockId::Latest,
-            )
-            .ok_or_else(|| "Certifier contract is not configured")?;
+        let x = Address::from_str("5000000000000000000000000000000000000001".into()).unwrap();
+        let contract_address = x;
         self.call_contract(client, contract_address, sender)
             .and_then(|allowed| {
                 if let Some(mut cache) = self.certified_addresses_cache.try_write() {
@@ -95,21 +89,17 @@ impl ServiceTransactionChecker {
             HashMap::default(),
         );
 
-        if let Some(contract_address) = client.registry_address(
-            SERVICE_TRANSACTION_CONTRACT_REGISTRY_NAME.to_owned(),
-            BlockId::Latest,
-        ) {
-            let addresses: Vec<_> = cache.keys().collect();
-            let mut cache: HashMap<Address, bool> = HashMap::default();
-            for address in addresses {
-                let allowed = self.call_contract(client, contract_address, *address)?;
-                cache.insert(*address, allowed);
-            }
-            *self.certified_addresses_cache.write() = cache;
-            Ok(true)
-        } else {
-            Ok(false)
+        let contract_address =
+            Address::from_str("5000000000000000000000000000000000000001".into()).unwrap();
+
+        let addresses: Vec<_> = cache.keys().collect();
+        let mut cache: HashMap<Address, bool> = HashMap::default();
+        for address in addresses {
+            let allowed = self.call_contract(client, contract_address, *address)?;
+            cache.insert(*address, allowed);
         }
+        *self.certified_addresses_cache.write() = cache;
+        Ok(true)
     }
 
     fn call_contract<C: CallContract + RegistryInfo>(
