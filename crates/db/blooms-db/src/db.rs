@@ -161,7 +161,7 @@ impl Database {
 
                     // Constant forks may lead to increased ratio of false positives in bloom filters
                     // since we do not rebuild top or mid level, but we should not be worried about that
-                    // because most of the time events at block n(a) occur also on block n(b) or n+1(b)
+                    // because most of the time events at block n(a) occur also on block n(b) or n+1(b)3
                     db_files.accrue_bloom(pos, bloom)?;
                 }
                 db_files.flush()?;
