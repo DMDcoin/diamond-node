@@ -18,14 +18,14 @@
 
 use std::sync::Arc;
 
+use crate::types::{header::Header, transaction::LocalizedTransaction};
 use ethcore::client::BlockChainClient;
-use types::{header::Header, transaction::LocalizedTransaction};
 
-use jsonrpc_core::Result;
-use v1::{
+use crate::v1::{
     traits::Debug,
     types::{Block, BlockTransactions, Bytes, RichBlock, Transaction},
 };
+use jsonrpc_core::Result;
 
 /// Debug rpc implementation.
 pub struct DebugClient<C> {

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-extern crate ethereum_types;
+use ethereum_types;
 extern crate ethstore;
 extern crate parity_crypto as crypto;
 extern crate rand;

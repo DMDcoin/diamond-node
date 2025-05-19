@@ -15,7 +15,7 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Directory helper functions
-use home_dir;
+use crate::home_dir;
 
 /// Replaces `$HOME` str with home directory path.
 pub fn replace_home(base: &str, arg: &str) -> String {

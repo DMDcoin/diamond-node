@@ -3,6 +3,7 @@ description = "Parity Ethereum Keys Generator"
 name = "ethkey"
 version = "0.3.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2024"
 
 [dependencies]
 edit-distance = "2.0"

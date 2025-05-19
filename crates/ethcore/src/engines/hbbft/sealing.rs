@@ -1,5 +1,5 @@
 use super::NodeId;
-use hbbft::{crypto::Signature, threshold_sign::ThresholdSign, NetworkInfo};
+use hbbft::{NetworkInfo, crypto::Signature, threshold_sign::ThresholdSign};
 use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
 use std::{result, sync::Arc};
 

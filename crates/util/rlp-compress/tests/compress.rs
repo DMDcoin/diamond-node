@@ -17,7 +17,7 @@
 extern crate rlp_compress;
 
 use rlp_compress::{
-    blocks_swapper, compress, decompress, snapshot_swapper, Compressor, Decompressor, Swapper,
+    Compressor, Decompressor, Swapper, blocks_swapper, compress, decompress, snapshot_swapper,
 };
 
 #[test]

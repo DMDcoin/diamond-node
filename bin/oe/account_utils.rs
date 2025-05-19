@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use crypto::publickey;
+use crate::crypto::publickey;
 use dir::Directories;
 use ethereum_types::{Address, H160};
 use ethkey::Password;
@@ -43,7 +43,9 @@ mod accounts {
         _cfg: AccountsConfig,
         _passwords: &[Password],
     ) -> Result<AccountProvider, String> {
-        warn!("Note: Your instance of OpenEthereum is running without account support. Some CLI options are ignored.");
+        warn!(
+            "Note: Your instance of OpenEthereum is running without account support. Some CLI options are ignored."
+        );
         Ok(AccountProvider)
     }
 
@@ -88,7 +90,7 @@ mod accounts {
         passwords: &[Password],
     ) -> Result<AccountProvider, String> {
         use crate::accounts::AccountProviderSettings;
-        use ethstore::{accounts_dir::RootDiskDirectory, EthStore};
+        use ethstore::{EthStore, accounts_dir::RootDiskDirectory};
 
         let path = dirs.keys_path(data_dir);
         upgrade_key_location(&dirs.legacy_keys_path(cfg.testnet), &path);
@@ -105,8 +107,10 @@ mod accounts {
                 | SpecType::Goerli
                 | SpecType::Sokol
                 | SpecType::Dev => vec![],
-                _ => vec![H160::from_str("00a329c0648769a73afac7f9381e08fb43dbea72")
-                    .expect("the string is valid hex; qed")],
+                _ => vec![
+                    H160::from_str("00a329c0648769a73afac7f9381e08fb43dbea72")
+                        .expect("the string is valid hex; qed"),
+                ],
             },
         };
 
@@ -230,8 +234,8 @@ mod accounts {
             match account_provider.insert_account(secret, &Password::from(String::new())) {
                 Err(e) => warn!("Unable to add development account: {}", e),
                 Ok(address) => {
-                    let _ = account_provider
-                        .set_account_name(address.clone(), "Development Account".into());
+                    let _ =
+                        account_provider.set_account_name(address, "Development Account".into());
                     let _ = account_provider.set_account_meta(
                         address,
                         ::serde_json::to_string(
@@ -254,10 +258,13 @@ mod accounts {
 
     // Construct an error `String` with an adaptive hint on how to create an account.
     fn build_create_account_hint(spec: &SpecType, keys: &str) -> String {
-        format!("You can create an account via RPC, UI or `openethereum account new --chain {} --keys-path {}`.", spec, keys)
+        format!(
+            "You can create an account via RPC, UI or `openethereum account new --chain {} --keys-path {}`.",
+            spec, keys
+        )
     }
 }
 
 pub use self::accounts::{
-    accounts_list, miner_author, miner_local_accounts, prepare_account_provider, AccountProvider,
+    AccountProvider, accounts_list, miner_author, miner_local_accounts, prepare_account_provider,
 };

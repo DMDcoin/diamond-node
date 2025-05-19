@@ -6,10 +6,9 @@
 
 use std::fmt;
 
-use client::EngineClient;
+use crate::{client::EngineClient, types::ids::BlockId};
 use ethabi;
 use ethereum_types::Address;
-use types::ids::BlockId;
 
 /// A contract bound to a client and block number.
 ///

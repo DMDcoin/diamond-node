@@ -29,7 +29,7 @@ pub mod public_key_to_address;
 pub use self::{denominations::*, ethash::Ethash};
 
 use super::spec::*;
-use machine::EthereumMachine;
+use crate::machine::EthereumMachine;
 
 /// Load chain spec from `SpecParams` and JSON.
 pub fn load<'a, T: Into<Option<SpecParams<'a>>>>(params: T, b: &[u8]) -> Spec {
@@ -369,11 +369,13 @@ pub fn new_kovan_wasm_test_machine() -> EthereumMachine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        state::*,
+        test_helpers::get_temp_state_db,
+        types::{view, views::BlockView},
+    };
     use ethereum_types::{H160, H256, U256};
-    use state::*;
     use std::str::FromStr;
-    use test_helpers::get_temp_state_db;
-    use types::{view, views::BlockView};
 
     #[test]
     fn ensure_db_good() {

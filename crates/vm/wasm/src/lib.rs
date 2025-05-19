@@ -17,13 +17,13 @@
 //! Wasm Interpreter
 
 extern crate byteorder;
-extern crate ethereum_types;
+use ethereum_types;
 #[macro_use]
 extern crate log;
 extern crate libc;
 extern crate parity_wasm;
 extern crate pwasm_utils as wasm_utils;
-extern crate vm;
+use vm;
 extern crate wasmi;
 
 #[cfg(test)]

@@ -21,7 +21,7 @@ pub use rpc_common::Bytes;
 pub use self::{
     account_info::{AccountInfo, EthAccount, ExtAccountInfo, RecoveredAccount, StorageProof},
     block::{Block, BlockTransactions, Header, RichBlock, RichHeader},
-    block_number::{block_number_to_id, BlockNumber},
+    block_number::{BlockNumber, block_number_to_id},
     call_request::CallRequest,
     confirmations::{
         ConfirmationPayload, ConfirmationRequest, ConfirmationResponse,

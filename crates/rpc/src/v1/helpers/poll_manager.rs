@@ -83,9 +83,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::v1::helpers::PollManager;
     use std::cell::Cell;
     use transient_hashmap::Timer;
-    use v1::helpers::PollManager;
 
     struct TestTimer<'a> {
         time: &'a Cell<i64>,

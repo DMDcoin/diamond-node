@@ -7,7 +7,7 @@ extern crate tempdir;
 use criterion::Criterion;
 use ethash::progpow;
 
-use ethash::{compute::light_compute, NodeCacheBuilder, OptimizeFor};
+use ethash::{NodeCacheBuilder, OptimizeFor, compute::light_compute};
 use rustc_hex::FromHex;
 use tempdir::TempDir;
 

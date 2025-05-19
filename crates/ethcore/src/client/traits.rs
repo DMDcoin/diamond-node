@@ -22,7 +22,26 @@ use std::{
     sync::Arc,
 };
 
-use blockchain::{BlockReceipts, TreeRoute};
+use crate::{
+    blockchain::{BlockReceipts, TreeRoute},
+    types::{
+        BlockNumber,
+        basic_account::BasicAccount,
+        block_status::BlockStatus,
+        blockchain_info::BlockChainInfo,
+        call_analytics::CallAnalytics,
+        data_format::DataFormat,
+        encoded,
+        filter::Filter,
+        header::Header,
+        ids::*,
+        log_entry::LocalizedLogEntry,
+        pruning_info::PruningInfo,
+        receipt::LocalizedReceipt,
+        trace_filter::Filter as TraceFilter,
+        transaction::{self, Action, LocalizedTransaction, SignedTransaction, TypedTxId},
+    },
+};
 use bytes::Bytes;
 use call_contract::{CallContract, RegistryInfo};
 use ethcore_miner::pool::VerifiedTransaction;
@@ -31,34 +50,19 @@ use evm::Schedule;
 use itertools::Itertools;
 use kvdb::DBValue;
 use parking_lot::Mutex;
-use types::{
-    basic_account::BasicAccount,
-    block_status::BlockStatus,
-    blockchain_info::BlockChainInfo,
-    call_analytics::CallAnalytics,
-    data_format::DataFormat,
-    encoded,
-    filter::Filter,
-    header::Header,
-    ids::*,
-    log_entry::LocalizedLogEntry,
-    pruning_info::PruningInfo,
-    receipt::LocalizedReceipt,
-    trace_filter::Filter as TraceFilter,
-    transaction::{self, Action, LocalizedTransaction, SignedTransaction, TypedTxId},
-    BlockNumber,
-};
 use vm::LastHashes;
 
-use block::{ClosedBlock, OpenBlock, SealedBlock};
-use client::Mode;
-use engines::EthEngine;
-use error::{Error, EthcoreResult};
-use executed::CallError;
-use executive::Executed;
-use state::StateInfo;
-use trace::LocalizedTrace;
-use verification::queue::{kind::blocks::Unverified, QueueInfo as BlockQueueInfo};
+use crate::{
+    block::{ClosedBlock, OpenBlock, SealedBlock},
+    client::Mode,
+    engines::EthEngine,
+    error::{Error, EthcoreResult},
+    executed::CallError,
+    executive::Executed,
+    state::StateInfo,
+    trace::LocalizedTrace,
+    verification::queue::{QueueInfo as BlockQueueInfo, kind::blocks::Unverified},
+};
 
 /// State information to be used during client query
 pub enum StateOrBlock {
@@ -664,7 +668,7 @@ pub trait EngineClient: Sync + Send + ChainInfo {
     /// This will give the epoch that any children of this parent belong to.
     ///
     /// The block corresponding the the parent hash must be stored already.
-    fn epoch_transition_for(&self, parent_hash: H256) -> Option<::engines::EpochTransition>;
+    fn epoch_transition_for(&self, parent_hash: H256) -> Option<crate::engines::EpochTransition>;
 
     /// Attempt to cast the engine client to a full client.
     fn as_full_client(&self) -> Option<&dyn BlockChainClient>;

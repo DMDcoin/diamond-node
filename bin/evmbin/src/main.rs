@@ -20,7 +20,7 @@
 
 extern crate common_types as types;
 extern crate ethcore;
-extern crate ethjson;
+use ethjson;
 extern crate rustc_hex;
 extern crate serde;
 #[macro_use]
@@ -29,11 +29,11 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate docopt;
 extern crate env_logger;
-extern crate ethereum_types;
-extern crate evm;
+use ethereum_types;
+use evm;
 extern crate panic_hook;
 extern crate parity_bytes as bytes;
-extern crate vm;
+use vm;
 
 #[cfg(test)]
 #[macro_use]
@@ -44,7 +44,7 @@ extern crate tempdir;
 
 use bytes::Bytes;
 use docopt::Docopt;
-use ethcore::{json_tests, spec, TrieSpec};
+use ethcore::{TrieSpec, json_tests, spec};
 use ethereum_types::{Address, U256};
 use ethjson::spec::ForkSpec;
 use evm::EnvInfo;

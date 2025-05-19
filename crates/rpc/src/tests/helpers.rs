@@ -22,7 +22,7 @@ use tempdir::TempDir;
 
 use parity_runtime::{Runtime, TaskExecutor};
 
-use authcodes::AuthCodes;
+use crate::authcodes::AuthCodes;
 
 /// Server with event loop
 pub struct Server<T> {

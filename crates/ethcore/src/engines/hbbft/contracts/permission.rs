@@ -4,8 +4,8 @@ use std::str::FromStr;
 use crate::{
     client::EngineClient,
     engines::hbbft::utils::bound_contract::{BoundContract, CallError},
+    types::ids::BlockId,
 };
-use types::ids::BlockId;
 
 use_contract!(permission_contract, "res/contracts/permission_hbbft.json");
 

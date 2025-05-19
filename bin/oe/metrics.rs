@@ -4,11 +4,11 @@ use crate::{futures::Future, rpc, rpc_apis};
 
 use parking_lot::Mutex;
 
-use hyper::{service::service_fn_ok, Body, Method, Request, Response, Server, StatusCode};
+use hyper::{Body, Method, Request, Response, Server, StatusCode, service::service_fn_ok};
 
 use stats::{
-    prometheus::{self, Encoder},
     PrometheusMetrics, PrometheusRegistry,
+    prometheus::{self, Encoder},
 };
 
 #[derive(Debug, Clone, PartialEq)]

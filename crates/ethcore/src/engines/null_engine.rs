@@ -14,18 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use block::ExecutedBlock;
-use engines::{
-    block_reward::{self, RewardKind},
-    Engine,
+use crate::{
+    block::ExecutedBlock,
+    engines::{
+        Engine,
+        block_reward::{self, RewardKind},
+    },
+    machine::Machine,
+    types::{
+        BlockNumber,
+        ancestry_action::AncestryAction,
+        header::{ExtendedHeader, Header},
+    },
 };
 use ethereum_types::U256;
-use machine::Machine;
-use types::{
-    ancestry_action::AncestryAction,
-    header::{ExtendedHeader, Header},
-    BlockNumber,
-};
 
 /// Params for a null engine.
 #[derive(Clone, Default)]
@@ -118,7 +120,7 @@ impl<M: Machine> Engine<M> for NullEngine<M> {
     }
 
     fn snapshot_components(&self) -> Option<Box<dyn crate::snapshot::SnapshotComponents>> {
-        Some(Box::new(::snapshot::PowSnapshot::new(10000, 10000)))
+        Some(Box::new(crate::snapshot::PowSnapshot::new(10000, 10000)))
     }
 
     fn fork_choice(&self, new: &ExtendedHeader, current: &ExtendedHeader) -> super::ForkChoice {

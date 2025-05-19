@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use discovery::{NodeEntry, TableUpdates};
+use crate::{
+    discovery::{NodeEntry, TableUpdates},
+    ip_utils::*,
+};
 use ethereum_types::H512;
-use ip_utils::*;
 use network::{AllowIP, Error, ErrorKind, IpFilter};
 use rand::seq::SliceRandom;
 use rlp::{DecoderError, Rlp, RlpStream};
@@ -640,7 +642,9 @@ mod tests {
     #[test]
     fn node_parse() {
         assert!(validate_node_url("enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770").is_none());
-        let node = Node::from_str("enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770");
+        let node = Node::from_str(
+            "enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@22.99.55.44:7770",
+        );
         assert!(node.is_ok());
         let node = node.unwrap();
         let v4 = match node.endpoint.address {
@@ -755,15 +759,21 @@ mod tests {
             ],
             custom_block: vec![],
         };
-        assert!(!NodeEndpoint::from_str("123.99.55.44:7770")
-            .unwrap()
-            .is_allowed(&filter));
-        assert!(NodeEndpoint::from_str("10.0.0.1:7770")
-            .unwrap()
-            .is_allowed(&filter));
-        assert!(NodeEndpoint::from_str("1.0.0.55:5550")
-            .unwrap()
-            .is_allowed(&filter));
+        assert!(
+            !NodeEndpoint::from_str("123.99.55.44:7770")
+                .unwrap()
+                .is_allowed(&filter)
+        );
+        assert!(
+            NodeEndpoint::from_str("10.0.0.1:7770")
+                .unwrap()
+                .is_allowed(&filter)
+        );
+        assert!(
+            NodeEndpoint::from_str("1.0.0.55:5550")
+                .unwrap()
+                .is_allowed(&filter)
+        );
     }
 
     #[test]
@@ -776,15 +786,21 @@ mod tests {
                 IpNetwork::from_str(&"1.0.0.0/8").unwrap(),
             ],
         };
-        assert!(NodeEndpoint::from_str("123.99.55.44:7770")
-            .unwrap()
-            .is_allowed(&filter));
-        assert!(!NodeEndpoint::from_str("10.0.0.1:7770")
-            .unwrap()
-            .is_allowed(&filter));
-        assert!(!NodeEndpoint::from_str("1.0.0.55:5550")
-            .unwrap()
-            .is_allowed(&filter));
+        assert!(
+            NodeEndpoint::from_str("123.99.55.44:7770")
+                .unwrap()
+                .is_allowed(&filter)
+        );
+        assert!(
+            !NodeEndpoint::from_str("10.0.0.1:7770")
+                .unwrap()
+                .is_allowed(&filter)
+        );
+        assert!(
+            !NodeEndpoint::from_str("1.0.0.55:5550")
+                .unwrap()
+                .is_allowed(&filter)
+        );
     }
 
     #[test]
@@ -794,12 +810,16 @@ mod tests {
             custom_allow: vec![IpNetwork::from_str(&"fc00::/8").unwrap()],
             custom_block: vec![],
         };
-        assert!(NodeEndpoint::from_str("[fc00::]:5550")
-            .unwrap()
-            .is_allowed(&filter));
-        assert!(!NodeEndpoint::from_str("[fd00::]:5550")
-            .unwrap()
-            .is_allowed(&filter));
+        assert!(
+            NodeEndpoint::from_str("[fc00::]:5550")
+                .unwrap()
+                .is_allowed(&filter)
+        );
+        assert!(
+            !NodeEndpoint::from_str("[fd00::]:5550")
+                .unwrap()
+                .is_allowed(&filter)
+        );
     }
 
     #[test]
@@ -809,11 +829,15 @@ mod tests {
             custom_allow: vec![],
             custom_block: vec![IpNetwork::from_str(&"fc00::/8").unwrap()],
         };
-        assert!(!NodeEndpoint::from_str("[fc00::]:5550")
-            .unwrap()
-            .is_allowed(&filter));
-        assert!(NodeEndpoint::from_str("[fd00::]:5550")
-            .unwrap()
-            .is_allowed(&filter));
+        assert!(
+            !NodeEndpoint::from_str("[fc00::]:5550")
+                .unwrap()
+                .is_allowed(&filter)
+        );
+        assert!(
+            NodeEndpoint::from_str("[fd00::]:5550")
+                .unwrap()
+                .is_allowed(&filter)
+        );
     }
 }

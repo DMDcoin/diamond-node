@@ -16,18 +16,20 @@
 
 //! A blockchain engine that supports a basic, non-BFT proof-of-authority.
 
-use super::validator_set::{new_validator_set, SimpleList, ValidatorSet};
-use block::*;
-use client::EngineClient;
+use super::validator_set::{SimpleList, ValidatorSet, new_validator_set};
+use crate::{
+    block::*,
+    client::EngineClient,
+    engines::{ConstructedVerifier, Engine, EngineError, Seal, SealingState, signer::EngineSigner},
+    error::{BlockError, Error},
+    machine::{AuxiliaryData, Call, EthereumMachine},
+    types::header::{ExtendedHeader, Header},
+};
 use crypto::publickey::{self, Signature};
-use engines::{signer::EngineSigner, ConstructedVerifier, Engine, EngineError, Seal, SealingState};
-use error::{BlockError, Error};
 use ethereum_types::{H256, H520};
 use ethjson;
-use machine::{AuxiliaryData, Call, EthereumMachine};
 use parking_lot::RwLock;
 use std::sync::Weak;
-use types::header::{ExtendedHeader, Header};
 
 /// `BasicAuthority` params.
 #[derive(Debug, PartialEq)]
@@ -225,16 +227,18 @@ impl Engine<EthereumMachine> for BasicAuthority {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        block::*,
+        engines::{Seal, SealingState},
+        spec::Spec,
+        test_helpers::get_temp_state_db,
+        types::header::Header,
+    };
     use accounts::AccountProvider;
-    use block::*;
-    use engines::{Seal, SealingState};
     use ethereum_types::H520;
     use hash::keccak;
-    use spec::Spec;
     use std::sync::Arc;
     use tempdir::TempDir;
-    use test_helpers::get_temp_state_db;
-    use types::header::Header;
 
     /// Create a new test chain spec with `BasicAuthority` consensus engine.
     fn new_test_authority() -> Spec {

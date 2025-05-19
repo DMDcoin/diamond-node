@@ -15,11 +15,11 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use parity_crypto::{
-    publickey::{KeyPair, Secret},
     Keccak256,
+    publickey::{KeyPair, Secret},
 };
-use parity_wordlist;
 
+use crate::{WordlistError, parity_wordlist};
 /// Simple brainwallet.
 pub struct Brain(String);
 
@@ -28,7 +28,7 @@ impl Brain {
         Brain(s)
     }
 
-    pub fn validate_phrase(phrase: &str, expected_words: usize) -> Result<(), ::WordlistError> {
+    pub fn validate_phrase(phrase: &str, expected_words: usize) -> Result<(), WordlistError> {
         parity_wordlist::validate_phrase(phrase, expected_words)
     }
 
@@ -57,7 +57,7 @@ impl Brain {
 
 #[cfg(test)]
 mod tests {
-    use Brain;
+    use crate::Brain;
 
     #[test]
     fn test_brain() {

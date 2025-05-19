@@ -22,15 +22,17 @@ extern crate trie_standardmap;
 use hash::KECCAK_NULL_RLP;
 use std::sync::Arc;
 
-use account_db::AccountDBMut;
-use blockchain::{BlockChain, BlockChainDB};
-use client::{ChainInfo, Client};
-use engines::EthEngine;
-use snapshot::{
-    io::{PackedReader, PackedWriter, SnapshotReader},
-    StateRebuilder,
+use crate::{
+    account_db::AccountDBMut,
+    blockchain::{BlockChain, BlockChainDB},
+    client::{ChainInfo, Client},
+    engines::EthEngine,
+    snapshot::{
+        StateRebuilder,
+        io::{PackedReader, PackedWriter, SnapshotReader},
+    },
+    types::basic_account::BasicAccount,
 };
-use types::basic_account::BasicAccount;
 
 use rand::Rng;
 use tempdir::TempDir;
@@ -71,7 +73,7 @@ impl StateProducer {
             let temp = trie
                 .iter()
                 .unwrap() // binding required due to complicated lifetime stuff
-                .filter(|_| rng.gen::<f32>() < ACCOUNT_CHURN)
+                .filter(|_| rng.r#gen::<f32>() < ACCOUNT_CHURN)
                 .map(Result::unwrap)
                 .map(|(k, v)| (H256::from_slice(&k), v.to_owned()))
                 .collect();
@@ -96,13 +98,13 @@ impl StateProducer {
         }
 
         // add between 0 and 5 new accounts each tick.
-        let new_accs = rng.gen::<u32>() % 5;
+        let new_accs = rng.r#gen::<u32>() % 5;
 
         for _ in 0..new_accs {
-            let address_hash = H256(rng.gen());
-            let balance: usize = rng.gen();
-            let nonce: usize = rng.gen();
-            let acc = ::state::Account::new_basic(balance.into(), nonce.into()).rlp();
+            let address_hash = H256(rng.r#gen());
+            let balance: usize = rng.r#gen();
+            let nonce: usize = rng.r#gen();
+            let acc = crate::state::Account::new_basic(balance.into(), nonce.into()).rlp();
             trie.insert(&address_hash[..], &acc).unwrap();
         }
     }
@@ -138,7 +140,7 @@ pub fn fill_storage(mut db: AccountDBMut, root: &mut H256, seed: &mut H256) {
 /// Take a snapshot from the given client into a temporary file.
 /// Return a snapshot reader for it.
 pub fn snap(client: &Client) -> (Box<dyn SnapshotReader>, TempDir) {
-    use types::ids::BlockId;
+    use crate::types::ids::BlockId;
 
     let tempdir = TempDir::new("").unwrap();
     let path = tempdir.path().join("file");
@@ -162,7 +164,7 @@ pub fn restore(
     engine: &dyn EthEngine,
     reader: &dyn SnapshotReader,
     genesis: &[u8],
-) -> Result<(), ::error::Error> {
+) -> Result<(), crate::error::Error> {
     use std::sync::atomic::AtomicBool;
 
     let flag = AtomicBool::new(true);

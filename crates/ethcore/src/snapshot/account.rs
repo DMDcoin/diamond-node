@@ -16,17 +16,19 @@
 
 //! Account state encoding and decoding
 
-use account_db::{AccountDB, AccountDBMut};
+use crate::{
+    account_db::{AccountDB, AccountDBMut},
+    snapshot::{Error, Progress},
+    types::basic_account::BasicAccount,
+};
 use bytes::Bytes;
 use ethereum_types::{H256, U256};
 use ethtrie::{TrieDB, TrieDBMut};
 use hash::{KECCAK_EMPTY, KECCAK_NULL_RLP};
 use hash_db::HashDB;
 use rlp::{Rlp, RlpStream};
-use snapshot::{Error, Progress};
 use std::{collections::HashSet, sync::atomic::Ordering};
 use trie::{Trie, TrieMut};
-use types::basic_account::BasicAccount;
 
 // An empty account -- these were replaced with RLP null data for a space optimization in v1.
 const ACC_EMPTY: BasicAccount = BasicAccount {
@@ -221,20 +223,22 @@ pub fn from_fat_rlp(
 
 #[cfg(test)]
 mod tests {
-    use account_db::{AccountDB, AccountDBMut};
-    use snapshot::{tests::helpers::fill_storage, Progress};
-    use test_helpers::get_temp_state_db;
-    use types::basic_account::BasicAccount;
+    use crate::{
+        account_db::{AccountDB, AccountDBMut},
+        snapshot::{Progress, tests::helpers::fill_storage},
+        test_helpers::get_temp_state_db,
+        types::basic_account::BasicAccount,
+    };
 
     use ethereum_types::{Address, H256};
-    use hash::{keccak, KECCAK_EMPTY, KECCAK_NULL_RLP};
+    use hash::{KECCAK_EMPTY, KECCAK_NULL_RLP, keccak};
     use hash_db::HashDB;
     use kvdb::DBValue;
     use rlp::Rlp;
 
     use std::collections::HashSet;
 
-    use super::{from_fat_rlp, to_fat_rlps, ACC_EMPTY};
+    use super::{ACC_EMPTY, from_fat_rlp, to_fat_rlps};
 
     #[test]
     fn encoding_basic() {

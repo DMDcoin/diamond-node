@@ -12,13 +12,13 @@ use std::{
 };
 
 // use threshold_crypto::{SignatureShare};
-use engines::hbbft::{sealing, NodeId};
+use crate::engines::hbbft::{NodeId, sealing};
 // use hbbft::honey_badger::Message;
 // use serde::{Deserialize, Serialize};
 // use serde_json::{json, Result, Value};
 
 use std::{
-    fs::{self, create_dir_all, File},
+    fs::{self, File, create_dir_all},
     io::Write,
     path::PathBuf,
 };
@@ -199,9 +199,9 @@ impl NodeStakingEpochHistory {
         if block_num > last_message_faulty {
             self.last_message_faulty = block_num;
         } // else {
-          // this log entry is trigering often, probably there are more than 1 good messages able per block.// this log entry is trigering often, probably there are more than 1 good messages able per block.
-          // warn!(target: "hbbft_message_memorium", "add_message_event_faulty: event.block_num {block_num} <= last_message_faulty {last_message_faulty}");
-          // }
+        // this log entry is trigering often, probably there are more than 1 good messages able per block.// this log entry is trigering often, probably there are more than 1 good messages able per block.
+        // warn!(target: "hbbft_message_memorium", "add_message_event_faulty: event.block_num {block_num} <= last_message_faulty {last_message_faulty}");
+        // }
         self.num_faulty_messages += 1;
     }
 
@@ -213,9 +213,9 @@ impl NodeStakingEpochHistory {
         if block_num > last_message_good {
             self.last_message_good = block_num;
         } // else {
-          // this log entry is trigering often, probably there are more than 1 good messages able per block.
-          // warn!(target: "hbbft_message_memorium", "add_message_event_good: ! event.block_num {block_num} > last_message_good {last_message_good}");
-          // }
+        // this log entry is trigering often, probably there are more than 1 good messages able per block.
+        // warn!(target: "hbbft_message_memorium", "add_message_event_good: ! event.block_num {block_num} > last_message_good {last_message_good}");
+        // }
         self.num_good_messages += 1;
         self.last_message_good_time = Instant::now();
     }
@@ -293,7 +293,9 @@ impl NodeStakingEpochHistory {
         // faulty messages
         let last_message_faulty = self.last_message_faulty;
 
-        return format!("{staking_epoch},{node_id},{total_sealing_messages},{total_good_sealing_messages},{total_late_sealing_messages},{total_error_sealing_messages},{last_good_sealing_message},{last_late_sealing_message},{last_error_sealing_message},{cumulative_lateness},{total_good_messages},{total_faulty_messages},{last_message_good},{last_message_faulty}\n");
+        return format!(
+            "{staking_epoch},{node_id},{total_sealing_messages},{total_good_sealing_messages},{total_late_sealing_messages},{total_error_sealing_messages},{last_good_sealing_message},{last_late_sealing_message},{last_error_sealing_message},{cumulative_lateness},{total_good_messages},{total_faulty_messages},{last_message_good},{last_message_faulty}\n"
+        );
     }
 
     // prometheus metrics
@@ -638,13 +640,15 @@ impl HbbftMessageDispatcher {
 
             let builder = std::thread::Builder::new().name("MessageMemorial".to_string());
 
-            match builder.spawn(move || loop {
-                // one loop cycle is very fast.
-                // so report_ function have their chance to aquire a write lock soon.
-                // and don't block the work thread for too long.
-                let work_result = arc_clone.write().work_message();
-                if !work_result {
-                    std::thread::sleep(std::time::Duration::from_millis(5000));
+            match builder.spawn(move || {
+                loop {
+                    // one loop cycle is very fast.
+                    // so report_ function have their chance to aquire a write lock soon.
+                    // and don't block the work thread for too long.
+                    let work_result = arc_clone.write().work_message();
+                    if !work_result {
+                        std::thread::sleep(std::time::Duration::from_millis(5000));
+                    }
                 }
             }) {
                 Ok(thread) => {
@@ -1290,7 +1294,7 @@ impl PrometheusMetrics for HbbftMessageMemorium {
 
 #[cfg(test)]
 mod tests {
-    use crate::engines::hbbft::{hbbft_message_memorium::BadSealReason, NodeId};
+    use crate::engines::hbbft::{NodeId, hbbft_message_memorium::BadSealReason};
 
     use super::{HbbftMessageMemorium, MessageEventGood, SealEventBad};
 

@@ -19,9 +19,9 @@
 use ethereum_types::U256;
 use jsonrpc_core::{BoxFuture, Result};
 use jsonrpc_derive::rpc;
-use jsonrpc_pubsub::{typed::Subscriber, SubscriptionId};
+use jsonrpc_pubsub::{SubscriptionId, typed::Subscriber};
 
-use v1::types::{
+use crate::v1::types::{
     Bytes, ConfirmationRequest, ConfirmationResponse, ConfirmationResponseWithToken,
     TransactionModification,
 };

@@ -16,4 +16,4 @@
 
 mod types;
 
-pub use types::bytes::Bytes;
+pub use crate::types::bytes::Bytes;

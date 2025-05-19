@@ -2,8 +2,8 @@ extern crate bincode;
 #[macro_use]
 extern crate clap;
 extern crate ethcore;
-extern crate ethereum_types;
-extern crate ethjson;
+use ethereum_types;
+use ethjson;
 extern crate ethkey;
 extern crate ethstore;
 extern crate hbbft;
@@ -22,7 +22,7 @@ use ethstore::{KeyFile, SafeAccount};
 use keygen_history_helpers::{enodes_to_pub_keys, generate_keygens, key_sync_history_data};
 use parity_crypto::publickey::{Address, Generator, KeyPair, Public, Random, Secret};
 use std::{convert::TryInto, fmt::Write, fs, num::NonZeroU32, str::FromStr};
-use toml::{map::Map, Value};
+use toml::{Value, map::Map};
 
 pub fn create_account() -> (Secret, Public, Address) {
     let acc = Random.generate();
@@ -115,6 +115,7 @@ fn to_toml(
     base_port: u16,
     base_rpc_port: u16,
     base_ws_port: u16,
+    logging: Option<&str>,
 ) -> Value {
     let mut parity = Map::new();
 
@@ -258,7 +259,10 @@ fn to_toml(
     // Value::String("txqueue=trace,consensus=debug,engine=trace,own_tx=trace,miner=trace,tx_filter=trace".into())
     misc.insert(
         "logging".into(),
-        Value::String("txqueue=info,consensus=debug,engine=debug,tx_own=trace".into()),
+        Value::String(
+            logging.unwrap_or("txqueue=trace,consensus=debug,engine=debug,own_tx=trace,tx_filter=trace,sync=trace")
+                .into(),
+        ),
     );
     misc.insert("log_file".into(), Value::String("diamond-node.log".into()));
 
@@ -414,6 +418,12 @@ fn main() {
                 .required(false)
                 .default_value("9540")
                 .takes_value(true),
+        ).arg(
+            Arg::with_name("logging")
+                .long("log definition string")
+                .help("example: txqueue=trace,consensus=debug,engine=debug,own_tx=trace,tx_filter=trace,sync=trace")
+                .required(false)
+                .takes_value(true),
         )
         .get_matches();
 
@@ -477,12 +487,17 @@ fn main() {
 
     let metrics_interface = matches.value_of("metrics_interface");
 
+    let logging_string = matches.value_of("logging");
+
     assert!(
         num_nodes_total >= num_nodes_validators,
         "max_nodes must be greater than nodes"
     );
 
-    println!("generating config files for {} nodes in total, with the first {} nodes as initial validator", num_nodes_total, num_nodes_validators);
+    println!(
+        "generating config files for {} nodes in total, with the first {} nodes as initial validator",
+        num_nodes_total, num_nodes_validators
+    );
 
     let config_type =
         value_t!(matches.value_of("configtype"), ConfigType).unwrap_or(ConfigType::PosdaoSetup);
@@ -542,6 +557,7 @@ fn main() {
             port_base,
             port_base_rpc.unwrap(),
             port_base_ws.unwrap(),
+            logging_string,
         ))
         .expect("TOML string generation should succeed");
         fs::write(file_name, toml_string).expect("Unable to write config file");
@@ -583,6 +599,7 @@ fn main() {
         port_base,
         port_base_rpc.unwrap(),
         port_base_ws.unwrap(),
+        logging_string,
     ))
     .expect("TOML string generation should succeed");
     fs::write("rpc_node.toml", rpc_string).expect("Unable to write rpc config file");

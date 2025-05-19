@@ -21,7 +21,7 @@ use std::{
     sync::Arc,
 };
 
-use authcodes;
+use crate::authcodes;
 use ethereum_types::H256;
 use http::hyper;
 use ipc;
@@ -30,7 +30,7 @@ use jsonrpc_core::futures::future::Either;
 use jsonrpc_pubsub::Session;
 use ws;
 
-use v1::{informant::RpcStats, Metadata, Origin};
+use crate::v1::{Metadata, Origin, informant::RpcStats};
 
 /// Common HTTP & IPC metadata extractor.
 pub struct RpcExtractor;
@@ -184,11 +184,7 @@ fn auth_token_hash(codes_path: &Path, protocol: &str, save_file: bool) -> Option
                     }
                 }
 
-                if res {
-                    Some(auth)
-                } else {
-                    None
-                }
+                if res { Some(auth) } else { None }
             });
     }
 
@@ -261,11 +257,11 @@ impl<M: core::Middleware<Metadata>> core::Middleware<Metadata> for WsDispatcher<
 #[cfg(test)]
 mod tests {
     use super::RpcExtractor;
+    use crate::Origin;
     use http::{
-        hyper::{Body, Request},
         MetaExtractor,
+        hyper::{Body, Request},
     };
-    use Origin;
 
     #[test]
     fn should_extract_rpc_origin() {

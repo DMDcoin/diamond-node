@@ -24,8 +24,8 @@ use parking_lot::RwLock;
 use std::{
     fmt,
     sync::{
-        atomic::{self, AtomicUsize},
         Arc,
+        atomic::{self, AtomicUsize},
     },
     time,
 };

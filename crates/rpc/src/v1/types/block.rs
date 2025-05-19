@@ -16,10 +16,12 @@
 
 use std::{collections::BTreeMap, ops::Deref};
 
+use crate::{
+    types::{BlockNumber, encoded::Header as EthHeader},
+    v1::types::{Bytes, Transaction},
+};
 use ethereum_types::{Bloom as H2048, H160, H256, U256};
-use serde::{ser::Error, Serialize, Serializer};
-use types::{encoded::Header as EthHeader, BlockNumber};
-use v1::types::{Bytes, Transaction};
+use serde::{Serialize, Serializer, ser::Error};
 
 /// Block Transactions
 #[derive(Debug)]
@@ -199,7 +201,7 @@ impl<T: Serialize> Serialize for Rich<T> {
     where
         S: Serializer,
     {
-        use serde_json::{to_value, Value};
+        use serde_json::{Value, to_value};
 
         let serialized = (to_value(&self.inner), to_value(&self.extra_info));
         if let (Ok(Value::Object(mut value)), Ok(Value::Object(extras))) = serialized {
@@ -218,10 +220,10 @@ impl<T: Serialize> Serialize for Rich<T> {
 #[cfg(test)]
 mod tests {
     use super::{Block, BlockTransactions, Header, RichBlock, RichHeader};
-    use ethereum_types::{Bloom as H2048, H160, H256, H64, U256};
+    use crate::v1::types::{Bytes, Transaction};
+    use ethereum_types::{Bloom as H2048, H64, H160, H256, U256};
     use serde_json;
     use std::collections::BTreeMap;
-    use v1::types::{Bytes, Transaction};
 
     #[test]
     fn test_serialize_block_transactions() {

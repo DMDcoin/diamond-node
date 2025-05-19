@@ -16,12 +16,14 @@
 
 //! Watcher for snapshot-related chain events.
 
-use client::{BlockInfo, ChainNotify, Client, ClientIoMessage, NewBlocks};
+use crate::{
+    client::{BlockInfo, ChainNotify, Client, ClientIoMessage, NewBlocks},
+    types::ids::BlockId,
+};
 use parking_lot::Mutex;
-use types::ids::BlockId;
 
+use crate::io::IoChannel;
 use ethereum_types::H256;
-use io::IoChannel;
 
 use std::sync::Arc;
 
@@ -139,7 +141,7 @@ impl ChainNotify for Watcher {
 mod tests {
     use super::{Broadcast, Oracle, Watcher};
 
-    use client::{ChainNotify, ChainRoute, NewBlocks};
+    use crate::client::{ChainNotify, ChainRoute, NewBlocks};
 
     use ethereum_types::{BigEndianHash, H256, U256};
 

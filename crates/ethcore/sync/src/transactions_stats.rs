@@ -14,14 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use api::TransactionStats;
+use crate::{api::TransactionStats, types::BlockNumber};
 use ethereum_types::{H256, H512};
 use fastmap::H256FastMap;
 use std::{
     collections::{HashMap, HashSet},
     hash::BuildHasher,
 };
-use types::BlockNumber;
 
 type NodeId = H512;
 

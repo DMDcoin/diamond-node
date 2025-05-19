@@ -16,15 +16,17 @@
 
 use std::sync::Arc;
 
-use ethcore::{contract_address, CreateContractAddress};
-use ethereum_types::{H160, H256, H512, U256, U64};
-use miner;
-use serde::{ser::SerializeStruct, Serialize, Serializer};
-use types::transaction::{
-    Action, LocalizedTransaction, PendingTransaction, SignedTransaction, TypedTransaction,
-    TypedTxId,
+use crate::{
+    miner,
+    types::transaction::{
+        Action, LocalizedTransaction, PendingTransaction, SignedTransaction, TypedTransaction,
+        TypedTxId,
+    },
+    v1::types::{AccessList, Bytes, TransactionCondition},
 };
-use v1::types::{AccessList, Bytes, TransactionCondition};
+use ethcore::{CreateContractAddress, contract_address};
+use ethereum_types::{H160, H256, H512, U64, U256};
+use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 /// Transaction
 #[derive(Debug, Default, Clone, PartialEq, Serialize)]
@@ -340,7 +342,7 @@ impl LocalTransactionStatus {
         let convert = |tx: Arc<miner::pool::VerifiedTransaction>| {
             Transaction::from_signed(tx.signed().clone())
         };
-        use miner::pool::local_transactions::Status::*;
+        use crate::miner::pool::local_transactions::Status::*;
         match s {
             Pending(_) => LocalTransactionStatus::Pending,
             Mined(tx) => LocalTransactionStatus::Mined(convert(tx)),
@@ -363,9 +365,9 @@ mod tests {
     use crate::v1::types::transaction_access_list::AccessListItem;
 
     use super::{LocalTransactionStatus, Transaction};
+    use crate::types::transaction::TypedTxId;
     use ethereum_types::H256;
     use serde_json;
-    use types::transaction::TypedTxId;
 
     #[test]
     fn test_transaction_serialize() {

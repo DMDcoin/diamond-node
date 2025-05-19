@@ -25,20 +25,22 @@ use super::{ChunkSink, Rebuilder, SnapshotComponents};
 use std::{
     collections::VecDeque,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
-use blockchain::{BlockChain, BlockChainDB, BlockProvider};
+use crate::{
+    blockchain::{BlockChain, BlockChainDB, BlockProvider},
+    engines::EthEngine,
+    snapshot::{Error, ManifestData, Progress, block::AbridgedBlock},
+    types::{BlockNumber, encoded},
+};
 use bytes::Bytes;
 use db::KeyValueDB;
-use engines::EthEngine;
 use ethereum_types::H256;
 use rand::rngs::OsRng;
 use rlp::{Rlp, RlpStream};
-use snapshot::{block::AbridgedBlock, Error, ManifestData, Progress};
-use types::{encoded, BlockNumber};
 
 /// Snapshot creation and restoration for PoW chains.
 /// This includes blocks from the head of the chain as a
@@ -88,7 +90,7 @@ impl SnapshotComponents for PowSnapshot {
         chain: BlockChain,
         db: Arc<dyn BlockChainDB>,
         manifest: &ManifestData,
-    ) -> Result<Box<dyn Rebuilder>, ::error::Error> {
+    ) -> Result<Box<dyn Rebuilder>, crate::error::Error> {
         PowRebuilder::new(
             chain,
             db.key_value().clone(),
@@ -99,10 +101,10 @@ impl SnapshotComponents for PowSnapshot {
     }
 
     fn min_supported_version(&self) -> u64 {
-        ::snapshot::MIN_SUPPORTED_STATE_CHUNK_VERSION
+        crate::snapshot::MIN_SUPPORTED_STATE_CHUNK_VERSION
     }
     fn current_version(&self) -> u64 {
-        ::snapshot::STATE_CHUNK_VERSION
+        crate::snapshot::STATE_CHUNK_VERSION
     }
 }
 
@@ -244,7 +246,7 @@ impl PowRebuilder {
         db: Arc<dyn KeyValueDB>,
         manifest: &ManifestData,
         snapshot_blocks: u64,
-    ) -> Result<Self, ::error::Error> {
+    ) -> Result<Self, crate::error::Error> {
         Ok(PowRebuilder {
             chain: chain,
             db: db,
@@ -267,9 +269,9 @@ impl Rebuilder for PowRebuilder {
         chunk: &[u8],
         engine: &dyn EthEngine,
         abort_flag: &AtomicBool,
-    ) -> Result<(), ::error::Error> {
+    ) -> Result<(), crate::error::Error> {
+        use crate::snapshot::verify_old_block;
         use ethereum_types::U256;
-        use snapshot::verify_old_block;
         use triehash::ordered_trie_root;
 
         let rlp = Rlp::new(chunk);
@@ -372,7 +374,7 @@ impl Rebuilder for PowRebuilder {
     }
 
     /// Glue together any disconnected chunks and check that the chain is complete.
-    fn finalize(&mut self, _: &dyn EthEngine) -> Result<(), ::error::Error> {
+    fn finalize(&mut self, _: &dyn EthEngine) -> Result<(), crate::error::Error> {
         let mut batch = self.db.transaction();
 
         for (first_num, first_hash) in self.disconnected.drain(..) {
@@ -391,7 +393,7 @@ impl Rebuilder for PowRebuilder {
         self.chain.insert_epoch_transition(
             &mut batch,
             0,
-            ::engines::EpochTransition {
+            crate::engines::EpochTransition {
                 block_number: 0,
                 block_hash: genesis_hash,
                 proof: vec![],

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 
 use crate::{
     sync::{self, ConnectionFilter, NetworkConfiguration, Params, SyncConfig},

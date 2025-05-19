@@ -16,17 +16,18 @@
 
 //! Parity upgrade logic
 
-use dir::{default_data_path, helpers::replace_home, home_dir, DatabaseDirectories};
+use dir::{DatabaseDirectories, default_data_path, helpers::replace_home, home_dir};
 use journaldb::Algorithm;
 use semver::{SemVerError, Version};
 use std::{
     collections::*,
-    fs::{self, create_dir_all, File},
+    fs::{self, File, create_dir_all},
     io,
     io::{Read, Write},
     path::{Path, PathBuf},
 };
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum Error {
     CannotCreateConfigPath(io::Error),
@@ -41,7 +42,7 @@ impl From<SemVerError> for Error {
     }
 }
 
-const CURRENT_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Hash, PartialEq, Eq)]
 struct UpgradeKey {
@@ -133,11 +134,11 @@ where
 }
 
 pub fn upgrade(db_path: &str) -> Result<usize, Error> {
-    with_locked_version(db_path, |ver| upgrade_from_version(ver))
+    with_locked_version(db_path, upgrade_from_version)
 }
 
 fn file_exists(path: &Path) -> bool {
-    match fs::metadata(&path) {
+    match fs::metadata(path) {
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => false,
         _ => true,
     }
@@ -145,12 +146,12 @@ fn file_exists(path: &Path) -> bool {
 
 #[cfg(any(test, feature = "accounts"))]
 pub fn upgrade_key_location(from: &PathBuf, to: &PathBuf) {
-    match fs::create_dir_all(&to).and_then(|()| fs::read_dir(from)) {
+    match fs::create_dir_all(to).and_then(|()| fs::read_dir(from)) {
         Ok(entries) => {
             let files: Vec<_> = entries
                 .filter_map(|f| {
                     f.ok().and_then(|f| {
-                        if f.file_type().ok().map_or(false, |f| f.is_file()) {
+                        if f.file_type().ok().is_some_and(|f| f.is_file()) {
                             f.file_name().to_str().map(|s| s.to_owned())
                         } else {
                             None
@@ -190,11 +191,11 @@ pub fn upgrade_key_location(from: &PathBuf, to: &PathBuf) {
 }
 
 fn upgrade_dir_location(source: &PathBuf, dest: &PathBuf) {
-    if file_exists(&source) {
-        if !file_exists(&dest) {
+    if file_exists(source) {
+        if !file_exists(dest) {
             let mut parent = dest.clone();
             parent.pop();
-            if let Err(e) = fs::create_dir_all(&parent).and_then(|()| fs::rename(&source, &dest)) {
+            if let Err(e) = fs::create_dir_all(&parent).and_then(|()| fs::rename(source, dest)) {
                 debug!("Skipped path {:?} -> {:?} :{:?}", source, dest, e);
             } else {
                 info!(
@@ -242,5 +243,5 @@ pub fn upgrade_data_paths(base_path: &str, dirs: &DatabaseDirectories, pruning: 
     upgrade_dir_location(&dirs.legacy_version_path(pruning), &dirs.db_path(pruning));
     upgrade_dir_location(&dirs.legacy_snapshot_path(), &dirs.snapshot_path());
     upgrade_dir_location(&dirs.legacy_network_path(), &dirs.network_path());
-    upgrade_user_defaults(&dirs);
+    upgrade_user_defaults(dirs);
 }

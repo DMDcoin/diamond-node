@@ -40,43 +40,26 @@
 #[macro_use]
 extern crate futures;
 
-extern crate ansi_term;
-extern crate itertools;
-extern crate order_stat;
-extern crate parking_lot;
-extern crate rand;
-extern crate rustc_hex;
-extern crate serde;
-extern crate serde_json;
-extern crate tokio_timer;
-extern crate transient_hashmap;
+use order_stat;
+use tokio_timer;
 
-extern crate jsonrpc_core;
-extern crate jsonrpc_derive;
+use jsonrpc_core;
 extern crate jsonrpc_http_server as http;
 extern crate jsonrpc_ipc_server as ipc;
-extern crate jsonrpc_pubsub;
+use jsonrpc_pubsub;
 
 extern crate common_types as types;
-extern crate eip_712;
-extern crate ethash;
-extern crate ethcore;
-extern crate ethcore_logger;
+use ethash;
 extern crate ethcore_miner as miner;
 extern crate ethcore_network as network;
 extern crate ethcore_sync as sync;
-extern crate ethereum_types;
-extern crate ethkey;
-extern crate ethstore;
-extern crate fetch;
+use fetch;
 extern crate keccak_hash as hash;
 extern crate parity_bytes as bytes;
 extern crate parity_crypto as crypto;
-extern crate parity_runtime;
+use parity_runtime;
 extern crate parity_version as version;
-extern crate rlp;
-extern crate stats;
-extern crate vm;
+use rlp;
 
 #[cfg(any(test, feature = "ethcore-accounts"))]
 extern crate ethcore_accounts as accounts;
@@ -90,7 +73,7 @@ extern crate log;
 extern crate serde_derive;
 
 #[cfg(test)]
-extern crate ethjson;
+use ethjson;
 
 #[cfg(test)]
 #[macro_use]
@@ -110,12 +93,9 @@ extern crate ethcore_io as io;
 extern crate ethcore_call_contract as call_contract;
 
 // #[cfg(test)]
-extern crate tempdir;
 
 #[cfg(test)]
 extern crate rpc_servers;
-
-extern crate rpc_common;
 
 pub extern crate jsonrpc_ws_server as ws;
 
@@ -126,20 +106,23 @@ pub mod v1;
 pub mod tests;
 
 pub use http::{
-    cors::AccessControlAllowHeaders, hyper, AccessControlAllowOrigin, DomainsValidation, Host,
-    RequestMiddleware, RequestMiddlewareAction,
+    AccessControlAllowOrigin, DomainsValidation, Host, RequestMiddleware, RequestMiddlewareAction,
+    cors::AccessControlAllowHeaders, hyper,
 };
 pub use ipc::{
     MetaExtractor as IpcMetaExtractor, RequestContext as IpcRequestContext, Server as IpcServer,
 };
 pub use jsonrpc_pubsub::Session as PubSubSession;
 
-pub use authcodes::{AuthCodes, TimeProvider};
-pub use v1::{
-    block_import::{is_major_importing, is_major_importing_or_waiting},
-    dispatch,
-    extractors::{RpcExtractor, WsDispatcher, WsExtractor, WsStats},
-    informant, signer, Metadata, NetworkSettings, Origin,
+pub use crate::{
+    authcodes::{AuthCodes, TimeProvider},
+    v1::{
+        Metadata, NetworkSettings, Origin,
+        block_import::{is_major_importing, is_major_importing_or_waiting},
+        dispatch,
+        extractors::{RpcExtractor, WsDispatcher, WsExtractor, WsStats},
+        informant, signer,
+    },
 };
 
 /// RPC HTTP Server instance

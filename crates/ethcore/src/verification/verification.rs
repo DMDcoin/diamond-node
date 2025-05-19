@@ -33,13 +33,15 @@ use rlp::Rlp;
 use triehash::ordered_trie_root;
 use unexpected::{Mismatch, OutOfBounds};
 
-use blockchain::*;
+use crate::{
+    blockchain::*,
+    client::BlockInfo,
+    engines::{EthEngine, MAX_UNCLE_AGE},
+    error::{BlockError, Error},
+    types::{BlockNumber, header::Header, transaction::SignedTransaction},
+    verification::queue::kind::blocks::Unverified,
+};
 use call_contract::CallContract;
-use client::BlockInfo;
-use engines::{EthEngine, MAX_UNCLE_AGE};
-use error::{BlockError, Error};
-use types::{header::Header, transaction::SignedTransaction, BlockNumber};
-use verification::queue::kind::blocks::Unverified;
 
 use time_utils::CheckedSystemTime;
 
@@ -540,25 +542,27 @@ fn verify_block_integrity(block: &Unverified) -> Result<(), Error> {
 mod tests {
     use super::*;
 
-    use blockchain::{BlockDetails, BlockReceipts, TransactionAddress};
+    use crate::{
+        blockchain::{BlockDetails, BlockReceipts, TransactionAddress},
+        engines::EthEngine,
+        error::{BlockError::*, ErrorKind},
+        spec::{CommonParams, Spec},
+        test_helpers::{create_test_block, create_test_block_with_data},
+        types::{
+            encoded,
+            log_entry::{LocalizedLogEntry, LogEntry},
+            transaction::{Action, SignedTransaction, Transaction, TypedTransaction},
+        },
+    };
     use crypto::publickey::{Generator, Random};
-    use engines::EthEngine;
-    use error::{BlockError::*, ErrorKind};
     use ethereum_types::{Address, BloomRef, H256, U256};
     use hash::keccak;
     use rlp;
-    use spec::{CommonParams, Spec};
     use std::{
         collections::{BTreeMap, HashMap},
         time::{SystemTime, UNIX_EPOCH},
     };
-    use test_helpers::{create_test_block, create_test_block_with_data};
     use triehash::ordered_trie_root;
-    use types::{
-        encoded,
-        log_entry::{LocalizedLogEntry, LogEntry},
-        transaction::{Action, SignedTransaction, Transaction, TypedTransaction},
-    };
 
     fn check_ok(result: Result<(), Error>) {
         result.unwrap_or_else(|e| panic!("Block verification failed: {:?}", e));
@@ -731,7 +735,7 @@ mod tests {
         // additions that need access to state (tx filter in specific)
         // no existing tests need access to test, so having this not function
         // is fine.
-        let client = ::client::TestBlockChainClient::default();
+        let client = crate::client::TestBlockChainClient::default();
         let parent = bc
             .block_header_data(header.parent_hash())
             .ok_or(BlockError::UnknownParent(*header.parent_hash()))?
@@ -892,10 +896,20 @@ mod tests {
         let mut bad_header = good.clone();
         bad_header.set_transactions_root(eip86_transactions_root.clone());
         bad_header.set_uncles_hash(good_uncles_hash.clone());
-        match basic_test(&create_test_block_with_data(&bad_header, &eip86_transactions, &good_uncles), engine) {
-			Err(Error(ErrorKind::Transaction(ref e), _)) if e == &crypto::publickey::Error::InvalidSignature.into() => (),
-			e => panic!("Block verification failed.\nExpected: Transaction Error (Invalid Signature)\nGot: {:?}", e),
-		}
+        match basic_test(
+            &create_test_block_with_data(&bad_header, &eip86_transactions, &good_uncles),
+            engine,
+        ) {
+            Err(Error(ErrorKind::Transaction(ref e), _))
+                if e == &crypto::publickey::Error::InvalidSignature.into() =>
+            {
+                ()
+            }
+            e => panic!(
+                "Block verification failed.\nExpected: Transaction Error (Invalid Signature)\nGot: {:?}",
+                e
+            ),
+        }
 
         let mut header = good.clone();
         header.set_transactions_root(good_transactions_root.clone());
@@ -1124,10 +1138,12 @@ mod tests {
 
     #[test]
     fn dust_protection() {
+        use crate::{
+            engines::NullEngine,
+            machine::EthereumMachine,
+            types::transaction::{Action, Transaction},
+        };
         use crypto::publickey::{Generator, Random};
-        use engines::NullEngine;
-        use machine::EthereumMachine;
-        use types::transaction::{Action, Transaction};
 
         let mut params = CommonParams::default();
         params.dust_protection_transition = 0;

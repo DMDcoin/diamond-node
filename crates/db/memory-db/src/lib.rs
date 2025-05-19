@@ -23,7 +23,7 @@ extern crate keccak_hasher;
 use hash_db::{AsHashDB, AsPlainDB, HashDB, HashDBRef, Hasher as KeyHasher, PlainDB, PlainDBRef};
 use parity_util_mem::MallocSizeOf;
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     hash, mem,
 };
 

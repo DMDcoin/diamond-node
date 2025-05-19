@@ -1,7 +1,7 @@
+use crate::types::transaction::AccessListItem as InnerAccessListItem;
 use ethereum_types::{H160, H256};
 use serde::Serialize;
 use std::vec::Vec;
-use types::transaction::AccessListItem as InnerAccessListItem;
 
 pub type AccessList = Vec<AccessListItem>;
 #[derive(Debug, Clone, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]

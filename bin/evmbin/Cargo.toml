@@ -3,6 +3,7 @@ description = "Parity EVM Implementation"
 name = "evmbin"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2024"
 
 [[bin]]
 name = "openethereum-evm"

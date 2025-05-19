@@ -1,12 +1,15 @@
-use client::traits::EngineClient;
-use engines::signer::EngineSigner;
+use crate::{
+    client::traits::EngineClient,
+    engines::signer::EngineSigner,
+    types::{header::Header, ids::BlockId},
+};
 use ethcore_miner::pool::{PoolVerifiedTransaction, ScoredTransaction};
 use ethereum_types::U256;
 use ethjson::spec::hbbft::HbbftNetworkFork;
 use hbbft::{
+    Epoched, NetworkInfo,
     crypto::{PublicKey, Signature},
     honey_badger::{self, HoneyBadgerBuilder},
-    Epoched, NetworkInfo,
 };
 use parking_lot::{Mutex, RwLock};
 use rand::seq::IteratorRandom;
@@ -15,11 +18,11 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use types::{header::Header, ids::BlockId};
 
 use crate::engines::hbbft::contracts::permission::get_minimum_gas_from_permission_contract;
 
 use super::{
+    NodeId,
     contracts::{
         keygen_history::{initialize_synckeygen, synckeygen_to_network_info},
         staking::{get_posdao_epoch, get_posdao_epoch_start},
@@ -29,7 +32,6 @@ use super::{
     hbbft_early_epoch_end_manager::HbbftEarlyEpochEndManager,
     hbbft_network_fork_manager::HbbftNetworkForkManager,
     hbbft_peers_management::HbbftPeersManagement,
-    NodeId,
 };
 
 pub type HbMessage = honey_badger::Message<NodeId>;

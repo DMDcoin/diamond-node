@@ -22,9 +22,18 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use ethereum_types::{Address, BigEndianHash, H160, H256, H64, U256, U64};
+use ethereum_types::{Address, BigEndianHash, H64, H160, H256, U64, U256};
 use parking_lot::Mutex;
 
+use crate::{
+    miner::external::ExternalMinerService,
+    types::{
+        BlockNumber as EthBlockNumber, encoded,
+        filter::Filter as EthcoreFilter,
+        header::Header,
+        transaction::{LocalizedTransaction, SignedTransaction, TypedTransaction},
+    },
+};
 use ethash::{self, SeedHashCompute};
 use ethcore::{
     client::{
@@ -35,31 +44,23 @@ use ethcore::{
     snapshot::SnapshotService,
 };
 use hash::keccak;
-use miner::external::ExternalMinerService;
 use sync::SyncProvider;
-use types::{
-    encoded,
-    filter::Filter as EthcoreFilter,
-    header::Header,
-    transaction::{LocalizedTransaction, SignedTransaction, TypedTransaction},
-    BlockNumber as EthBlockNumber,
-};
 
-use jsonrpc_core::{futures::future, BoxFuture, Result};
+use jsonrpc_core::{BoxFuture, Result, futures::future};
 
-use v1::{
+use crate::v1::{
     helpers::{
         self,
         block_import::is_major_importing,
         deprecated::{self, DeprecationNotice},
-        dispatch::{default_gas_price, default_max_priority_fee_per_gas, FullDispatcher},
+        dispatch::{FullDispatcher, default_gas_price, default_max_priority_fee_per_gas},
         errors, fake_sign, limit_logs,
     },
     traits::Eth,
     types::{
-        block_number_to_id, Block, BlockNumber, BlockTransactions, Bytes, CallRequest, EthAccount,
-        EthFeeHistory, Filter, Index, Log, Receipt, RichBlock, StorageProof, SyncInfo, SyncStatus,
-        Transaction, Work,
+        Block, BlockNumber, BlockTransactions, Bytes, CallRequest, EthAccount, EthFeeHistory,
+        Filter, Index, Log, Receipt, RichBlock, StorageProof, SyncInfo, SyncStatus, Transaction,
+        Work, block_number_to_id,
     },
 };
 
@@ -234,7 +235,9 @@ where
                         )
                     }
                     None => {
-                        warn!("`Pending` is deprecated and may be removed in future versions. Falling back to `Latest`");
+                        warn!(
+                            "`Pending` is deprecated and may be removed in future versions. Falling back to `Latest`"
+                        );
                         client_query(BlockId::Latest)
                     }
                 }
@@ -562,7 +565,7 @@ fn check_known<C>(client: &C, number: BlockNumber) -> Result<()>
 where
     C: BlockChainClient,
 {
-    use types::block_status::BlockStatus;
+    use crate::types::block_status::BlockStatus;
 
     let id = match number {
         BlockNumber::Pending => return Ok(()),
@@ -1365,13 +1368,14 @@ where
             };
 
             let state = try_bf!(self.client.state_at(id).ok_or_else(errors::state_pruned));
-            let header = try_bf!(self
-                .client
-                .block_header(id)
-                .ok_or_else(errors::state_pruned)
-                .and_then(|h| h
-                    .decode(self.client.engine().params().eip1559_transition)
-                    .map_err(errors::decode)));
+            let header = try_bf!(
+                self.client
+                    .block_header(id)
+                    .ok_or_else(errors::state_pruned)
+                    .and_then(|h| h
+                        .decode(self.client.engine().params().eip1559_transition)
+                        .map_err(errors::decode))
+            );
 
             (state, header)
         };
@@ -1408,13 +1412,14 @@ where
             };
 
             let state = try_bf!(self.client.state_at(id).ok_or_else(errors::state_pruned));
-            let header = try_bf!(self
-                .client
-                .block_header(id)
-                .ok_or_else(errors::state_pruned)
-                .and_then(|h| h
-                    .decode(self.client.engine().params().eip1559_transition)
-                    .map_err(errors::decode)));
+            let header = try_bf!(
+                self.client
+                    .block_header(id)
+                    .ok_or_else(errors::state_pruned)
+                    .and_then(|h| h
+                        .decode(self.client.engine().params().eip1559_transition)
+                        .map_err(errors::decode))
+            );
             (state, header)
         };
 

@@ -14,16 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use connection::Connection;
-use crypto::publickey::{ecdh, ecies, recover, sign, Generator, KeyPair, Public, Random, Secret};
+use crate::{
+    connection::Connection,
+    host::HostInfo,
+    io::{IoContext, StreamToken},
+    node_table::NodeId,
+};
+use crypto::publickey::{Generator, KeyPair, Public, Random, Secret, ecdh, ecies, recover, sign};
 use ethereum_types::{H256, H520};
-use host::HostInfo;
-use io::{IoContext, StreamToken};
 use mio::tcp::*;
 use network::{Error, ErrorKind};
-use node_table::NodeId;
 use parity_bytes::Bytes;
-use rand::{random, Rng};
+use rand::{Rng, random};
 use rlp::{Rlp, RlpStream};
 use std::time::Duration;
 
@@ -381,9 +383,9 @@ impl Handshake {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::io::*;
     use crypto::publickey::Public;
     use ethereum_types::{H256, H512};
-    use io::*;
     use mio::tcp::TcpStream;
     use rustc_hex::FromHex;
     use std::str::FromStr;

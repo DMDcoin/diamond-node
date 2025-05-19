@@ -23,26 +23,28 @@ use std::{
     io::{self, ErrorKind, Read},
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 
 use super::{
+    CreationStatus, MAX_CHUNK_SIZE, ManifestData, Rebuilder, RestorationStatus, SnapshotService,
+    StateRebuilder,
     io::{LooseReader, LooseWriter, SnapshotReader, SnapshotWriter},
-    CreationStatus, ManifestData, Rebuilder, RestorationStatus, SnapshotService, StateRebuilder,
-    MAX_CHUNK_SIZE,
 };
 
-use blockchain::{BlockChain, BlockChainDB, BlockChainDBHandler};
-use client::{BlockChainClient, BlockInfo, ChainInfo, Client, ClientIoMessage};
-use engines::EthEngine;
-use error::{Error, ErrorKind as SnapshotErrorKind};
+use crate::{
+    blockchain::{BlockChain, BlockChainDB, BlockChainDBHandler},
+    client::{BlockChainClient, BlockInfo, ChainInfo, Client, ClientIoMessage},
+    engines::EthEngine,
+    error::{Error, ErrorKind as SnapshotErrorKind},
+    snapshot::Error as SnapshotError,
+    types::ids::BlockId,
+};
 use hash::keccak;
-use snapshot::Error as SnapshotError;
-use types::ids::BlockId;
 
-use io::IoChannel;
+use crate::io::IoChannel;
 
 use bytes::Bytes;
 use ethereum_types::H256;
@@ -126,7 +128,7 @@ impl Restoration {
         let components = params
             .engine
             .snapshot_components()
-            .ok_or_else(|| ::snapshot::Error::SnapshotsUnsupported)?;
+            .ok_or_else(|| crate::snapshot::Error::SnapshotsUnsupported)?;
 
         let secondary = components.rebuilder(chain, raw_db.clone(), &manifest)?;
 
@@ -152,7 +154,7 @@ impl Restoration {
             let expected_len = snappy::decompressed_len(chunk)?;
             if expected_len > MAX_CHUNK_SIZE {
                 trace!(target: "snapshot", "Discarding large chunk: {} vs {}", expected_len, MAX_CHUNK_SIZE);
-                return Err(::snapshot::Error::ChunkTooLarge.into());
+                return Err(crate::snapshot::Error::ChunkTooLarge.into());
             }
             let len = snappy::decompress_into(chunk, &mut self.snappy_buffer)?;
 
@@ -180,7 +182,7 @@ impl Restoration {
             let expected_len = snappy::decompressed_len(chunk)?;
             if expected_len > MAX_CHUNK_SIZE {
                 trace!(target: "snapshot", "Discarding large chunk: {} vs {}", expected_len, MAX_CHUNK_SIZE);
-                return Err(::snapshot::Error::ChunkTooLarge.into());
+                return Err(crate::snapshot::Error::ChunkTooLarge.into());
             }
             let len = snappy::decompress_into(chunk, &mut self.snappy_buffer)?;
 
@@ -444,7 +446,7 @@ impl Service {
             let block = self
                 .client
                 .block(BlockId::Hash(parent_hash))
-                .ok_or(::snapshot::error::Error::UnlinkedAncientBlockChain)?;
+                .ok_or(crate::snapshot::error::Error::UnlinkedAncientBlockChain)?;
             parent_hash = block.parent_hash();
 
             let block_number = block.number();
@@ -490,7 +492,7 @@ impl Service {
 
         // We couldn't reach the targeted hash
         if parent_hash != target_hash {
-            return Err(::snapshot::error::Error::UnlinkedAncientBlockChain.into());
+            return Err(crate::snapshot::error::Error::UnlinkedAncientBlockChain.into());
         }
 
         // Update best ancient block in the Next Chain
@@ -558,7 +560,9 @@ impl Service {
             if let Err(e) = res {
                 if client.chain_info().best_block_number >= num + client.pruning_history() {
                     // The state we were snapshotting was pruned before we could finish.
-                    info!("Periodic snapshot failed: block state pruned. Run with a longer `--pruning-history` or with `--no-periodic-snapshot`");
+                    info!(
+                        "Periodic snapshot failed: block state pruned. Run with a longer `--pruning-history` or with `--no-periodic-snapshot`"
+                    );
                     return Err(e);
                 } else {
                     return Err(e);
@@ -1011,13 +1015,15 @@ impl Drop for Service {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use client::ClientIoMessage;
-    use io::IoService;
+    use crate::{
+        client::ClientIoMessage,
+        io::IoService,
+        snapshot::{ManifestData, RestorationStatus, SnapshotService},
+        spec::Spec,
+        test_helpers::{generate_dummy_client_with_spec_and_data, restoration_db_handler},
+    };
     use journaldb::Algorithm;
-    use snapshot::{ManifestData, RestorationStatus, SnapshotService};
-    use spec::Spec;
     use tempdir::TempDir;
-    use test_helpers::{generate_dummy_client_with_spec_and_data, restoration_db_handler};
 
     #[test]
     fn sends_async_messages() {
@@ -1098,16 +1104,20 @@ mod tests {
         let definitely_bad_chunk = [1, 2, 3, 4, 5];
 
         for hash in state_hashes {
-            assert!(restoration
-                .feed_state(hash, &definitely_bad_chunk, &flag)
-                .is_err());
+            assert!(
+                restoration
+                    .feed_state(hash, &definitely_bad_chunk, &flag)
+                    .is_err()
+            );
             assert!(!restoration.is_done());
         }
 
         for hash in block_hashes {
-            assert!(restoration
-                .feed_blocks(hash, &definitely_bad_chunk, &*spec.engine, &flag)
-                .is_err());
+            assert!(
+                restoration
+                    .feed_blocks(hash, &definitely_bad_chunk, &*spec.engine, &flag)
+                    .is_err()
+            );
             assert!(!restoration.is_done());
         }
     }

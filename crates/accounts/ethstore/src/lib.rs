@@ -29,7 +29,6 @@ extern crate smallvec;
 extern crate tempdir;
 extern crate time;
 
-extern crate ethereum_types;
 extern crate ethkey as _ethkey;
 extern crate parity_crypto as crypto;
 extern crate parity_wordlist;

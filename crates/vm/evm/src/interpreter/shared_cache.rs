@@ -61,7 +61,7 @@ impl SharedCache {
         code_hash: &Option<H256>,
         code: &[u8],
     ) -> (Arc<BitSet>, Arc<BitSet>) {
-        if let Some(ref code_hash) = code_hash {
+        if let Some(code_hash) = code_hash {
             if code_hash == &KECCAK_EMPTY {
                 let cache_item = Self::find_jump_and_sub_destinations(code);
                 return (cache_item.jump_destination.0, cache_item.sub_entrypoint.0);
@@ -74,7 +74,7 @@ impl SharedCache {
 
         let d = Self::find_jump_and_sub_destinations(code);
 
-        if let Some(ref code_hash) = code_hash {
+        if let Some(code_hash) = code_hash {
             self.jump_destinations.lock().insert(*code_hash, d.clone());
         }
 

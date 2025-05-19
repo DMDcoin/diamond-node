@@ -21,7 +21,7 @@ use crate::{
     sync::{self, validate_node_url},
     upgrade::{upgrade, upgrade_data_paths},
 };
-use dir::{helpers::replace_home, DatabaseDirectories};
+use dir::{DatabaseDirectories, helpers::replace_home};
 use ethcore::{
     client::{BlockId, ClientConfig, DatabaseCompactionProfile, Mode, VMType, VerifierType},
     miner::{Penalization, PendingSet},
@@ -42,8 +42,8 @@ pub fn to_duration(s: &str) -> Result<Duration, String> {
 }
 
 fn clean_0x(s: &str) -> &str {
-    if s.starts_with("0x") {
-        &s[2..]
+    if let Some(stripped) = s.strip_prefix("0x") {
+        stripped
     } else {
         s
     }
@@ -331,7 +331,7 @@ pub fn execute_upgrades(
 /// Prompts user asking for password.
 pub fn password_prompt() -> Result<Password, String> {
     use rpassword::read_password;
-    const STDIN_ERROR: &'static str = "Unable to ask for password on non-interactive terminal.";
+    const STDIN_ERROR: &str = "Unable to ask for password on non-interactive terminal.";
 
     println!("Please note that password is NOT RECOVERABLE.");
     print!("Type password: ");
@@ -356,8 +356,8 @@ pub fn password_from_file(path: String) -> Result<Password, String> {
     let passwords = passwords_from_files(&[path])?;
     // use only first password from the file
     passwords
-        .get(0)
-        .map(Password::clone)
+        .first()
+        .cloned()
         .ok_or_else(|| "Password file seems to be empty.".to_owned())
 }
 
@@ -372,7 +372,7 @@ pub fn passwords_from_files(files: &[String]) -> Result<Vec<Password>, String> {
 			.collect::<Vec<Password>>();
 		Ok(lines)
 	}).collect::<Result<Vec<Vec<Password>>, String>>();
-    Ok(passwords?.into_iter().flat_map(|x| x).collect())
+    Ok(passwords?.into_iter().flatten().collect())
 }
 
 #[cfg(test)]
@@ -403,7 +403,7 @@ mod tests {
         assert_eq!(to_duration("1second").unwrap(), Duration::from_secs(1));
         assert_eq!(to_duration("2seconds").unwrap(), Duration::from_secs(2));
         assert_eq!(to_duration("15seconds").unwrap(), Duration::from_secs(15));
-        assert_eq!(to_duration("1minute").unwrap(), Duration::from_secs(1 * 60));
+        assert_eq!(to_duration("1minute").unwrap(), Duration::from_secs(60));
         assert_eq!(
             to_duration("2minutes").unwrap(),
             Duration::from_secs(2 * 60)
@@ -417,10 +417,7 @@ mod tests {
             to_duration("daily").unwrap(),
             Duration::from_secs(24 * 60 * 60)
         );
-        assert_eq!(
-            to_duration("1hour").unwrap(),
-            Duration::from_secs(1 * 60 * 60)
-        );
+        assert_eq!(to_duration("1hour").unwrap(), Duration::from_secs(60 * 60));
         assert_eq!(
             to_duration("2hours").unwrap(),
             Duration::from_secs(2 * 60 * 60)
@@ -431,7 +428,7 @@ mod tests {
         );
         assert_eq!(
             to_duration("1day").unwrap(),
-            Duration::from_secs(1 * 24 * 60 * 60)
+            Duration::from_secs(24 * 60 * 60)
         );
         assert_eq!(
             to_duration("2days").unwrap(),
@@ -594,9 +591,9 @@ but the first password is trimmed
         let res = join_set(Some(&test_set)).unwrap();
 
         assert!(
-			res == "0x1111111111111111111111111111111111111111,0x0000000000000000000000000000000000000000"
-			||
-			res == "0x0000000000000000000000000000000000000000,0x1111111111111111111111111111111111111111"
-		);
+            res == "0x1111111111111111111111111111111111111111,0x0000000000000000000000000000000000000000"
+                || res
+                    == "0x0000000000000000000000000000000000000000,0x1111111111111111111111111111111111111111"
+        );
     }
 }

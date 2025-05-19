@@ -14,15 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    chain::sync_packet::{PacketInfo, SyncPacket},
+    types::BlockNumber,
+};
 use bytes::Bytes;
-use chain::sync_packet::{PacketInfo, SyncPacket};
 use ethcore::{client::BlockChainClient, snapshot::SnapshotService};
 use network::{
-    client_version::ClientVersion, Error, NetworkContext, PacketId, PeerId, ProtocolId, SessionInfo,
+    Error, NetworkContext, PacketId, PeerId, ProtocolId, SessionInfo, client_version::ClientVersion,
 };
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use types::BlockNumber;
 
 /// IO interface for the syncing handler.
 /// Provides peer connection management and an interface to the blockchain client.

@@ -16,26 +16,27 @@
 
 //! PoW block chunker and rebuilder tests.
 
-use error::{Error, ErrorKind};
+use crate::error::{Error, ErrorKind};
 use std::sync::atomic::AtomicBool;
 use tempdir::TempDir;
 
-use blockchain::{
-    generator::{BlockBuilder, BlockGenerator},
-    BlockChain, ExtrasInsert,
-};
-use snapshot::{
-    chunk_secondary,
-    io::{PackedReader, PackedWriter, SnapshotReader, SnapshotWriter},
-    Error as SnapshotError, Progress, SnapshotComponents,
+use crate::{
+    blockchain::{
+        BlockChain, ExtrasInsert,
+        generator::{BlockBuilder, BlockGenerator},
+    },
+    snapshot::{
+        Error as SnapshotError, Progress, SnapshotComponents, chunk_secondary,
+        io::{PackedReader, PackedWriter, SnapshotReader, SnapshotWriter},
+    },
 };
 
+use crate::test_helpers;
 use kvdb::DBTransaction;
 use parking_lot::Mutex;
 use snappy;
-use test_helpers;
 
-const SNAPSHOT_MODE: ::snapshot::PowSnapshot = ::snapshot::PowSnapshot {
+const SNAPSHOT_MODE: crate::snapshot::PowSnapshot = crate::snapshot::PowSnapshot {
     blocks: 30000,
     max_restore_blocks: 30000,
 };
@@ -46,7 +47,7 @@ fn chunk_and_restore(amount: u64) {
     let generator = BlockGenerator::new(vec![rest]);
     let genesis = genesis.last();
 
-    let engine = ::spec::Spec::new_test().engine;
+    let engine = crate::spec::Spec::new_test().engine;
     let tempdir = TempDir::new("").unwrap();
     let snapshot_path = tempdir.path().join("SNAP");
 
@@ -66,7 +67,7 @@ fn chunk_and_restore(amount: u64) {
             block.encoded(),
             vec![],
             ExtrasInsert {
-                fork_choice: ::engines::ForkChoice::New,
+                fork_choice: crate::engines::ForkChoice::New,
                 is_finalized: false,
             },
         );
@@ -88,7 +89,7 @@ fn chunk_and_restore(amount: u64) {
     )
     .unwrap();
 
-    let manifest = ::snapshot::ManifestData {
+    let manifest = crate::snapshot::ManifestData {
         version: 2,
         state_hashes: Vec::new(),
         block_hashes: block_hashes,
@@ -160,7 +161,7 @@ fn checks_flag() {
     let chunk = stream.out();
 
     let db = test_helpers::new_db();
-    let engine = ::spec::Spec::new_test().engine;
+    let engine = crate::spec::Spec::new_test().engine;
     let chain = BlockChain::new(
         Default::default(),
         genesis.last().encoded().raw(),
@@ -168,7 +169,7 @@ fn checks_flag() {
         engine.params().eip1559_transition,
     );
 
-    let manifest = ::snapshot::ManifestData {
+    let manifest = crate::snapshot::ManifestData {
         version: 2,
         state_hashes: Vec::new(),
         block_hashes: Vec::new(),

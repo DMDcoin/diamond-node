@@ -20,12 +20,14 @@
 
 use std::fmt;
 
-use client::{traits::EngineClient, BlockChainClient};
+use crate::{
+    client::{BlockChainClient, traits::EngineClient},
+    types::{header::Header, ids::BlockId},
+};
 use ethabi::{self, FunctionOutputDecoder};
 use ethabi_contract::use_contract;
 use ethereum_types::{Address, U256};
 use log::{debug, error};
-use types::{header::Header, ids::BlockId};
 
 /// A contract bound to a client and block number.
 ///

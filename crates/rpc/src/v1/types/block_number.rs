@@ -17,8 +17,8 @@
 use ethcore::client::BlockId;
 use hash::H256;
 use serde::{
-    de::{Error, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
+    de::{Error, MapAccess, Visitor},
 };
 use std::fmt;
 

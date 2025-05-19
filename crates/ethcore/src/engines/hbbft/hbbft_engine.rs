@@ -3,26 +3,34 @@ use super::{
     hbbft_early_epoch_end_manager::HbbftEarlyEpochEndManager, hbbft_engine_cache::HbbftEngineCache,
 };
 use crate::{
-    client::BlockChainClient,
-    engines::hbbft::{
-        contracts::random_hbbft::set_current_seed_tx_raw, hbbft_message_memorium::BadSealReason,
-        hbbft_peers_management::HbbftPeersManagement,
+    block::ExecutedBlock,
+    client::{
+        BlockChainClient,
+        traits::{EngineClient, ForceUpdateSealing},
+    },
+    engines::{
+        Engine, EngineError, ForkChoice, Seal, SealingState, default_system_or_code_call,
+        hbbft::{
+            contracts::random_hbbft::set_current_seed_tx_raw,
+            hbbft_message_memorium::BadSealReason, hbbft_peers_management::HbbftPeersManagement,
+        },
+        signer::EngineSigner,
+    },
+    error::{BlockError, Error},
+    io::{IoContext, IoHandler, IoService, TimerToken},
+    machine::EthereumMachine,
+    types::{
+        BlockNumber,
+        header::{ExtendedHeader, Header},
+        ids::BlockId,
+        transaction::{SignedTransaction, TypedTransaction},
     },
 };
-use block::ExecutedBlock;
-use client::traits::{EngineClient, ForceUpdateSealing};
 use crypto::publickey::Signature;
-use engines::{
-    default_system_or_code_call, signer::EngineSigner, Engine, EngineError, ForkChoice, Seal,
-    SealingState,
-};
-use error::{BlockError, Error};
-use ethereum_types::{Address, Public, H256, H512, U256};
+use ethereum_types::{Address, H256, H512, Public, U256};
 use ethjson::spec::HbbftParams;
 use hbbft::{NetworkInfo, Target};
-use io::{IoContext, IoHandler, IoService, TimerToken};
 use itertools::Itertools;
-use machine::EthereumMachine;
 use parking_lot::{Mutex, RwLock};
 use rlp;
 use rmp_serde;
@@ -33,29 +41,23 @@ use std::{
     collections::BTreeMap,
     convert::TryFrom,
     ops::BitXor,
-    sync::{atomic::AtomicBool, Arc, Weak},
+    sync::{Arc, Weak, atomic::AtomicBool},
     time::{Duration, Instant},
-};
-use types::{
-    header::{ExtendedHeader, Header},
-    ids::BlockId,
-    transaction::{SignedTransaction, TypedTransaction},
-    BlockNumber,
 };
 
 use super::{
+    NodeId,
     contracts::{
         keygen_history::{all_parts_acks_available, initialize_synckeygen},
         staking::start_time_of_next_phase_transition,
-        validator_set::{get_pending_validators, is_pending_validator, ValidatorType},
+        validator_set::{ValidatorType, get_pending_validators, is_pending_validator},
     },
     contribution::{unix_now_millis, unix_now_secs},
     hbbft_state::{Batch, HbMessage, HbbftState, HoneyBadgerStep},
     keygen_transactions::KeygenTransactionSender,
     sealing::{self, RlpSig, Sealing},
-    NodeId,
 };
-use engines::hbbft::{
+use crate::engines::hbbft::{
     contracts::validator_set::{
         get_validator_available_since, send_tx_announce_availability, staking_by_mining_address,
     },
@@ -227,7 +229,10 @@ impl TransitionHandler {
                 }
 
                 // lock the client and signal shutdown.
-                warn!("shutdown-on-missing-block-import: Detected stalled block import. no import for {duration_since_last_block_import}. last known import: {:?} now: {:?} Demanding shut down of hbbft engine.", last_known_block_import, now);
+                warn!(
+                    "shutdown-on-missing-block-import: Detected stalled block import. no import for {duration_since_last_block_import}. last known import: {:?} now: {:?} Demanding shut down of hbbft engine.",
+                    last_known_block_import, now
+                );
 
                 // if auto shutdown at missing block production (or import) is configured.
                 // ... we need to check if enough time has passed since the last block was imported.
@@ -235,7 +240,9 @@ impl TransitionHandler {
                     if let Some(c) = weak.upgrade() {
                         c.demand_shutdown();
                     } else {
-                        error!("shutdown-on-missing-block-import: Error during Shutdown: could not upgrade weak reference.");
+                        error!(
+                            "shutdown-on-missing-block-import: Error during Shutdown: could not upgrade weak reference."
+                        );
                     }
                 } else {
                     error!(
@@ -266,7 +273,7 @@ impl IoHandler<()> for TransitionHandler {
         // io.register_timer_once(ENGINE_DELAYED_UNITL_SYNCED_TOKEN, Duration::from_secs(10))
         //     .unwrap_or_else(|e| warn!(target: "consensus", "ENGINE_DELAYED_UNITL_SYNCED_TOKEN Timer failed: {}.", e));
 
-        io.register_timer(ENGINE_VALIDATOR_CANDIDATE_ACTIONS, Duration::from_secs(120))
+        io.register_timer(ENGINE_VALIDATOR_CANDIDATE_ACTIONS, Duration::from_secs(30))
             .unwrap_or_else(|e| warn!(target: "consensus", "ENGINE_VALIDATOR_CANDIDATE_ACTIONS Timer failed: {}.", e));
     }
 
@@ -539,6 +546,7 @@ impl HoneyBadgerBFT {
         if let Some(header) = client.create_pending_block_at(batch_txns, timestamp, batch.epoch) {
             let block_num = header.number();
             let hash = header.bare_hash();
+            // TODO: trace is missleading here: we already got the signature shares, we can already
             trace!(target: "consensus", "Sending signature share of {} for block {}", hash, block_num);
             let step = match self
                 .sealing
@@ -1100,7 +1108,10 @@ impl HoneyBadgerBFT {
                         }
                         Err(call_error) => {
                             error!(target: "engine", "unable to ask for corresponding staking address for given mining address: {:?}", call_error);
-                            let message = format!("unable to ask for corresponding staking address for given mining address: {:?}", call_error);
+                            let message = format!(
+                                "unable to ask for corresponding staking address for given mining address: {:?}",
+                                call_error
+                            );
                             return Err(message.into());
                         }
                     };
@@ -1710,15 +1721,15 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
 #[cfg(test)]
 mod tests {
     use super::super::{contribution::Contribution, test::create_transactions::create_transaction};
+    use crate::types::transaction::SignedTransaction;
     use crypto::publickey::{Generator, Random};
     use ethereum_types::U256;
     use hbbft::{
-        honey_badger::{HoneyBadger, HoneyBadgerBuilder},
         NetworkInfo,
+        honey_badger::{HoneyBadger, HoneyBadgerBuilder},
     };
     use rand;
     use std::sync::Arc;
-    use types::transaction::SignedTransaction;
 
     #[test]
     fn test_single_contribution() {

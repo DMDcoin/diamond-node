@@ -39,13 +39,13 @@ use std::{
     io::Write,
     process::{self},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
 use ansi_term::Colour;
-use diamond_node::{start, ExecutionAction, ShutdownManager};
+use diamond_node::{ExecutionAction, ShutdownManager, start};
 use ethcore::exit::ExitStatus;
 use ethcore_logger::setup_log;
 use fdlimit::raise_fd_limit;
@@ -130,11 +130,8 @@ fn main() -> Result<(), i32> {
                     }
                 });
 
-                match res_set_handler {
-                    Err(err) => {
-                        warn!("could not setup ctrl+c handler: {:?}", err)
-                    }
-                    _ => {}
+                if let Err(err) = res_set_handler {
+                    warn!("could not setup ctrl+c handler: {:?}", err)
                 }
 
                 // so the client has started successfully
@@ -146,7 +143,7 @@ fn main() -> Result<(), i32> {
                 // Wait for signal
                 let mut lock = exit.0.lock();
                 if !lock.should_exit() {
-                    let _ = exit.1.wait(&mut lock);
+                    exit.1.wait(&mut lock);
                 }
 
                 client.shutdown();

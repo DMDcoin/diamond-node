@@ -14,17 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    json::{OpaqueKeyFile, Uuid},
+    Error, OpaqueSecret,
+};
 use crypto::publickey::{Address, Message, Public, Secret, Signature};
 use ethereum_types::H256;
 use ethkey::Password;
-use json::{OpaqueKeyFile, Uuid};
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
     path::PathBuf,
 };
-use Error;
-use OpaqueSecret;
 
 /// Key directory reference
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

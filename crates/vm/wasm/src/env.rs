@@ -19,8 +19,8 @@
 use std::cell::RefCell;
 use vm::WasmCosts;
 use wasmi::{
-    self, memory_units, Error, FuncInstance, FuncRef, MemoryDescriptor, MemoryInstance, MemoryRef,
-    Signature,
+    self, Error, FuncInstance, FuncRef, MemoryDescriptor, MemoryInstance, MemoryRef, Signature,
+    memory_units,
 };
 
 /// Internal ids all functions runtime supports. This is just a glue for wasmi interpreter
@@ -210,7 +210,7 @@ impl wasmi::ModuleImportResolver for ImportResolver {
                 return Err(wasmi::Error::Instantiation(format!(
                     "Export {} not found",
                     field_name
-                )))
+                )));
             }
         };
 

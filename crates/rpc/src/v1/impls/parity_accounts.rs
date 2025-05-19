@@ -17,19 +17,13 @@
 //! Account management (personal) rpc implementation
 use std::{
     collections::{
-        btree_map::{BTreeMap, Entry},
         HashSet,
+        btree_map::{BTreeMap, Entry},
     },
     sync::Arc,
 };
 
-use accounts::AccountProvider;
-use crypto::publickey::Secret;
-use ethereum_types::{Address, H160, H256, H520};
-use ethkey::{Brain, Password};
-use ethstore::KeyFile;
-use jsonrpc_core::Result;
-use v1::{
+use crate::v1::{
     helpers::{
         deprecated::{self, DeprecationNotice},
         errors,
@@ -37,6 +31,12 @@ use v1::{
     traits::{ParityAccounts, ParityAccountsInfo},
     types::{AccountInfo, Derive, DeriveHash, DeriveHierarchical, ExtAccountInfo},
 };
+use accounts::AccountProvider;
+use crypto::publickey::Secret;
+use ethereum_types::{Address, H160, H256, H520};
+use ethkey::{Brain, Password};
+use ethstore::KeyFile;
+use jsonrpc_core::Result;
 
 /// Account management (personal) rpc implementation.
 pub struct ParityAccountsClient {

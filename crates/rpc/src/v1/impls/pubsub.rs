@@ -20,15 +20,14 @@ use parking_lot::RwLock;
 use std::{sync::Arc, time::Duration};
 
 use jsonrpc_core::{
-    self as core,
-    futures::{future, Future, Sink, Stream},
-    MetaIoHandler, Result,
+    self as core, MetaIoHandler, Result,
+    futures::{Future, Sink, Stream, future},
 };
-use jsonrpc_pubsub::{typed::Subscriber, SubscriptionId};
+use jsonrpc_pubsub::{SubscriptionId, typed::Subscriber};
 use tokio_timer;
 
+use crate::v1::{helpers::GenericPollManager, metadata::Metadata, traits::PubSub};
 use parity_runtime::Executor;
-use v1::{helpers::GenericPollManager, metadata::Metadata, traits::PubSub};
 
 /// Parity PubSub implementation.
 pub struct PubSubClient<S: core::Middleware<Metadata>> {

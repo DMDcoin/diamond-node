@@ -17,14 +17,14 @@
 //! Finality proof generation and checking.
 
 use std::collections::{
-    hash_map::{Entry, HashMap},
     VecDeque,
+    hash_map::{Entry, HashMap},
 };
 
+use crate::types::BlockNumber;
 use ethereum_types::{Address, H256};
-use types::BlockNumber;
 
-use engines::validator_set::SimpleList;
+use crate::engines::validator_set::SimpleList;
 
 /// Error indicating unknown validator.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -182,7 +182,9 @@ impl RollingFinality {
                     }
                 }
                 Entry::Vacant(_) => {
-                    panic!("all hashes in `header` should have entries in `sign_count` for their signers; qed");
+                    panic!(
+                        "all hashes in `header` should have entries in `sign_count` for their signers; qed"
+                    );
                 }
             }
         }
@@ -192,16 +194,18 @@ impl RollingFinality {
 #[cfg(test)]
 mod tests {
     use super::RollingFinality;
+    use crate::types::BlockNumber;
     use ethereum_types::{Address, H256};
-    use types::BlockNumber;
 
     #[test]
     fn rejects_unknown_signers() {
         let signers = (0..3).map(|_| Address::random()).collect::<Vec<_>>();
         let mut finality = RollingFinality::blank(signers.clone(), BlockNumber::max_value());
-        assert!(finality
-            .push_hash(H256::random(), 0, vec![signers[0], Address::random()])
-            .is_err());
+        assert!(
+            finality
+                .push_hash(H256::random(), 0, vec![signers[0], Address::random()])
+                .is_err()
+        );
     }
 
     #[test]
@@ -287,9 +291,11 @@ mod tests {
     fn rejects_unknown_signers_2_3() {
         let signers = (0..3).map(|_| Address::random()).collect::<Vec<_>>();
         let mut finality = RollingFinality::blank(signers.clone(), 0);
-        assert!(finality
-            .push_hash(H256::random(), 0, vec![signers[0], Address::random()])
-            .is_err());
+        assert!(
+            finality
+                .push_hash(H256::random(), 0, vec![signers[0], Address::random()])
+                .is_err()
+        );
     }
 
     #[test]

@@ -16,8 +16,7 @@
 
 use std::{str::FromStr, sync::Arc, thread, time::Duration};
 
-use jsonrpc_core::{futures::Future, IoHandler, Success};
-use v1::{
+use crate::v1::{
     helpers::{
         dispatch,
         external_signer::{SignerService, SigningQueue},
@@ -29,8 +28,12 @@ use v1::{
     traits::{EthSigning, Parity, ParitySigning},
     types::{ConfirmationResponse, RichRawTransaction},
 };
+use jsonrpc_core::{IoHandler, Success, futures::Future};
 
-use crate::dispatch::FullDispatcher;
+use crate::{
+    dispatch::FullDispatcher,
+    types::transaction::{Action, SignedTransaction, Transaction, TypedTransaction},
+};
 use accounts::AccountProvider;
 use bytes::ToPretty;
 use crypto::publickey::{Generator, Random, Secret};
@@ -39,7 +42,6 @@ use ethereum_types::{Address, H256, H520, U256};
 use parity_runtime::{Executor, Runtime};
 use parking_lot::Mutex;
 use serde_json;
-use types::transaction::{Action, SignedTransaction, Transaction, TypedTransaction};
 
 struct SigningTester {
     pub runtime: Runtime,
@@ -152,17 +154,19 @@ fn should_add_sign_to_queue() {
 
     // the future must be polled at least once before request is queued.
     let signer = tester.signer.clone();
-    ::std::thread::spawn(move || loop {
-        if signer.requests().len() == 1 {
-            // respond
-            let sender = signer.take(&1.into()).unwrap();
-            signer.request_confirmed(
-                sender,
-                Ok(ConfirmationResponse::Signature(H520::from_low_u64_be(0))),
-            );
-            break;
+    ::std::thread::spawn(move || {
+        loop {
+            if signer.requests().len() == 1 {
+                // respond
+                let sender = signer.take(&1.into()).unwrap();
+                signer.request_confirmed(
+                    sender,
+                    Ok(ConfirmationResponse::Signature(H520::from_low_u64_be(0))),
+                );
+                break;
+            }
+            ::std::thread::sleep(Duration::from_millis(100))
         }
-        ::std::thread::sleep(Duration::from_millis(100))
     });
 
     let res = promise.wait().unwrap();
@@ -343,19 +347,21 @@ fn should_add_transaction_to_queue() {
 
     // the future must be polled at least once before request is queued.
     let signer = tester.signer.clone();
-    ::std::thread::spawn(move || loop {
-        if signer.requests().len() == 1 {
-            // respond
-            let sender = signer.take(&1.into()).unwrap();
-            signer.request_confirmed(
-                sender,
-                Ok(ConfirmationResponse::SendTransaction(
-                    H256::from_low_u64_be(0),
-                )),
-            );
-            break;
+    ::std::thread::spawn(move || {
+        loop {
+            if signer.requests().len() == 1 {
+                // respond
+                let sender = signer.take(&1.into()).unwrap();
+                signer.request_confirmed(
+                    sender,
+                    Ok(ConfirmationResponse::SendTransaction(
+                        H256::from_low_u64_be(0),
+                    )),
+                );
+                break;
+            }
+            ::std::thread::sleep(Duration::from_millis(100))
         }
-        ::std::thread::sleep(Duration::from_millis(100))
     });
 
     let res = promise.wait().unwrap();
@@ -439,19 +445,21 @@ fn should_add_sign_transaction_to_the_queue() {
 
     // the future must be polled at least once before request is queued.
     let signer = tester.signer.clone();
-    ::std::thread::spawn(move || loop {
-        if signer.requests().len() == 1 {
-            // respond
-            let sender = signer.take(&1.into()).unwrap();
-            signer.request_confirmed(
-                sender,
-                Ok(ConfirmationResponse::SignTransaction(
-                    RichRawTransaction::from_signed(t.into()),
-                )),
-            );
-            break;
+    ::std::thread::spawn(move || {
+        loop {
+            if signer.requests().len() == 1 {
+                // respond
+                let sender = signer.take(&1.into()).unwrap();
+                signer.request_confirmed(
+                    sender,
+                    Ok(ConfirmationResponse::SignTransaction(
+                        RichRawTransaction::from_signed(t.into()),
+                    )),
+                );
+                break;
+            }
+            ::std::thread::sleep(Duration::from_millis(100))
         }
-        ::std::thread::sleep(Duration::from_millis(100))
     });
 
     let res = promise.wait().unwrap();
@@ -580,17 +588,19 @@ fn should_add_decryption_to_the_queue() {
 
     // the future must be polled at least once before request is queued.
     let signer = tester.signer.clone();
-    ::std::thread::spawn(move || loop {
-        if signer.requests().len() == 1 {
-            // respond
-            let sender = signer.take(&1.into()).unwrap();
-            signer.request_confirmed(
-                sender,
-                Ok(ConfirmationResponse::Decrypt(vec![0x1, 0x2].into())),
-            );
-            break;
+    ::std::thread::spawn(move || {
+        loop {
+            if signer.requests().len() == 1 {
+                // respond
+                let sender = signer.take(&1.into()).unwrap();
+                signer.request_confirmed(
+                    sender,
+                    Ok(ConfirmationResponse::Decrypt(vec![0x1, 0x2].into())),
+                );
+                break;
+            }
+            ::std::thread::sleep(Duration::from_millis(10))
         }
-        ::std::thread::sleep(Duration::from_millis(10))
     });
 
     // check response: will deadlock if unsuccessful.

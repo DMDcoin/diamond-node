@@ -806,7 +806,7 @@ impl<'a> Runtime<'a> {
 
 mod ext_impl {
 
-    use env::ids::*;
+    use crate::env::ids::*;
     use wasmi::{Externals, RuntimeArgs, RuntimeValue, Trap};
 
     macro_rules! void {

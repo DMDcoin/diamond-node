@@ -15,6 +15,11 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::helpers::*;
+use crate::{
+    SyncConfig,
+    io::{IoChannel, IoHandler},
+    types::transaction::{Action, PendingTransaction, Transaction, TypedTransaction},
+};
 use crypto::publickey::{KeyPair, Secret};
 use ethcore::{
     client::{ChainInfo, ClientIoMessage},
@@ -24,10 +29,7 @@ use ethcore::{
 };
 use ethereum_types::{Address, U256};
 use hash::keccak;
-use io::{IoChannel, IoHandler};
 use std::sync::Arc;
-use types::transaction::{Action, PendingTransaction, Transaction, TypedTransaction};
-use SyncConfig;
 
 fn new_tx(secret: &Secret, nonce: U256, chain_id: u64) -> PendingTransaction {
     let signed = TypedTransaction::Legacy(Transaction {

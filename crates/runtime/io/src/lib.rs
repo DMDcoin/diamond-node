@@ -76,7 +76,6 @@ extern crate log as rlog;
 extern crate crossbeam_deque as deque;
 extern crate fnv;
 extern crate futures;
-extern crate num_cpus;
 extern crate parking_lot;
 extern crate slab;
 extern crate time;
@@ -91,9 +90,9 @@ mod service_non_mio;
 mod worker;
 
 #[cfg(feature = "mio")]
-use mio::deprecated::{EventLoop, NotifyError};
-#[cfg(feature = "mio")]
 use mio::Token;
+#[cfg(feature = "mio")]
+use mio::deprecated::{EventLoop, NotifyError};
 use std::{cell::Cell, error, fmt};
 
 thread_local! {
@@ -202,16 +201,16 @@ where
 
 #[cfg(feature = "mio")]
 pub use service_mio::{
-    IoChannel, IoContext, IoManager, IoService, StreamToken, TimerToken, TOKENS_PER_HANDLER,
+    IoChannel, IoContext, IoManager, IoService, StreamToken, TOKENS_PER_HANDLER, TimerToken,
 };
 #[cfg(not(feature = "mio"))]
-pub use service_non_mio::{IoChannel, IoContext, IoService, TimerToken, TOKENS_PER_HANDLER};
+pub use service_non_mio::{IoChannel, IoContext, IoService, TOKENS_PER_HANDLER, TimerToken};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::{
-        sync::{atomic, Arc},
+        sync::{Arc, atomic},
         thread,
         time::Duration,
     };

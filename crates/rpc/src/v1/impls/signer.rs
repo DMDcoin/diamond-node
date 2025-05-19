@@ -18,27 +18,19 @@
 
 use std::sync::Arc;
 
+use crate::types::transaction::{PendingTransaction, SignedTransaction, TypedTransaction};
 use crypto::publickey;
 use ethereum_types::{H520, U256};
 use parity_runtime::Executor;
 use parking_lot::Mutex;
-use types::transaction::{PendingTransaction, SignedTransaction, TypedTransaction};
 
-use jsonrpc_core::{
-    futures::{future, future::Either, Future, IntoFuture},
-    BoxFuture, Error, Result,
-};
-use jsonrpc_pubsub::{
-    typed::{Sink, Subscriber},
-    SubscriptionId,
-};
-use v1::{
+use crate::v1::{
     helpers::{
+        ConfirmationPayload, FilledTransactionRequest, Subscribers,
         deprecated::{self, DeprecationNotice},
-        dispatch::{self, eth_data_hash, Dispatcher, WithToken},
+        dispatch::{self, Dispatcher, WithToken, eth_data_hash},
         errors,
         external_signer::{SignerService, SigningQueue},
-        ConfirmationPayload, FilledTransactionRequest, Subscribers,
     },
     metadata::Metadata,
     traits::Signer,
@@ -46,6 +38,14 @@ use v1::{
         Bytes, ConfirmationRequest, ConfirmationResponse, ConfirmationResponseWithToken,
         TransactionModification,
     },
+};
+use jsonrpc_core::{
+    BoxFuture, Error, Result,
+    futures::{Future, IntoFuture, future, future::Either},
+};
+use jsonrpc_pubsub::{
+    SubscriptionId,
+    typed::{Sink, Subscriber},
 };
 
 /// Transactions confirmation (personal) rpc implementation.

@@ -19,7 +19,7 @@
 pub extern crate futures;
 pub extern crate tokio;
 
-use futures::{future, Future, IntoFuture};
+use futures::{Future, IntoFuture, future};
 use std::{
     fmt,
     sync::mpsc,

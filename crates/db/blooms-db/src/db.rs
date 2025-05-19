@@ -21,7 +21,7 @@ use std::{
 
 use ethbloom;
 
-use file::{File, FileIterator};
+use crate::file::{File, FileIterator};
 
 fn other_io_err<E>(e: E) -> io::Error
 where

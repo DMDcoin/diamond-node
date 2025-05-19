@@ -21,23 +21,23 @@ use std::{
     sync::Arc,
 };
 
+use crate::types::filter::Filter as EthcoreFilter;
 use ethcore::{
     client::{BlockChainClient, BlockId},
     miner::{self, MinerService},
 };
 use ethereum_types::{H256, U256};
 use parking_lot::Mutex;
-use types::filter::Filter as EthcoreFilter;
 
-use jsonrpc_core::{
-    futures::{future, future::Either, Future},
-    BoxFuture, Result,
-};
-use v1::{
-    helpers::{errors, limit_logs, PollFilter, PollManager, SyncPollFilter},
+use crate::v1::{
+    helpers::{PollFilter, PollManager, SyncPollFilter, errors, limit_logs},
     impls::eth::pending_logs,
     traits::EthFilter,
     types::{BlockNumber, Filter, FilterChanges, Index, Log},
+};
+use jsonrpc_core::{
+    BoxFuture, Result,
+    futures::{Future, future, future::Either},
 };
 
 /// Something which provides data that can be filtered over.

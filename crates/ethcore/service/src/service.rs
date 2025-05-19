@@ -18,24 +18,26 @@
 
 use std::{path::Path, sync::Arc, time::Duration};
 
+use crate::{
+    io::{IoContext, IoError, IoHandler, IoService, TimerToken},
+    stop_guard::StopGuard,
+};
 use ansi_term::Colour;
-use io::{IoContext, IoError, IoHandler, IoService, TimerToken};
-use stop_guard::StopGuard;
 
-use blockchain::{BlockChainDB, BlockChainDBHandler};
+use crate::blockchain::{BlockChainDB, BlockChainDBHandler};
 use ethcore::{
     client::{ChainNotify, Client, ClientConfig, ClientIoMessage},
     error::{Error as EthcoreError, ErrorKind},
     exit::ShutdownManager,
     miner::Miner,
     snapshot::{
-        service::{Service as SnapshotService, ServiceParams as SnapServiceParams},
         Error as SnapshotError, RestorationStatus, SnapshotService as _SnapshotService,
+        service::{Service as SnapshotService, ServiceParams as SnapServiceParams},
     },
     spec::Spec,
 };
 
-use Error;
+use crate::Error;
 
 /// Client service setup. Creates and registers client and network services with the IO subsystem.
 pub struct ClientService {

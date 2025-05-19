@@ -19,14 +19,13 @@ use std::{
     collections::HashMap,
     mem,
     sync::{
-        atomic,
+        Arc, atomic,
         atomic::{AtomicBool, AtomicUsize},
-        Arc,
     },
 };
 
 use ethereum_types::{Address, U256};
-use futures::{future, future::Either, sync::oneshot, Async, Future, Poll};
+use futures::{Async, Future, Poll, future, future::Either, sync::oneshot};
 use parity_runtime::Executor;
 
 /// Manages currently reserved and prospective nonces

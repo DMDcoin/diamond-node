@@ -17,12 +17,14 @@
 //! A queue of blocks. Sits between network or other I/O and the `BlockChain`.
 //! Sorts them ready for blockchain insertion.
 
-use blockchain::BlockChain;
-use client::ClientIoMessage;
-use engines::EthEngine;
-use error::{BlockError, Error, ErrorKind, ImportErrorKind};
+use crate::{
+    blockchain::BlockChain,
+    client::ClientIoMessage,
+    engines::EthEngine,
+    error::{BlockError, Error, ErrorKind, ImportErrorKind},
+    io::*,
+};
 use ethereum_types::{H256, U256};
-use io::*;
 use len_caching_lock::LenCachingMutex;
 use parity_util_mem::{MallocSizeOf, MallocSizeOfExt};
 use parking_lot::{Condvar, Mutex, RwLock};
@@ -31,15 +33,15 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     iter::FromIterator,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering},
         Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering},
     },
     thread::{self, JoinHandle},
 };
 
 use self::kind::{BlockLike, Kind};
 
-pub use types::verification_queue_info::VerificationQueueInfo as QueueInfo;
+pub use crate::types::verification_queue_info::VerificationQueueInfo as QueueInfo;
 
 pub mod kind;
 
@@ -126,7 +128,7 @@ pub enum Status {
 
 impl Into<::types::block_status::BlockStatus> for Status {
     fn into(self) -> ::types::block_status::BlockStatus {
-        use types::block_status::BlockStatus;
+        use crate::types::block_status::BlockStatus;
         match self {
             Status::Queued => BlockStatus::Queued,
             Status::Bad => BlockStatus::Bad,
@@ -870,13 +872,15 @@ impl<K: Kind> Drop for VerificationQueue<K> {
 
 #[cfg(test)]
 mod tests {
-    use super::{kind::blocks::Unverified, BlockQueue, Config, State};
+    use super::{BlockQueue, Config, State, kind::blocks::Unverified};
+    use crate::{
+        error::*,
+        io::*,
+        spec::Spec,
+        test_helpers::{get_good_dummy_block, get_good_dummy_block_seq},
+        types::{BlockNumber, view, views::BlockView},
+    };
     use bytes::Bytes;
-    use error::*;
-    use io::*;
-    use spec::Spec;
-    use test_helpers::{get_good_dummy_block, get_good_dummy_block_seq};
-    use types::{view, views::BlockView, BlockNumber};
 
     // create a test block queue.
     // auto_scaling enables verifier adjustment.

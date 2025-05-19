@@ -66,26 +66,28 @@ use std::{
 };
 
 use super::signer::EngineSigner;
-use block::ExecutedBlock;
-use client::{traits::ForceUpdateSealing, BlockId, EngineClient};
-use crypto::publickey::Signature;
-use engines::{
-    clique::util::{extract_signers, recover_creator},
-    Engine, EngineError, Seal, SealingState,
+use crate::{
+    block::ExecutedBlock,
+    client::{BlockId, EngineClient, traits::ForceUpdateSealing},
+    engines::{
+        Engine, EngineError, Seal, SealingState,
+        clique::util::{extract_signers, recover_creator},
+    },
+    error::{BlockError, Error},
+    machine::{Call, EthereumMachine},
+    types::{
+        BlockNumber,
+        header::{ExtendedHeader, Header},
+    },
 };
-use error::{BlockError, Error};
-use ethereum_types::{Address, H160, H256, H64, U256};
+use crypto::publickey::Signature;
+use ethereum_types::{Address, H64, H160, H256, U256};
 use hash::KECCAK_EMPTY_LIST_RLP;
 use itertools::Itertools;
 use lru_cache::LruCache;
-use machine::{Call, EthereumMachine};
 use parking_lot::RwLock;
 use rand::Rng;
 use time_utils::CheckedSystemTime;
-use types::{
-    header::{ExtendedHeader, Header},
-    BlockNumber,
-};
 use unexpected::{Mismatch, OutOfBounds};
 
 use self::{block_state::CliqueBlockState, params::CliqueParams};
@@ -200,19 +202,21 @@ impl Clique {
 
         thread::Builder::new()
             .name("StepService".into())
-            .spawn(move || loop {
-                let next_step_at = Instant::now() + SEALING_FREQ;
-                trace!(target: "miner", "StepService: triggering sealing");
-                if let Some(eng) = weak_eng.upgrade() {
-                    eng.step()
-                } else {
-                    warn!(target: "shutdown", "StepService: engine is dropped; exiting.");
-                    break;
-                }
+            .spawn(move || {
+                loop {
+                    let next_step_at = Instant::now() + SEALING_FREQ;
+                    trace!(target: "miner", "StepService: triggering sealing");
+                    if let Some(eng) = weak_eng.upgrade() {
+                        eng.step()
+                    } else {
+                        warn!(target: "shutdown", "StepService: engine is dropped; exiting.");
+                        break;
+                    }
 
-                let now = Instant::now();
-                if now < next_step_at {
-                    thread::sleep(next_step_at - now);
+                    let now = Instant::now();
+                    if now < next_step_at {
+                        thread::sleep(next_step_at - now);
+                    }
                 }
             })?;
         Ok(engine)
@@ -223,7 +227,7 @@ impl Clique {
     /// Note we need to `mock` the miner and it is introduced to test block verification to trigger new blocks
     /// to mainly test consensus edge cases
     pub fn with_test(epoch_length: u64, period: u64) -> Self {
-        use spec::Spec;
+        use crate::spec::Spec;
 
         Self {
             epoch_length,
@@ -328,13 +332,14 @@ impl Clique {
                     .expect("chain has at least one element; qed")
                     .parent_hash();
 
-                let last_checkpoint_header =
-                    match c.block_header(BlockId::Hash(last_checkpoint_hash)) {
-                        None => {
-                            return Err(EngineError::CliqueMissingCheckpoint(last_checkpoint_hash))?
-                        }
-                        Some(header) => header.decode(self.machine.params().eip1559_transition)?,
-                    };
+                let last_checkpoint_header = match c
+                    .block_header(BlockId::Hash(last_checkpoint_hash))
+                {
+                    None => {
+                        return Err(EngineError::CliqueMissingCheckpoint(last_checkpoint_hash))?;
+                    }
+                    Some(header) => header.decode(self.machine.params().eip1559_transition)?,
+                };
 
                 let last_checkpoint_state = match block_state_by_hash.get_mut(&last_checkpoint_hash)
                 {

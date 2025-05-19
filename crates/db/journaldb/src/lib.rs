@@ -20,7 +20,7 @@
 extern crate log;
 
 extern crate ethcore_db;
-extern crate ethereum_types;
+use ethereum_types;
 extern crate fastmap;
 extern crate hash_db;
 extern crate keccak_hasher;

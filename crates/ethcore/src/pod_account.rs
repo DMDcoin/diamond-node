@@ -16,6 +16,7 @@
 
 //! Account system expressed in Plain Old Data.
 
+use crate::{state::Account, types::account_diff::*};
 use bytes::Bytes;
 use ethereum_types::{BigEndianHash, H256, U256};
 use ethjson;
@@ -28,11 +29,9 @@ use kvdb::DBValue;
 use rlp::{self, RlpStream};
 use rustc_hex::ToHex;
 use serde::Serializer;
-use state::Account;
 use std::{collections::BTreeMap, fmt};
 use trie::TrieFactory;
 use triehash::sec_trie_root;
-use types::account_diff::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 /// An account, expressed as Plain-Old-Data (hence the name).
@@ -216,10 +215,10 @@ pub fn diff_pod(pre: Option<&PodAccount>, post: Option<&PodAccount>) -> Option<A
 
 #[cfg(test)]
 mod test {
-    use super::{diff_pod, PodAccount};
+    use super::{PodAccount, diff_pod};
+    use crate::types::account_diff::*;
     use ethereum_types::H256;
     use std::collections::BTreeMap;
-    use types::account_diff::*;
 
     #[test]
     fn existence() {

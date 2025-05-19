@@ -25,7 +25,7 @@ rand = "0.7.3"
 rayon = "1.1"
 rlp = { version = "0.4.6" }
 rlp_compress = { path = "../../util/rlp-compress" }
-rlp_derive = { path = "../../util/rlp-derive" }
+rlp-derive = { version = "0.2" }
 triehash-ethereum = { version = "0.2",  path = "../../util/triehash-ethereum" }
 stats = { path = "../../util/stats" }
 

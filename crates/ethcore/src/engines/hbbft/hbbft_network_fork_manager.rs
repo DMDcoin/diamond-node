@@ -6,15 +6,15 @@ use std::{
 use ethereum_types::H512;
 use ethjson::spec::hbbft::HbbftNetworkFork;
 use hbbft::{
+    NetworkInfo,
     sync_key_gen::{Ack, AckOutcome, Part, PartOutcome, SyncKeyGen},
     util::max_faulty,
-    NetworkInfo,
 };
 use parking_lot::RwLock;
 
 use crate::engines::{
-    hbbft::contracts::keygen_history::{KeyPairWrapper, PublicWrapper},
     EngineSigner,
+    hbbft::contracts::keygen_history::{KeyPairWrapper, PublicWrapper},
 };
 
 use super::NodeId;
@@ -328,14 +328,18 @@ mod tests {
 
         let own_id = NodeId::default();
         fork_manager.initialize(own_id, 8, vec![test_fork]);
-        assert!(fork_manager
-            .should_fork(9, 1, signer_lock.clone())
-            .is_none());
+        assert!(
+            fork_manager
+                .should_fork(9, 1, signer_lock.clone())
+                .is_none()
+        );
         let fork = fork_manager.should_fork(10, 1, signer_lock.clone());
         assert!(fork.is_some());
         assert!(fork.unwrap().num_nodes() == 2);
-        assert!(fork_manager
-            .should_fork(11, 1, signer_lock.clone())
-            .is_none());
+        assert!(
+            fork_manager
+                .should_fork(11, 1, signer_lock.clone())
+                .is_none()
+        );
     }
 }

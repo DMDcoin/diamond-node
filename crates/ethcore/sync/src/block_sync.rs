@@ -15,8 +15,12 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 // use std::backtrace::Backtrace;
-use blocks::{BlockCollection, SyncBody, SyncHeader};
-use chain::BlockSet;
+use crate::{
+    blocks::{BlockCollection, SyncBody, SyncHeader},
+    chain::BlockSet,
+    sync_io::SyncIo,
+    types::BlockNumber,
+};
 use ethcore::{
     client::{BlockId, BlockStatus},
     error::{
@@ -25,15 +29,13 @@ use ethcore::{
     },
 };
 use ethereum_types::H256;
-use network::{client_version::ClientCapabilities, PeerId};
+use network::{PeerId, client_version::ClientCapabilities};
 use rlp::{self, Rlp};
 use std::cmp;
 ///
 /// Blockchain downloader
 ///
 use std::collections::{BTreeMap, HashSet, VecDeque};
-use sync_io::SyncIo;
-use types::BlockNumber;
 
 const MAX_HEADERS_TO_REQUEST: usize = 128;
 const MAX_BODIES_TO_REQUEST_LARGE: usize = 128;
@@ -377,7 +379,10 @@ impl BlockDownloader {
                             return Err(BlockDownloaderImportError::Invalid);
                         }
                         BlockSet::OldBlocks => {
-                            trace_sync!(self, "Expected some useful headers for downloading OldBlocks. Try a different peer");
+                            trace_sync!(
+                                self,
+                                "Expected some useful headers for downloading OldBlocks. Try a different peer"
+                            );
                             return Err(BlockDownloaderImportError::Useless);
                         }
                         _ => (),
@@ -567,7 +572,10 @@ impl BlockDownloader {
                     } else {
                         let n = start - cmp::min(self.retract_step, start);
                         if n == 0 {
-                            info!("Header not found, bottom line reached, resetting, last imported: {}", self.last_imported_hash);
+                            info!(
+                                "Header not found, bottom line reached, resetting, last imported: {}",
+                                self.last_imported_hash
+                            );
                             info!(target: "sync", "Header not found: start: {} best: {} retract_step: {}, last_imported_hash: {}, oldest_reorg: {}", start, best, self.retract_step, self.last_imported_hash, oldest_reorg);
                             self.reset_to_block(&best_hash, best);
                         } else {
@@ -797,17 +805,19 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        tests::{helpers::TestIo, snapshot::TestSnapshotService},
+        types::{
+            header::Header as BlockHeader,
+            transaction::{SignedTransaction, Transaction, TypedTransaction},
+        },
+    };
     use crypto::publickey::{Generator, Random};
     use ethcore::{client::TestBlockChainClient, spec::Spec};
     use hash::keccak;
     use parking_lot::RwLock;
-    use rlp::{encode_list, RlpStream};
-    use tests::{helpers::TestIo, snapshot::TestSnapshotService};
+    use rlp::{RlpStream, encode_list};
     use triehash_ethereum::ordered_trie_root;
-    use types::{
-        header::Header as BlockHeader,
-        transaction::{SignedTransaction, Transaction, TypedTransaction},
-    };
 
     fn dummy_header(number: u64, parent_hash: H256) -> BlockHeader {
         let mut header = BlockHeader::new();
@@ -1063,33 +1073,39 @@ mod tests {
         // Only import the first three block headers.
         let rlp_data = encode_list(&headers[0..3]);
         let headers_rlp = Rlp::new(&rlp_data);
-        assert!(downloader
-            .import_headers(&mut io, &headers_rlp, headers[0].hash(), eip1559_transition)
-            .is_ok());
+        assert!(
+            downloader
+                .import_headers(&mut io, &headers_rlp, headers[0].hash(), eip1559_transition)
+                .is_ok()
+        );
 
         // Import first body successfully.
         let mut rlp_data = RlpStream::new_list(1);
         rlp_data.append_raw(&bodies[0], 1);
         let bodies_rlp = Rlp::new(rlp_data.as_raw());
-        assert!(downloader
-            .import_bodies(
-                &bodies_rlp,
-                &[headers[0].hash(), headers[1].hash()],
-                eip1559_transition
-            )
-            .is_ok());
+        assert!(
+            downloader
+                .import_bodies(
+                    &bodies_rlp,
+                    &[headers[0].hash(), headers[1].hash()],
+                    eip1559_transition
+                )
+                .is_ok()
+        );
 
         // Import second body successfully.
         let mut rlp_data = RlpStream::new_list(1);
         rlp_data.append_raw(&bodies[1], 1);
         let bodies_rlp = Rlp::new(rlp_data.as_raw());
-        assert!(downloader
-            .import_bodies(
-                &bodies_rlp,
-                &[headers[0].hash(), headers[1].hash()],
-                eip1559_transition
-            )
-            .is_ok());
+        assert!(
+            downloader
+                .import_bodies(
+                    &bodies_rlp,
+                    &[headers[0].hash(), headers[1].hash()],
+                    eip1559_transition
+                )
+                .is_ok()
+        );
 
         // Import unexpected third body.
         let mut rlp_data = RlpStream::new_list(1);
@@ -1153,18 +1169,22 @@ mod tests {
         // Only import the first three block headers.
         let rlp_data = encode_list(&headers[0..3]);
         let headers_rlp = Rlp::new(&rlp_data);
-        assert!(downloader
-            .import_headers(&mut io, &headers_rlp, headers[0].hash(), eip1559_transition)
-            .is_ok());
+        assert!(
+            downloader
+                .import_headers(&mut io, &headers_rlp, headers[0].hash(), eip1559_transition)
+                .is_ok()
+        );
 
         // Import second and third receipts successfully.
         let mut rlp_data = RlpStream::new_list(2);
         rlp_data.append_raw(&receipts[1], 1);
         rlp_data.append_raw(&receipts[2], 1);
         let receipts_rlp = Rlp::new(rlp_data.as_raw());
-        assert!(downloader
-            .import_receipts(&receipts_rlp, &[headers[1].hash(), headers[2].hash()])
-            .is_ok());
+        assert!(
+            downloader
+                .import_receipts(&receipts_rlp, &[headers[1].hash(), headers[2].hash()])
+                .is_ok()
+        );
 
         // Import unexpected fourth receipt.
         let mut rlp_data = RlpStream::new_list(1);

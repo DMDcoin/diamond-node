@@ -4,6 +4,7 @@ name = "parity-rpc"
 version = "1.12.0"
 license = "GPL-3.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2024"
 
 [lib]
 
@@ -72,3 +73,4 @@ tempdir = "0.3.7"
 
 [features]
 accounts = ["ethcore-accounts"]
+test-helpers = []

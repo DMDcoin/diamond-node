@@ -14,19 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    handshake::Handshake,
+    io::{IoContext, StreamToken},
+};
 use bytes::{Buf, BufMut};
 use crypto::{
     aes::{AesCtr256, AesEcb256},
     publickey::Secret,
 };
 use ethereum_types::{H128, H256, H512};
-use handshake::Handshake;
 use hash::{keccak, write_keccak};
-use io::{IoContext, StreamToken};
 use mio::{
+    PollOpt, Ready, Token,
     deprecated::{EventLoop, Handler, TryRead, TryWrite},
     tcp::*,
-    PollOpt, Ready, Token,
 };
 use network::{Error, ErrorKind};
 use parity_bytes::*;
@@ -586,7 +588,7 @@ mod tests {
     };
 
     use super::*;
-    use io::*;
+    use crate::io::*;
     use mio::Ready;
     use parity_bytes::Bytes;
 

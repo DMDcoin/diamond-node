@@ -22,30 +22,32 @@ use std::{
     sync::Arc,
 };
 
-use ethereum_types::{Address, H256, U256};
-use types::{
+use crate::types::{
+    BlockNumber,
     header::Header,
     transaction::{
-        self, SignedTransaction, TypedTransaction, UnverifiedTransaction, SYSTEM_ADDRESS,
-        UNSIGNED_SENDER,
+        self, SYSTEM_ADDRESS, SignedTransaction, TypedTransaction, UNSIGNED_SENDER,
+        UnverifiedTransaction,
     },
-    BlockNumber,
 };
+use ethereum_types::{Address, H256, U256};
 use vm::{
     AccessList, ActionParams, ActionValue, CallType, CreateContractAddress, EnvInfo, ParamsType,
     Schedule,
 };
 
-use block::ExecutedBlock;
+use crate::{
+    block::ExecutedBlock,
+    client::BlockInfo,
+    error::Error,
+    executive::Executive,
+    spec::CommonParams,
+    state::{CleanupMode, Substate},
+    trace::{NoopTracer, NoopVMTracer},
+    tx_filter::TransactionFilter,
+};
 use builtin::Builtin;
 use call_contract::CallContract;
-use client::BlockInfo;
-use error::Error;
-use executive::Executive;
-use spec::CommonParams;
-use state::{CleanupMode, Substate};
-use trace::{NoopTracer, NoopVMTracer};
-use tx_filter::TransactionFilter;
 
 /// Ethash-specific extensions.
 #[derive(Debug, Clone)]
@@ -207,7 +209,7 @@ impl EthereumMachine {
 
         let res = ex
             .call(params, &mut substate, &mut NoopTracer, &mut NoopVMTracer)
-            .map_err(|e| ::engines::EngineError::FailedSystemCall(format!("{}", e)))?;
+            .map_err(|e| crate::engines::EngineError::FailedSystemCall(format!("{}", e)))?;
         let output = res.return_data.to_vec();
 
         Ok(output)
@@ -418,6 +420,7 @@ impl EthereumMachine {
     ) -> Result<(), transaction::Error> {
         if let Some(ref filter) = self.tx_filter.as_ref() {
             if !filter.transaction_allowed(&parent.hash(), parent.number() + 1, t, client) {
+                trace!(target: "txqueue", "transaction {} not allowed by filter", t.hash);
                 return Err(transaction::Error::NotAllowed.into());
             }
         }
@@ -451,10 +454,10 @@ impl EthereumMachine {
 
         match tx.tx_type() {
             transaction::TypedTxId::AccessList if !schedule.eip2930 => {
-                return Err(transaction::Error::TransactionTypeNotEnabled)
+                return Err(transaction::Error::TransactionTypeNotEnabled);
             }
             transaction::TypedTxId::EIP1559Transaction if !schedule.eip1559 => {
-                return Err(transaction::Error::TransactionTypeNotEnabled)
+                return Err(transaction::Error::TransactionTypeNotEnabled);
             }
             _ => (),
         };
@@ -597,7 +600,7 @@ mod tests {
         let rlp = "ea80843b9aca0083015f90948921ebb5f79e9e3920abe571004d0b1d5119c154865af3107a400080038080";
         let transaction: UnverifiedTransaction =
             TypedTransaction::decode(&::rustc_hex::FromHex::from_hex(rlp).unwrap()).unwrap();
-        let spec = ::ethereum::new_ropsten_test();
+        let spec = crate::ethereum::new_ropsten_test();
         let ethparams = get_default_ethash_extensions();
 
         let machine = EthereumMachine::with_ethash_extensions(

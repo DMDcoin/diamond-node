@@ -15,8 +15,8 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use serde::{
-    de::{Error, Visitor},
     Deserialize, Deserializer,
+    de::{Error, Visitor},
 };
 use std::fmt;
 

@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use crypto::publickey::{public_to_address, recover, Signature};
-use ethereum_types::{H256, U64};
-use hash::keccak;
-use jsonrpc_core::Result;
-use v1::{
+use crate::v1::{
     helpers::{dispatch::eth_data_hash, errors},
     types::{Bytes, RecoveredAccount},
 };
+use crypto::publickey::{Signature, public_to_address, recover};
+use ethereum_types::{H256, U64};
+use hash::keccak;
+use jsonrpc_core::Result;
 
 /// helper method for parity_verifySignature
 pub fn verify_signature(

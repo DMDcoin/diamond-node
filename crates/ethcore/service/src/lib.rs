@@ -19,7 +19,6 @@ extern crate ethcore;
 extern crate ethcore_blockchain as blockchain;
 extern crate ethcore_io as io;
 extern crate ethcore_sync as sync;
-extern crate ethereum_types;
 extern crate kvdb;
 
 #[macro_use]
@@ -41,5 +40,5 @@ mod stop_guard;
 #[cfg(test)]
 extern crate kvdb_rocksdb;
 
-pub use error::{Error, ErrorKind};
+pub use crate::error::{Error, ErrorKind};
 pub use service::ClientService;

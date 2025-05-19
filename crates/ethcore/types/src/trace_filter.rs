@@ -20,7 +20,7 @@ use crate::ids::BlockId;
 use ethereum_types::Address;
 use std::ops::Range;
 
-/// Easy to use trace filter.
+/// Easy to use crate::trace filter.
 pub struct Filter {
     /// Range of filtering.
     pub range: Range<BlockId>,

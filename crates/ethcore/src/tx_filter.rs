@@ -16,19 +16,24 @@
 
 //! Smart contract based transaction filter.
 
+use std::num::NonZeroUsize;
+
 use ethabi::FunctionOutputDecoder;
 use ethereum_types::{Address, H256, U256};
+use fastmap::{H256FastLruMap, new_h256_fast_lru_map};
 use lru_cache::LruCache;
 
+use crate::{
+    client::{BlockId, BlockInfo},
+    spec::CommonParams,
+    types::{
+        BlockNumber,
+        transaction::{Action, SignedTransaction},
+    },
+};
 use call_contract::CallContract;
-use client::{BlockId, BlockInfo};
 use hash::KECCAK_EMPTY;
 use parking_lot::Mutex;
-use spec::CommonParams;
-use types::{
-    transaction::{Action, SignedTransaction},
-    BlockNumber,
-};
 
 use_contract!(
     transact_acl_deprecated,
@@ -41,7 +46,7 @@ use_contract!(
 );
 use_contract!(transact_acl_1559, "res/contracts/tx_acl_1559.json");
 
-const MAX_CACHE_SIZE: usize = 4096;
+const MAX_CACHE_SIZE: usize = 40960;
 
 mod tx_permissions {
     pub const _ALL: u32 = 0xffffffff;
@@ -52,11 +57,54 @@ mod tx_permissions {
     pub const _PRIVATE: u32 = 0b00001000;
 }
 
+pub struct PermissionCache {
+    // permission cache is only valid for one block.
+    valid_block: H256,
+    cache: H256FastLruMap<u32>,
+}
+
+impl PermissionCache {
+    pub fn new(size: usize) -> Self {
+        PermissionCache {
+            cache: new_h256_fast_lru_map(NonZeroUsize::new(size).unwrap()),
+            valid_block: H256::zero(),
+        }
+    }
+
+    pub fn refresh(&mut self, current_block: &H256) {
+        if self.valid_block != *current_block {
+            self.cache.clear();
+            self.valid_block = current_block.clone();
+        }
+    }
+
+    pub fn insert(&mut self, tx_hash: H256, value: u32) {
+        self.cache.push(tx_hash, value);
+    }
+
+    pub fn get(&mut self, tx_hash: &H256) -> Option<u32> {
+        self.cache.get_mut(&tx_hash).cloned()
+    }
+
+    /// returns the block number for which the cache is valid.
+    pub fn get_valid_block(&self) -> &H256 {
+        return &self.valid_block;
+    }
+
+    // // we need a cheap method to get the key for the cache.
+    // fn calc_key(address: &Address, tx_hash: &H256) -> H256 {
+
+    //     // since both, address and tx_hash are already cryptographical products,
+    //     // we can calculate the X-Or out of them to get a H256 cryptographicaly unique identifier.
+    //     return H256::from_slice(address.as_bytes()) ^ *tx_hash;
+    // }
+}
+
 /// Connection filter that uses a contract to manage permissions.
 pub struct TransactionFilter {
     contract_address: Address,
     transition_block: BlockNumber,
-    permission_cache: Mutex<LruCache<(H256, Address), u32>>,
+    permission_cache: Mutex<PermissionCache>,
     contract_version_cache: Mutex<LruCache<H256, Option<U256>>>,
 }
 
@@ -68,7 +116,7 @@ impl TransactionFilter {
             .map(|address| TransactionFilter {
                 contract_address: address,
                 transition_block: params.transaction_permission_contract_transition,
-                permission_cache: Mutex::new(LruCache::new(MAX_CACHE_SIZE)),
+                permission_cache: Mutex::new(PermissionCache::new(MAX_CACHE_SIZE)),
                 contract_version_cache: Mutex::new(LruCache::new(MAX_CACHE_SIZE)),
             })
     }
@@ -85,8 +133,7 @@ impl TransactionFilter {
             return true;
         }
 
-        let mut permission_cache = self.permission_cache.lock();
-        let mut contract_version_cache = self.contract_version_cache.lock();
+        debug!(target: "tx_filter", "Checking transaction permission for tx: {}", transaction.hash);
 
         let (tx_type, to) = match transaction.tx().action {
             Action::Create => (tx_permissions::CREATE, Address::default()),
@@ -107,30 +154,40 @@ impl TransactionFilter {
         let gas_price = transaction.tx().gas_price;
         let max_priority_fee_per_gas = transaction.max_priority_fee_per_gas();
         let gas_limit = transaction.tx().gas;
-        let key = (*parent_hash, sender);
 
-        if let Some(permissions) = permission_cache.get_mut(&key) {
-            return *permissions & tx_type != 0;
+        // this scope is for holding the lock for the permission caches only for the time we need it.
+        {
+            let mut permission_cache = self.permission_cache.lock();
+            permission_cache.refresh(parent_hash);
+
+            if let Some(permissions) = permission_cache.get(&transaction.hash) {
+                return permissions & tx_type != 0;
+            }
         }
-
         let contract_address = self.contract_address;
-        let contract_version = contract_version_cache
-            .get_mut(parent_hash)
-            .and_then(|v| *v)
-            .or_else(|| {
-                let (data, decoder) = transact_acl::functions::contract_version::call();
-                decoder
-                    .decode(
-                        &client
-                            .call_contract(BlockId::Hash(*parent_hash), contract_address, data)
-                            .ok()?,
-                    )
-                    .ok()
-            });
-        contract_version_cache.insert(*parent_hash, contract_version);
+
+        let contract_version = {
+            let mut contract_version_cache = self.contract_version_cache.lock();
+
+            let v = contract_version_cache
+                .get_mut(parent_hash)
+                .and_then(|v| *v)
+                .or_else(|| {
+                    let (data, decoder) = transact_acl::functions::contract_version::call();
+                    decoder
+                        .decode(
+                            &client
+                                .call_contract(BlockId::Hash(*parent_hash), contract_address, data)
+                                .ok()?,
+                        )
+                        .ok()
+                });
+            contract_version_cache.insert(*parent_hash, v);
+            v
+        };
 
         // Check permissions in smart contract based on its version
-        let (permissions, filter_only_sender) = match contract_version {
+        let (permissions, _filter_only_sender) = match contract_version {
             Some(version) => {
                 let version_u64 = version.low_u64();
                 trace!(target: "tx_filter", "Version of tx permission contract: {}", version);
@@ -203,11 +260,20 @@ impl TransactionFilter {
             }
         };
 
-        if filter_only_sender {
-            permission_cache.insert((*parent_hash, sender), permissions);
+        {
+            let mut permission_cache = self.permission_cache.lock();
+
+            // it could be that cache got refreshed in the meantime by another thread.
+            if parent_hash == permission_cache.get_valid_block() {
+                // we can cache every transaciton.
+                permission_cache.insert(transaction.hash.clone(), permissions);
+            } else {
+                trace!(target: "tx_filter", "did not add tx [{}] to permission cache, because crate::block changed in the meantime.", transaction.hash);
+            }
         }
+
         trace!(target: "tx_filter", "Given transaction data: sender: {:?} to: {:?} value: {}, gas_price: {}. Permissions required: {:X}, got: {:X}", sender, to, value, gas_price, tx_type, permissions);
-        permissions & tx_type != 0
+        return permissions & tx_type != 0;
     }
 }
 
@@ -216,18 +282,20 @@ mod test {
     use crate::exit::ShutdownManager;
 
     use super::TransactionFilter;
-    use client::{BlockChainClient, BlockId, Client, ClientConfig};
+    use crate::{
+        client::{BlockChainClient, BlockId, Client, ClientConfig},
+        io::IoChannel,
+        miner::Miner,
+        spec::Spec,
+        test_helpers,
+        types::transaction::{
+            AccessListTx, Action, EIP1559TransactionTx, Transaction, TypedTransaction,
+        },
+    };
     use crypto::publickey::{KeyPair, Secret};
     use ethereum_types::{Address, U256};
-    use io::IoChannel;
-    use miner::Miner;
-    use spec::Spec;
     use std::{str::FromStr, sync::Arc};
     use tempdir::TempDir;
-    use test_helpers;
-    use types::transaction::{
-        AccessListTx, Action, EIP1559TransactionTx, Transaction, TypedTransaction,
-    };
 
     /// Contract code: https://gist.github.com/VladLupashevskyi/84f18eabb1e4afadf572cf92af3e7e7f
     #[test]
@@ -421,14 +489,16 @@ mod test {
             &*client
         ));
 
-        assert!(!filter.transaction_allowed(
-            &genesis,
-            block_number,
-            &basic_tx_with_ether_and_to_key7
-                .clone()
-                .sign(key5.secret(), None),
-            &*client
-        ));
+        assert!(
+            !filter.transaction_allowed(
+                &genesis,
+                block_number,
+                &basic_tx_with_ether_and_to_key7
+                    .clone()
+                    .sign(key5.secret(), None),
+                &*client
+            )
+        );
         assert!(!filter.transaction_allowed(
             &genesis,
             block_number,
@@ -441,28 +511,32 @@ mod test {
             &basic_tx.clone().sign(key6.secret(), None),
             &*client
         ));
-        assert!(filter.transaction_allowed(
-            &genesis,
-            block_number,
-            &basic_tx_with_ether_and_to_key7
-                .clone()
-                .sign(key6.secret(), None),
-            &*client
-        ));
+        assert!(
+            filter.transaction_allowed(
+                &genesis,
+                block_number,
+                &basic_tx_with_ether_and_to_key7
+                    .clone()
+                    .sign(key6.secret(), None),
+                &*client
+            )
+        );
         assert!(filter.transaction_allowed(
             &genesis,
             block_number,
             &basic_tx_to_key6.clone().sign(key7.secret(), None),
             &*client
         ));
-        assert!(!filter.transaction_allowed(
-            &genesis,
-            block_number,
-            &basic_tx_with_ether_and_to_key6
-                .clone()
-                .sign(key7.secret(), None),
-            &*client
-        ));
+        assert!(
+            !filter.transaction_allowed(
+                &genesis,
+                block_number,
+                &basic_tx_with_ether_and_to_key6
+                    .clone()
+                    .sign(key7.secret(), None),
+                &*client
+            )
+        );
     }
 
     /// Contract code: res/chainspec/test/contract_ver_3.sol

@@ -1,26 +1,28 @@
-use client::traits::EngineClient;
-use crypto::{self, publickey::Public};
-use engines::{
-    hbbft::{
-        contracts::validator_set::{get_validator_pubkeys, ValidatorType},
-        utils::bound_contract::{BoundContract, CallError},
-        NodeId,
+use crate::{
+    client::traits::EngineClient,
+    engines::{
+        hbbft::{
+            NodeId,
+            contracts::validator_set::{ValidatorType, get_validator_pubkeys},
+            utils::bound_contract::{BoundContract, CallError},
+        },
+        signer::EngineSigner,
     },
-    signer::EngineSigner,
+    types::ids::BlockId,
 };
+use crypto::{self, publickey::Public};
 use ethereum_types::{Address, H512, U256};
 use hbbft::{
+    NetworkInfo,
     crypto::{PublicKeySet, SecretKeyShare},
     sync_key_gen::{
         Ack, AckOutcome, Error, Part, PartOutcome, PubKeyMap, PublicKey, SecretKey, SyncKeyGen,
     },
     util::max_faulty,
-    NetworkInfo,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
-use types::ids::BlockId;
 
 use_contract!(
     key_history_contract,
@@ -266,8 +268,8 @@ pub fn initialize_synckeygen(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engines::signer::{EngineSigner, from_keypair};
     use crypto::publickey::{KeyPair, Secret};
-    use engines::signer::{from_keypair, EngineSigner};
     use std::{collections::BTreeMap, sync::Arc};
 
     #[test]

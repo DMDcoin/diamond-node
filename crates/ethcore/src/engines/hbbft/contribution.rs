@@ -1,7 +1,7 @@
-use rand::{self, distributions::Standard, Rng};
+use crate::types::transaction::SignedTransaction;
+use rand::{self, Rng, distributions::Standard};
 use rlp::RlpStream;
 use std::time::UNIX_EPOCH;
-use types::transaction::SignedTransaction;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Serialize, Deserialize)]
 pub(crate) struct Contribution {
@@ -56,10 +56,12 @@ impl Contribution {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        engines::hbbft::test::create_transactions::create_transaction,
+        types::transaction::{SignedTransaction, TypedTransaction},
+    };
     use crypto::publickey::{Generator, Random};
-    use engines::hbbft::test::create_transactions::create_transaction;
     use ethereum_types::U256;
-    use types::transaction::{SignedTransaction, TypedTransaction};
 
     #[test]
     fn test_contribution_serialization() {

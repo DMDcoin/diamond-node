@@ -38,8 +38,8 @@ use std::{
     iter::{self, FromIterator},
     ops::Deref,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering as AtomicOrdering},
         Arc, Weak,
+        atomic::{AtomicBool, AtomicU64, Ordering as AtomicOrdering},
     },
     time::{Duration, UNIX_EPOCH},
     u64,
@@ -47,42 +47,45 @@ use std::{
 
 use self::finality::RollingFinality;
 use super::{
-    signer::EngineSigner,
-    validator_set::{new_validator_set_posdao, SimpleList, ValidatorSet},
     EthEngine,
+    signer::EngineSigner,
+    validator_set::{SimpleList, ValidatorSet, new_validator_set_posdao},
 };
-use block::*;
+use crate::{
+    block::*,
+    client::{
+        EngineClient,
+        traits::{ForceUpdateSealing, TransactionRequest},
+    },
+    engines::{
+        ConstructedVerifier, Engine, EngineError, Seal, SealingState, block_reward,
+        block_reward::{BlockRewardContract, RewardKind},
+    },
+    error::{BlockError, Error, ErrorKind},
+};
 use bytes::Bytes;
-use client::{
-    traits::{ForceUpdateSealing, TransactionRequest},
-    EngineClient,
-};
 use crypto::publickey::{self, Signature};
-use engines::{
-    block_reward,
-    block_reward::{BlockRewardContract, RewardKind},
-    ConstructedVerifier, Engine, EngineError, Seal, SealingState,
-};
-use error::{BlockError, Error, ErrorKind};
 use ethereum_types::{Address, H256, H512, H520, U128, U256};
 
+use crate::{
+    io::{IoContext, IoHandler, IoService, TimerToken},
+    machine::{AuxiliaryData, Call, EthereumMachine},
+    types::{
+        BlockNumber,
+        ancestry_action::AncestryAction,
+        header::{ExtendedHeader, Header},
+        ids::BlockId,
+        transaction::SignedTransaction,
+    },
+};
 use ethjson::{self, uint::Uint};
 use hash::keccak;
-use io::{IoContext, IoHandler, IoService, TimerToken};
 use itertools::{self, Itertools};
 use lru_cache::LruCache;
-use machine::{AuxiliaryData, Call, EthereumMachine};
 use parking_lot::{Mutex, RwLock};
 use rand::rngs::OsRng;
-use rlp::{encode, Decodable, DecoderError, Encodable, Rlp, RlpStream};
+use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream, encode};
 use time_utils::CheckedSystemTime;
-use types::{
-    ancestry_action::AncestryAction,
-    header::{ExtendedHeader, Header},
-    ids::BlockId,
-    transaction::SignedTransaction,
-    BlockNumber,
-};
 use unexpected::{Mismatch, OutOfBounds};
 
 //mod block_gas_limit as crate_block_gas_limit;
@@ -1737,7 +1740,9 @@ impl Engine<EthereumMachine> for AuthorityRound {
             // this is guarded against by `can_propose` unless the block was signed
             // on the same step (implies same key) and on a different node.
             if parent_step == step {
-                warn!("Attempted to seal block on the same step as parent. Is this authority sealing with more than one node?");
+                warn!(
+                    "Attempted to seal block on the same step as parent. Is this authority sealing with more than one node?"
+                );
                 return Seal::None;
             }
 
@@ -1879,7 +1884,7 @@ impl Engine<EthereumMachine> for AuthorityRound {
                 };
 
                 let parent = client
-                    .block_header(::client::BlockId::Hash(*block.header.parent_hash()))
+                    .block_header(crate::client::BlockId::Hash(*block.header.parent_hash()))
                     .expect("hash is from parent; parent header must exist; qed")
                     .decode(self.params().eip1559_transition)?;
 
@@ -2312,7 +2317,7 @@ impl Engine<EthereumMachine> for AuthorityRound {
         if self.immediate_transitions {
             None
         } else {
-            Some(Box::new(::snapshot::PoaSnapshot))
+            Some(Box::new(crate::snapshot::PoaSnapshot))
         }
     }
 
@@ -2382,42 +2387,44 @@ fn next_step_time_duration(info: StepDurationInfo, time: u64) -> Option<(u64, u6
 #[cfg(test)]
 mod tests {
     use super::{
-        calculate_score, next_step_time_duration, util::BoundContract, AuthorityRound,
-        AuthorityRoundParams, EmptyStep, SealedEmptyStep, StepDurationInfo,
+        AuthorityRound, AuthorityRoundParams, EmptyStep, SealedEmptyStep, StepDurationInfo,
+        calculate_score, next_step_time_duration, util::BoundContract,
+    };
+    use crate::{
+        block::*,
+        engines::{
+            Engine, EngineError, EngineSigner, EthEngine, Seal,
+            block_reward::BlockRewardContract,
+            validator_set::{SimpleList, TestSet},
+        },
+        error::{Error, ErrorKind},
+        miner::{Author, MinerService},
+        spec::Spec,
+        test_helpers::{
+            TestNotify, generate_dummy_client_with_spec, generate_dummy_client_with_spec_and_data,
+            get_temp_state_db, push_block_with_transactions_and_author,
+        },
+        types::{
+            header::Header,
+            ids::BlockId,
+            transaction::{Action, Transaction, TypedTransaction},
+        },
     };
     use accounts::AccountProvider;
-    use block::*;
     use crypto::publickey::Signature;
-    use engines::{
-        block_reward::BlockRewardContract,
-        validator_set::{SimpleList, TestSet},
-        Engine, EngineError, EngineSigner, EthEngine, Seal,
-    };
-    use error::{Error, ErrorKind};
     use ethabi_contract::use_contract;
     use ethereum_types::{Address, H256, H520, U256};
     use ethjson;
     use hash::keccak;
-    use miner::{Author, MinerService};
     use rlp::encode;
-    use spec::Spec;
     use std::{
         collections::BTreeMap,
         str::FromStr,
         sync::{
-            atomic::{AtomicU64, AtomicUsize, Ordering as AtomicOrdering},
             Arc,
+            atomic::{AtomicU64, AtomicUsize, Ordering as AtomicOrdering},
         },
         time::Duration,
-    };
-    use test_helpers::{
-        generate_dummy_client_with_spec, generate_dummy_client_with_spec_and_data,
-        get_temp_state_db, push_block_with_transactions_and_author, TestNotify,
-    };
-    use types::{
-        header::Header,
-        ids::BlockId,
-        transaction::{Action, Transaction, TypedTransaction},
     };
 
     fn aura<F>(f: F) -> Arc<AuthorityRound>
@@ -2449,9 +2456,9 @@ mod tests {
         f(&mut params);
 
         // create engine
-        let mut c_params = ::spec::CommonParams::default();
+        let mut c_params = crate::spec::CommonParams::default();
         c_params.gas_limit_bound_divisor = 5.into();
-        let machine = ::machine::EthereumMachine::regular(c_params, Default::default());
+        let machine = crate::machine::EthereumMachine::regular(c_params, Default::default());
         AuthorityRound::new(params, machine).unwrap()
     }
 
@@ -3489,16 +3496,18 @@ mod tests {
         engine.step();
         assert!(bc.call_const(rand_contract::functions::is_reveal_phase::call())?);
         assert!(!bc.call_const(rand_contract::functions::sent_reveal::call(0, addr1))?);
-        assert!(bc
-            .call_const(rand_contract::functions::get_value::call())?
-            .is_zero());
+        assert!(
+            bc.call_const(rand_contract::functions::get_value::call())?
+                .is_zero()
+        );
 
         // ...so in the next step, we reveal our random value, and the contract's random value is not zero anymore.
         engine.step();
         assert!(bc.call_const(rand_contract::functions::sent_reveal::call(0, addr1))?);
-        assert!(!bc
-            .call_const(rand_contract::functions::get_value::call())?
-            .is_zero());
+        assert!(
+            !bc.call_const(rand_contract::functions::get_value::call())?
+                .is_zero()
+        );
         Ok(())
     }
 
@@ -3730,7 +3739,7 @@ mod tests {
 
     #[test]
     fn should_rewrite_bytecode_according_to_transitions() {
-        use state::StateInfo;
+        use crate::state::StateInfo;
 
         let tap = Arc::new(AccountProvider::transient_provider());
         let addr1 = tap.insert_account(keccak("1").into(), &"1".into()).unwrap();

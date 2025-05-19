@@ -16,14 +16,15 @@
 
 //! VM runner.
 
+use crate::types::transaction;
 use ethcore::{
+    TrieSpec,
     client::{self, EvmTestClient, EvmTestError, TransactErr, TransactSuccess},
-    pod_state, spec, state, state_db, trace, TrieSpec,
+    pod_state, spec, state, state_db, trace,
 };
 use ethereum_types::{H256, U256};
 use ethjson;
 use std::time::{Duration, Instant};
-use types::transaction;
 use vm::ActionParams;
 
 /// VM execution informant
@@ -288,7 +289,7 @@ pub mod tests {
 
     #[test]
     fn should_call_account_from_spec() {
-        use display::{config::Config, std_json::tests::informant};
+        use crate::display::{config::Config, std_json::tests::informant};
 
         let (inf, res) = informant(Config::default());
         let mut params = ActionParams::default();
