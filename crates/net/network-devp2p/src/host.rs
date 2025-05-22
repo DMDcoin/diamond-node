@@ -1039,12 +1039,22 @@ impl Host {
 
             let handlers = self.handlers.read();
             if !ready_data.is_empty() {
-                let duplicate = self.sessions.read().iter().any(|e| {
-                    let session = e.lock();
-                    session.token() != token && session.info.id == ready_id
-                });
-                if duplicate {
-                    trace!(target: "network", "Rejected duplicate connection: {}", token);
+                let duplicates: Vec<usize> = self
+                    .sessions
+                    .read()
+                    .iter()
+                    .filter_map(|e| {
+                        let session = e.lock();
+                        if session.token() != token && session.info.id == ready_id {
+                            return Some(session.token());
+                        } else {
+                            return None;
+                        }
+                    })
+                    .collect();
+
+                if duplicates.len() > 0 {
+                    trace!(target: "network", "Rejected duplicate connection for {:?}: token: {} other connections: {:?}", ready_id, token, duplicates);
                     session
                         .lock()
                         .disconnect(io, DisconnectReason::DuplicatePeer);
@@ -1321,7 +1331,10 @@ impl IoHandler<NetworkIoMessage> for Host {
         }
         match token {
             IDLE => self.maintain_network(io),
-            FIRST_SESSION..=LAST_SESSION => self.connection_timeout(token, io),
+            FIRST_SESSION..=LAST_SESSION => {
+                trace!(target: "network", "Timeout from Host impl: {}", token);
+                self.connection_timeout(token, io);
+            }
             DISCOVERY_REFRESH => {
                 // Run the _slow_ discovery if enough peers are connected
                 if !self.has_enough_peers() {

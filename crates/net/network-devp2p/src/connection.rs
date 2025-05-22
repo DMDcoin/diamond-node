@@ -43,12 +43,12 @@ use std::{
 use tiny_keccak::Keccak;
 
 const ENCRYPTED_HEADER_LEN: usize = 32;
-const RECEIVE_PAYLOAD: Duration = Duration::from_secs(30);
-pub const MAX_PAYLOAD_SIZE: usize = (1 << 24) - 1;
+const RECEIVE_PAYLOAD: Duration = Duration::from_secs(600);
+pub const MAX_PAYLOAD_SIZE: usize = (1 << 28) - 1;
 
 /// Network responses should try not to go over this limit.
 /// This should be lower than MAX_PAYLOAD_SIZE
-pub const PAYLOAD_SOFT_LIMIT: usize = (1 << 22) - 1;
+pub const PAYLOAD_SOFT_LIMIT: usize = (1 << 26) - 1;
 
 pub trait GenericSocket: Read + Write {}
 

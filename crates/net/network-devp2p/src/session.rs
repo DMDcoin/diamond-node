@@ -318,6 +318,7 @@ impl Session {
             bail!(ErrorKind::BadProtocol);
         }
         if self.expired() {
+            debug!(target: "network", "Unable to send to expired session");
             return Err(ErrorKind::Expired.into());
         }
         let mut i = 0usize;

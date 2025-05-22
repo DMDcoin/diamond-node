@@ -23,6 +23,7 @@ pub const PAYLOAD_SOFT_LIMIT: usize = 100_000;
 
 use crate::types::{BlockNumber, ids::BlockId};
 use enum_primitive::FromPrimitive;
+use ethcore::trace;
 use ethereum_types::{H256, H512};
 use network::{self, PeerId};
 use parking_lot::RwLock;
@@ -252,7 +253,11 @@ impl SyncSupplier {
                     }
                     number
                 }
-                None => return Ok(Some((BlockHeadersPacket, RlpStream::new_list(0)))), //no such header, return nothing
+                None => {
+                    trace!(target: "sync", "{} -> GetBlockHeaders: no such header {}", peer_id, hash);
+                    //no such header, return nothing
+                    return Ok(Some((BlockHeadersPacket, RlpStream::new_list(0))));
+                }
             }
         } else {
             let number = r.val_at::<BlockNumber>(0)?;

@@ -610,6 +610,7 @@ impl BlockDownloader {
                 self.retract_step = 1;
             }
         }
+
         self.last_round_start = self.last_imported_block;
         self.last_round_start_hash = self.last_imported_hash;
         self.imported_this_round = None;
@@ -644,21 +645,21 @@ impl BlockDownloader {
             }
             State::Blocks => {
                 // check to see if we need to download any block bodies first
-                let client_version = io.peer_version(peer_id);
 
-                let number_of_bodies_to_request = if client_version.can_handle_large_requests() {
-                    MAX_BODIES_TO_REQUEST_LARGE
-                } else {
-                    MAX_BODIES_TO_REQUEST_SMALL
-                };
+                // let number_of_bodies_to_request = if client_version.can_handle_large_requests() {
+                //     MAX_BODIES_TO_REQUEST_LARGE
+                // } else {
+                //     MAX_BODIES_TO_REQUEST_SMALL
+                // };
+
+                let number_of_bodies_to_request = 1;
 
                 let needed_bodies = self
                     .blocks
                     .needed_bodies(number_of_bodies_to_request, false);
 
-                trace!(target: "sync", "Downloading blocks from Peer {} sync with better chain. needed Bodies: {}, download receipts: {}", peer_id, needed_bodies.len(),self.download_receipts);
-
                 if !needed_bodies.is_empty() {
+                    trace!(target: "sync", "Downloading blocks from PeerID {} : {}. needed Bodies: {}, download receipts: {}, first body: {}", peer_id, io.peer_session_info(peer_id).map_or("unknown".to_string(), |p| p.remote_address.clone()), needed_bodies.len(),self.download_receipts, needed_bodies[0]);
                     return Some(BlockRequest::Bodies {
                         hashes: needed_bodies,
                     });
@@ -668,6 +669,7 @@ impl BlockDownloader {
                     let needed_receipts =
                         self.blocks.needed_receipts(MAX_RECEPITS_TO_REQUEST, false);
                     if !needed_receipts.is_empty() {
+                        trace!(target: "sync", "Downloading receipts from Peer {}. needed receipts: {}, first receipt: {}", peer_id, needed_receipts.len(), needed_receipts[0]);
                         return Some(BlockRequest::Receipts {
                             hashes: needed_receipts,
                         });

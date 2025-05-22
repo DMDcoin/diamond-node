@@ -964,7 +964,7 @@ impl ChainSync {
                     }
                     Err(unknown_tx) => {
                         // punish peer?
-                        warn!(target: "sync", "Peer {} sent unknown transaction {}", peer_id, unknown_tx);
+                        debug!(target: "sync", "Peer {} sent unknown transaction {}", peer_id, unknown_tx);
                     }
                 }
 
