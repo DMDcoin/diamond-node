@@ -16,12 +16,12 @@
 
 //! `TransactionRequest` type
 
-use ansi_term::Colour;
-use ethereum_types::{H160, U256, U64};
-use v1::{
+use crate::v1::{
     helpers,
     types::{AccessList, Bytes, TransactionCondition},
 };
+use ansi_term::Colour;
+use ethereum_types::{H160, U64, U256};
 
 use std::fmt;
 
@@ -167,11 +167,11 @@ impl Into<helpers::TransactionRequest> for TransactionRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::v1::types::TransactionCondition;
     use ethereum_types::{H160, U256};
     use rustc_hex::FromHex;
     use serde_json;
     use std::str::FromStr;
-    use v1::types::TransactionCondition;
 
     #[test]
     fn transaction_request_deserialize() {

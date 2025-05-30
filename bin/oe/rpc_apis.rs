@@ -33,9 +33,9 @@ use ethcore_logger::RotatingLogger;
 use fetch::Client as FetchClient;
 use jsonrpc_core::{self as core, MetaIoHandler};
 use parity_rpc::{
+    Host, Metadata, NetworkSettings,
     dispatch::FullDispatcher,
     informant::{ActivityNotifier, ClientNotifier},
-    Host, Metadata, NetworkSettings,
 };
 use parity_runtime::Executor;
 use parking_lot::Mutex;
@@ -99,9 +99,10 @@ impl FromStr for Api {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum ApiSet {
     // Unsafe context (like jsonrpc over http)
+    #[default]
     UnsafeContext,
     // All possible APIs (safe context like token-protected WS interface)
     All,
@@ -111,12 +112,6 @@ pub enum ApiSet {
     PubSub,
     // Fixed list of APis
     List(HashSet<Api>),
-}
-
-impl Default for ApiSet {
-    fn default() -> Self {
-        ApiSet::UnsafeContext
-    }
 }
 
 impl PartialEq for ApiSet {
@@ -219,6 +214,7 @@ pub struct FullDependencies {
     pub client: Arc<Client>,
     pub snapshot: Arc<dyn SnapshotService>,
     pub sync: Arc<dyn SyncProvider>,
+    #[allow(dead_code)]
     pub net: Arc<dyn ManageNetwork>,
     pub accounts: Arc<AccountProvider>,
     pub miner: Arc<Miner>,
@@ -265,7 +261,7 @@ impl FullDependencies {
                     handler.extend_with(DebugClient::new(self.client.clone()).to_delegate());
                 }
                 Api::Web3 => {
-                    handler.extend_with(Web3Client::default().to_delegate());
+                    handler.extend_with(Web3Client.to_delegate());
                 }
                 Api::Net => {
                     handler.extend_with(NetClient::new(&self.sync).to_delegate());
@@ -411,7 +407,7 @@ impl FullDependencies {
                 }
                 Api::Traces => handler.extend_with(TracesClient::new(&self.client).to_delegate()),
                 Api::Rpc => {
-                    let modules = to_modules(&apis);
+                    let modules = to_modules(apis);
                     handler.extend_with(RpcClient::new(modules).to_delegate());
                 }
                 Api::SecretStore => {

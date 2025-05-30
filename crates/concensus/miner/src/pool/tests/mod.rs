@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::types::transaction::{self, PendingTransaction};
 use ethereum_types::U256;
 use hash::KECCAK_EMPTY;
 use txpool;
-use types::transaction::{self, PendingTransaction};
 
-use pool::{
+use crate::pool::{
     transaction_filter::TransactionFilter, verifier, PendingOrdering, PendingSettings,
     PrioritizationStrategy, TransactionQueue,
 };

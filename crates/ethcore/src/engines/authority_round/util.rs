@@ -20,12 +20,14 @@
 
 use std::fmt;
 
-use client::{traits::EngineClient, BlockChainClient};
+use crate::{
+    client::{BlockChainClient, traits::EngineClient},
+    types::{header::Header, ids::BlockId},
+};
 use ethabi::{self, FunctionOutputDecoder};
 use ethabi_contract::use_contract;
 use ethereum_types::{Address, U256};
 use log::{debug, error};
-use types::{header::Header, ids::BlockId};
 
 /// A contract bound to a client and block number.
 ///
@@ -42,8 +44,10 @@ pub struct BoundContract<'a> {
 #[derive(Debug)]
 pub enum CallError {
     /// The call itself failed.
+    #[allow(dead_code)]
     CallFailed(String),
     /// Decoding the return value failed or the decoded value was a failure.
+    #[allow(dead_code)]
     DecodeFailed(ethabi::Error),
     /// The passed in client reference could not be upgraded to a `BlockchainClient`.
     NotFullClient,

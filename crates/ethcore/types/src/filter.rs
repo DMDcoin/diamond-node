@@ -67,17 +67,17 @@ impl Clone for Filter {
 impl Filter {
     /// Returns combinations of each address and topic.
     pub fn bloom_possibilities(&self) -> Vec<Bloom> {
-        let blooms = match self.address {
-            Some(ref addresses) if !addresses.is_empty() => addresses
+        let blooms = match &self.address {
+            Some(addresses) if !addresses.is_empty() => addresses
                 .iter()
-                .map(|ref address| Bloom::from(BloomInput::Raw(address.as_bytes())))
+                .map(|address| Bloom::from(BloomInput::Raw(address.as_bytes())))
                 .collect(),
             _ => vec![Bloom::default()],
         };
 
-        self.topics.iter().fold(blooms, |bs, topic| match *topic {
+        self.topics.iter().fold(blooms, |bs, topic| match topic {
             None => bs,
-            Some(ref topics) => bs
+            Some(topics) => bs
                 .into_iter()
                 .flat_map(|bloom| {
                     topics

@@ -18,14 +18,16 @@
 
 use std::fmt;
 
+use crate::{
+    types::{blockchain_info::BlockChainInfo, transaction::Error as TransactionError},
+    v1::{impls::EthClientOptions, types::BlockNumber},
+};
 use ethcore::{
     client::{BlockChainClient, BlockId},
     error::{CallError, Error as EthcoreError, ErrorKind},
 };
 use jsonrpc_core::{Error, ErrorCode, Result as RpcResult, Value};
 use rlp::DecoderError;
-use types::{blockchain_info::BlockChainInfo, transaction::Error as TransactionError};
-use v1::{impls::EthClientOptions, types::BlockNumber};
 use vm::Error as VMError;
 
 mod codes {
@@ -532,10 +534,16 @@ pub fn require_experimental(allow_experimental_rpcs: bool, eip: &str) -> Result<
         Ok(())
     } else {
         Err(Error {
-			code: ErrorCode::ServerError(codes::EXPERIMENTAL_RPC),
-			message: format!("This method is not part of the official RPC API yet (EIP-{}). Run with `--jsonrpc-experimental` to enable it.", eip),
-			data: Some(Value::String(format!("See EIP: https://eips.ethereum.org/EIPS/eip-{}", eip))),
-		})
+            code: ErrorCode::ServerError(codes::EXPERIMENTAL_RPC),
+            message: format!(
+                "This method is not part of the official RPC API yet (EIP-{}). Run with `--jsonrpc-experimental` to enable it.",
+                eip
+            ),
+            data: Some(Value::String(format!(
+                "See EIP: https://eips.ethereum.org/EIPS/eip-{}",
+                eip
+            ))),
+        })
     }
 }
 

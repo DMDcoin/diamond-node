@@ -21,27 +21,26 @@ use devp2p::PAYLOAD_SOFT_LIMIT;
 #[cfg(test)]
 pub const PAYLOAD_SOFT_LIMIT: usize = 100_000;
 
+use crate::types::{BlockNumber, ids::BlockId};
 use enum_primitive::FromPrimitive;
-use ethcore::trace;
 use ethereum_types::{H256, H512};
 use network::{self, PeerId};
 use parking_lot::RwLock;
 use rlp::{Rlp, RlpStream};
 use std::cmp;
-use types::{ids::BlockId, BlockNumber};
 
-use sync_io::SyncIo;
+use crate::sync_io::SyncIo;
 
 use super::{
-    request_id::{prepend_request_id, strip_request_id, RequestId},
+    request_id::{RequestId, prepend_request_id, strip_request_id},
     sync_packet::{PacketInfo, SyncPacket, SyncPacket::*},
 };
 
 use super::{
-    ChainSync, PacketProcessError, RlpResponseResult, SyncHandler, MAX_BODIES_TO_SEND,
-    MAX_HEADERS_TO_SEND, MAX_RECEIPTS_HEADERS_TO_SEND,
+    ChainSync, MAX_BODIES_TO_SEND, MAX_HEADERS_TO_SEND, MAX_RECEIPTS_HEADERS_TO_SEND,
+    PacketProcessError, RlpResponseResult, SyncHandler,
 };
-use chain::MAX_NODE_DATA_TO_SEND;
+use crate::chain::MAX_NODE_DATA_TO_SEND;
 use std::borrow::Borrow;
 
 /// The Chain Sync Supplier: answers requests from peers with available data
@@ -315,20 +314,28 @@ impl SyncSupplier {
         let mut added = 0;
         let mut rlp = RlpStream::new();
         rlp.begin_unbounded_list();
+        let mut not_found = 0;
+        let mut parse_errors = 0;
         for v in r {
             if let Ok(hash) = v.as_val::<H256>() {
+                // io.chain().transaction(hash)
+
                 if let Some(tx) = io.chain().queued_transaction(hash) {
                     tx.signed().rlp_append(&mut rlp);
                     added += 1;
                     if rlp.len() > PAYLOAD_SOFT_LIMIT {
                         break;
                     }
+                } else {
+                    not_found += 1;
                 }
+            } else {
+                parse_errors += 1;
             }
         }
         rlp.finalize_unbounded_list();
 
-        trace!(target: "sync", "{} -> GetPooledTransactions: returned {} entries", peer_id, added);
+        debug!(target: "sync", "{} -> GetPooledTransactions: returned {} entries. Not found: {}. parse errors: {}", peer_id, added, not_found, parse_errors);
         Ok(Some((PooledTransactionsPacket, rlp)))
     }
 
@@ -508,7 +515,10 @@ impl SyncSupplier {
 #[cfg(test)]
 mod test {
     use super::{super::tests::*, *};
-    use blocks::SyncHeader;
+    use crate::{
+        blocks::SyncHeader,
+        tests::{helpers::TestIo, snapshot::TestSnapshotService},
+    };
     use bytes::Bytes;
     use ethcore::{
         client::{BlockChainClient, EachBlockWith, TestBlockChainClient},
@@ -518,7 +528,6 @@ mod test {
     use parking_lot::RwLock;
     use rlp::{Rlp, RlpStream};
     use std::{collections::VecDeque, str::FromStr};
-    use tests::{helpers::TestIo, snapshot::TestSnapshotService};
 
     #[test]
     fn return_block_headers() {
@@ -540,7 +549,7 @@ mod test {
             rlp.out()
         }
         fn to_header_vec(
-            rlp: ::chain::RlpResponseResult,
+            rlp: crate::chain::RlpResponseResult,
             eip1559_transition: BlockNumber,
         ) -> Vec<SyncHeader> {
             Rlp::new(&rlp.unwrap().unwrap().1.out())

@@ -21,32 +21,34 @@ use std::{
     sync::Arc,
 };
 
+use crate::{
+    miner::pool::{
+        QueueStatus, VerifiedTransaction, local_transactions::Status as LocalTransactionStatus,
+        verifier,
+    },
+    types::{
+        BlockNumber,
+        block::Block,
+        header::Header,
+        ids::BlockId,
+        receipt::RichReceipt,
+        transaction::{self, PendingTransaction, SignedTransaction, UnverifiedTransaction},
+    },
+};
 use bytes::Bytes;
 use call_contract::CallContract;
 use ethcore::{
     block::SealedBlock,
     client::{
-        test_client::TestState, traits::ForceUpdateSealing, BlockChain, EngineInfo, Nonce,
-        PrepareOpenBlock, StateClient,
+        BlockChain, EngineInfo, Nonce, PrepareOpenBlock, StateClient, test_client::TestState,
+        traits::ForceUpdateSealing,
     },
-    engines::{signer::EngineSigner, EthEngine},
+    engines::{EthEngine, signer::EngineSigner},
     error::Error,
     miner::{self, AuthoringParams, MinerService, TransactionFilter},
 };
 use ethereum_types::{Address, H256, U256};
-use miner::pool::{
-    local_transactions::Status as LocalTransactionStatus, verifier, QueueStatus,
-    VerifiedTransaction,
-};
 use parking_lot::{Mutex, RwLock};
-use types::{
-    block::Block,
-    header::Header,
-    ids::BlockId,
-    receipt::RichReceipt,
-    transaction::{self, PendingTransaction, SignedTransaction, UnverifiedTransaction},
-    BlockNumber,
-};
 
 /// Test miner service.
 pub struct TestMinerService {

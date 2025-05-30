@@ -17,12 +17,13 @@
 //! `JournalDB` over in-memory overlay
 
 use std::{
-    collections::{hash_map::Entry, BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, hash_map::Entry},
     io,
     sync::Arc,
 };
 
-use super::{error_negatively_reference_hash, JournalDB, DB_PREFIX_LEN, LATEST_ERA_KEY};
+use super::{DB_PREFIX_LEN, JournalDB, LATEST_ERA_KEY, error_negatively_reference_hash};
+use crate::util::DatabaseKey;
 use bytes::Bytes;
 use ethcore_db::{DBTransaction, DBValue, KeyValueDB};
 use ethereum_types::H256;
@@ -32,8 +33,7 @@ use keccak_hasher::KeccakHasher;
 use memory_db::*;
 use parity_util_mem::MallocSizeOf;
 use parking_lot::RwLock;
-use rlp::{decode, encode, Decodable, DecoderError, Encodable, Rlp, RlpStream};
-use util::DatabaseKey;
+use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream, decode, encode};
 
 /// Implementation of the `JournalDB` trait for a disk-backed database with a memory overlay
 /// and, possibly, latent-removal semantics.
@@ -156,7 +156,7 @@ impl OverlayRecentDB {
     pub fn new(backing: Arc<dyn KeyValueDB>, col: Option<u32>) -> OverlayRecentDB {
         let journal_overlay = Arc::new(RwLock::new(OverlayRecentDB::read_overlay(&*backing, col)));
         OverlayRecentDB {
-            transaction_overlay: ::new_memory_db(),
+            transaction_overlay: crate::new_memory_db(),
             backing: backing,
             journal_overlay: journal_overlay,
             column: col,
@@ -182,7 +182,7 @@ impl OverlayRecentDB {
 
     fn read_overlay(db: &dyn KeyValueDB, col: Option<u32>) -> JournalOverlay {
         let mut journal = HashMap::new();
-        let mut overlay = ::new_memory_db();
+        let mut overlay = crate::new_memory_db();
         let mut count = 0;
         let mut latest_era = None;
         let mut earliest_era = None;
@@ -256,7 +256,7 @@ fn to_short_key(key: &H256) -> H256 {
     k
 }
 
-impl ::traits::KeyedHashDB for OverlayRecentDB {
+impl crate::traits::KeyedHashDB for OverlayRecentDB {
     fn keys(&self) -> HashMap<H256, i32> {
         let mut ret: HashMap<H256, i32> = self
             .backing
@@ -569,9 +569,9 @@ impl HashDB<KeccakHasher, DBValue> for OverlayRecentDB {
 mod tests {
 
     use super::*;
+    use JournalDB;
     use hash_db::HashDB;
     use keccak::keccak;
-    use JournalDB;
 
     fn new_db() -> OverlayRecentDB {
         let backing = Arc::new(ethcore_db::InMemoryWithMetrics::create(0));

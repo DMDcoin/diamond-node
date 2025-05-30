@@ -16,12 +16,12 @@
 
 //! A service transactions contract checker.
 
+use crate::types::{ids::BlockId, transaction::SignedTransaction};
 use call_contract::{CallContract, RegistryInfo};
 use ethabi::FunctionOutputDecoder;
 use ethereum_types::Address;
 use parking_lot::RwLock;
-use std::{collections::HashMap, mem, str::FromStr, sync::Arc};
-use types::{ids::BlockId, transaction::SignedTransaction};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use_contract!(
     service_transaction,
@@ -56,7 +56,7 @@ impl ServiceTransactionChecker {
         client: &C,
         sender: Address,
     ) -> Result<bool, String> {
-        trace!(target: "txqueue", "Checking service transaction checker contract from {}", sender);
+        trace!(target: "txqueue", "Checking service transaction checker contract for {}", sender);
         if let Some(allowed) = self
             .certified_addresses_cache
             .try_read()
@@ -67,6 +67,9 @@ impl ServiceTransactionChecker {
         }
         let x = Address::from_str("5000000000000000000000000000000000000001".into()).unwrap();
         let contract_address = x;
+
+        trace!(target: "txfilter", "Checking service transaction from contract for: {}", sender);
+
         self.call_contract(client, contract_address, sender)
             .and_then(|allowed| {
                 if let Some(mut cache) = self.certified_addresses_cache.try_write() {
@@ -79,26 +82,12 @@ impl ServiceTransactionChecker {
     /// Refresh certified addresses cache
     pub fn refresh_cache<C: CallContract + RegistryInfo>(
         &self,
-        client: &C,
+        _client: &C,
     ) -> Result<bool, String> {
         trace!(target: "txqueue", "Refreshing certified addresses cache");
-        // replace the cache with an empty list,
-        // since it's not recent it won't be used anyway.
-        let cache = mem::replace(
-            &mut *self.certified_addresses_cache.write(),
-            HashMap::default(),
-        );
 
-        let contract_address =
-            Address::from_str("5000000000000000000000000000000000000001".into()).unwrap();
+        self.certified_addresses_cache.write().clear();
 
-        let addresses: Vec<_> = cache.keys().collect();
-        let mut cache: HashMap<Address, bool> = HashMap::default();
-        for address in addresses {
-            let allowed = self.call_contract(client, contract_address, *address)?;
-            cache.insert(*address, allowed);
-        }
-        *self.certified_addresses_cache.write() = cache;
         Ok(true)
     }
 

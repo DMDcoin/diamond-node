@@ -69,10 +69,10 @@
 //! A production implementation of a randomness contract can be found here:
 //! https://github.com/poanetwork/posdao-contracts/blob/4fddb108993d4962951717b49222327f3d94275b/contracts/RandomAuRa.sol
 
+use crate::engines::signer::EngineSigner;
 use bytes::Bytes;
-use crypto::publickey::{ecies, Error as CryptoError};
+use crypto::publickey::{Error as CryptoError, ecies};
 use derive_more::Display;
-use engines::signer::EngineSigner;
 use ethabi::Hash;
 use ethabi_contract::use_contract;
 use ethereum_types::{Address, H256, U256};
@@ -213,7 +213,7 @@ impl RandomnessPhase {
                 // Generate a new random number, but don't reveal it yet. Instead, we publish its hash to the
                 // randomness contract, together with the number encrypted to ourselves. That way we will later be
                 // able to decrypt and reveal it, and other parties are able to verify it against the hash.
-                let number: RandNumber = rng.gen();
+                let number: RandNumber = rng.r#gen();
                 let number_hash: Hash = keccak(number.0);
                 let public = signer.public().ok_or(PhaseError::MissingPublicKey)?;
                 let cipher = ecies::encrypt(&public, number_hash.as_bytes(), number.as_bytes())?;

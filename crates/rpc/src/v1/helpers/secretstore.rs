@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::v1::{helpers::errors, types::EncryptedDocumentKey};
 use bytes::Bytes;
-use crypto::publickey::{self, ec_math_utils, Generator, Public, Random, Secret};
+use crypto::publickey::{self, Generator, Public, Random, Secret, ec_math_utils};
 use ethereum_types::{H256, H512};
 use jsonrpc_core::Error;
-use rand::{rngs::OsRng, RngCore};
+use rand::{RngCore, rngs::OsRng};
 use std::collections::BTreeSet;
 use tiny_keccak::Keccak;
-use v1::{helpers::errors, types::EncryptedDocumentKey};
 
 /// Initialization vector length.
 const INIT_VEC_LEN: usize = 16;

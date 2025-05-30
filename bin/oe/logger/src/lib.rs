@@ -41,7 +41,7 @@ use std::{
     thread,
 };
 
-pub use rotating::{init_log, RotatingLogger};
+pub use rotating::{RotatingLogger, init_log};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {

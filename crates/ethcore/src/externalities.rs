@@ -15,14 +15,16 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Transaction Execution environment.
+use crate::{
+    executive::*,
+    machine::EthereumMachine as Machine,
+    state::{Backend as StateBackend, CleanupMode, State, Substate},
+    trace::{Tracer, VMTracer},
+    types::transaction::UNSIGNED_SENDER,
+};
 use bytes::Bytes;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
-use executive::*;
-use machine::EthereumMachine as Machine;
-use state::{Backend as StateBackend, CleanupMode, State, Substate};
 use std::{cmp, sync::Arc};
-use trace::{Tracer, VMTracer};
-use types::transaction::UNSIGNED_SENDER;
 use vm::{
     self, AccessList, ActionParams, ActionValue, CallType, ContractCreateResult,
     CreateContractAddress, EnvInfo, Ext, MessageCallResult, ReturnData, Schedule, TrapKind,
@@ -214,15 +216,12 @@ where
                 self.vm_tracer,
             );
             let output = match &r {
-                Ok(ref r) => H256::from_slice(&r.return_data[..32]),
+                Ok(r) => H256::from_slice(&r.return_data[..32]),
                 _ => H256::default(),
             };
             trace!(
                 "ext: blockhash contract({}) -> {:?}({}) self.env_info.number={}\n",
-                number,
-                r,
-                output,
-                self.env_info.number
+                number, r, output, self.env_info.number
             );
             output
         } else {
@@ -240,17 +239,14 @@ where
                     let r = self.env_info.last_hashes[index as usize].clone();
                     trace!(
                         "ext: blockhash({}) -> {} self.env_info.number={}\n",
-                        number,
-                        r,
-                        self.env_info.number
+                        number, r, self.env_info.number
                     );
                     r
                 }
                 false => {
                     trace!(
                         "ext: blockhash({}) -> null self.env_info.number={}\n",
-                        number,
-                        self.env_info.number
+                        number, self.env_info.number
                     );
                     H256::zero()
                 }
@@ -444,7 +440,7 @@ where
     }
 
     fn log(&mut self, topics: Vec<H256>, data: &[u8]) -> vm::Result<()> {
-        use types::log_entry::LogEntry;
+        use crate::types::log_entry::LogEntry;
 
         if self.static_flag {
             return Err(vm::Error::MutableCallInStaticContext);
@@ -561,12 +557,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        state::{State, Substate},
+        test_helpers::get_temp_state,
+        trace::{NoopTracer, NoopVMTracer},
+    };
     use ethereum_types::{Address, U256};
     use evm::{CallType, EnvInfo, Ext};
-    use state::{State, Substate};
     use std::str::FromStr;
-    use test_helpers::get_temp_state;
-    use trace::{NoopTracer, NoopVMTracer};
 
     fn get_test_origin() -> OriginInfo {
         OriginInfo {
@@ -591,8 +589,8 @@ mod tests {
     }
 
     struct TestSetup {
-        state: State<::state_db::StateDB>,
-        machine: ::machine::EthereumMachine,
+        state: State<crate::state_db::StateDB>,
+        machine: crate::machine::EthereumMachine,
         schedule: Schedule,
         sub_state: Substate,
         env_info: EnvInfo,
@@ -606,7 +604,7 @@ mod tests {
 
     impl TestSetup {
         fn new() -> Self {
-            let machine = ::spec::Spec::new_test_machine();
+            let machine = crate::spec::Spec::new_test_machine();
             let env_info = get_test_env_info();
             let schedule = machine.schedule(env_info.number);
             TestSetup {
@@ -769,10 +767,10 @@ mod tests {
     #[test]
     fn can_log() {
         let log_data = vec![120u8, 110u8];
-        let log_topics = vec![H256::from_str(
-            "af0fa234a6af46afa23faf23bcbc1c1cb4bcb7bcbe7e7e7ee3ee2edddddddddd",
-        )
-        .unwrap()];
+        let log_topics = vec![
+            H256::from_str("af0fa234a6af46afa23faf23bcbc1c1cb4bcb7bcbe7e7e7ee3ee2edddddddddd")
+                .unwrap(),
+        ];
 
         let mut setup = TestSetup::new();
         let state = &mut setup.state;

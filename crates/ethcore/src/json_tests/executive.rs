@@ -15,20 +15,22 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::test_common::*;
+use crate::{
+    executive::*,
+    externalities::*,
+    machine::EthereumMachine as Machine,
+    state::{Backend as StateBackend, State, Substate},
+    test_helpers::get_temp_state,
+    trace::{NoopTracer, NoopVMTracer, Tracer, VMTracer},
+};
 use bytes::Bytes;
 use ethereum_types::BigEndianHash;
 use ethjson;
 use ethtrie;
 use evm::Finalize;
-use executive::*;
-use externalities::*;
 use hash::keccak;
-use machine::EthereumMachine as Machine;
 use rlp::RlpStream;
-use state::{Backend as StateBackend, State, Substate};
 use std::{path::Path, sync::Arc};
-use test_helpers::get_temp_state;
-use trace::{NoopTracer, NoopVMTracer, Tracer, VMTracer};
 use vm::{
     self, ActionParams, CallType, ContractCreateResult, CreateContractAddress, EnvInfo, Ext,
     MessageCallResult, ReturnData, Schedule,
@@ -311,7 +313,7 @@ pub fn json_executive_test<H: FnMut(&str, HookType)>(
         state.populate_from(From::from(vm.pre_state.clone()));
         let info: EnvInfo = From::from(vm.env);
         let machine = {
-            let mut machine = ::ethereum::new_frontier_test_machine();
+            let mut machine = crate::ethereum::new_frontier_test_machine();
             machine.set_schedule_creation_rules(Box::new(move |s, _| s.max_depth = 1));
             machine
         };

@@ -22,12 +22,10 @@ use std::{
 use crate::{path::restrict_permissions_owner, rpc, rpc_apis};
 use ansi_term::Colour::White;
 use ethcore_logger::Config as LogConfig;
-use parity_rpc;
 
-pub const CODES_FILENAME: &'static str = "authcodes";
+pub const CODES_FILENAME: &str = "authcodes";
 
 pub struct NewToken {
-    pub token: String,
     pub message: String,
 }
 
@@ -70,7 +68,6 @@ pub fn generate_token_and_url(
     };
 
     Ok(NewToken {
-        token: code.clone(),
         message: format!(
             r#"
 Generated token:
@@ -91,7 +88,7 @@ fn generate_new_token(path: &Path, logger_config_color: bool) -> io::Result<Stri
         "New key code created: {}",
         match logger_config_color {
             true => format!("{}", White.bold().paint(&code[..])),
-            false => format!("{}", &code[..]),
+            false => code[..].to_string(),
         }
     );
     Ok(code)

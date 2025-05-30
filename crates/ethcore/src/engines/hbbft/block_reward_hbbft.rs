@@ -17,8 +17,10 @@
 //! Types for declaring block rewards and a client interface for interacting with a
 //! block reward contract.
 
-use engines::{SystemOrCodeCall, SystemOrCodeCallKind};
-use error::Error;
+use crate::{
+    engines::{SystemOrCodeCall, SystemOrCodeCallKind},
+    error::Error,
+};
 use ethabi::FunctionOutputDecoder;
 use ethabi_contract::use_contract;
 use ethereum_types::Address;
@@ -53,7 +55,7 @@ impl BlockRewardContract {
         let (input, decoder) = block_reward_contract::functions::reward::call(is_epoch_end);
         let output = caller(self.kind.clone(), input)
             .map_err(Into::into)
-            .map_err(::engines::EngineError::FailedSystemCall)?;
+            .map_err(crate::engines::EngineError::FailedSystemCall)?;
 
         match decoder.decode(&output) {
             Ok(_rewards_native) => {}
@@ -67,6 +69,6 @@ impl BlockRewardContract {
         // let rewards_native = decoder
         //     .decode(&output)
         //     .map_err(|err| err.to_string())
-        //     .map_err(::engines::EngineError::FailedSystemCall)?;
+        //     .map_err(crate::engines::EngineError::FailedSystemCall)?;
     }
 }

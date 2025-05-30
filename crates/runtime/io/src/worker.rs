@@ -14,19 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    IoHandler, LOCAL_STACK_SIZE,
+    service_mio::{HandlerId, IoChannel, IoContext},
+};
 use deque;
 use futures::future::{self, Loop};
-use service_mio::{HandlerId, IoChannel, IoContext};
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering as AtomicOrdering},
         Arc,
+        atomic::{AtomicBool, Ordering as AtomicOrdering},
     },
     thread::{self, JoinHandle},
 };
 use tokio::{self};
-use IoHandler;
-use LOCAL_STACK_SIZE;
 
 use parking_lot::{Condvar, Mutex};
 

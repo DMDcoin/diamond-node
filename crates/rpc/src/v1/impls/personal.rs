@@ -17,22 +17,17 @@
 //! Account management (personal) rpc implementation
 use std::sync::Arc;
 
+use crate::types::transaction::{PendingTransaction, SignedTransaction};
 use accounts::AccountProvider;
 use bytes::Bytes;
-use crypto::publickey::{public_to_address, recover, Signature};
-use eip_712::{hash_structured_data, EIP712};
+use crypto::publickey::{Signature, public_to_address, recover};
+use eip_712::{EIP712, hash_structured_data};
 use ethereum_types::{Address, H160, H256, H520, U128};
-use types::transaction::{PendingTransaction, SignedTransaction};
 
-use jsonrpc_core::{
-    futures::{future, Future},
-    types::Value,
-    BoxFuture, Result,
-};
-use v1::{
+use crate::v1::{
     helpers::{
         deprecated::{self, DeprecationNotice},
-        dispatch::{self, eth_data_hash, Dispatcher, PostSign, SignWith, WithToken},
+        dispatch::{self, Dispatcher, PostSign, SignWith, WithToken, eth_data_hash},
         eip191, errors,
     },
     metadata::Metadata,
@@ -42,6 +37,11 @@ use v1::{
         ConfirmationResponse as RpcConfirmationResponse, EIP191Version,
         RichRawTransaction as RpcRichRawTransaction, TransactionRequest,
     },
+};
+use jsonrpc_core::{
+    BoxFuture, Result,
+    futures::{Future, future},
+    types::Value,
 };
 
 /// Account management (personal) rpc implementation.
@@ -162,7 +162,7 @@ impl<D: Dispatcher + 'static> Personal for PersonalClient<D> {
                 return Err(errors::unsupported(
                     "Time-unlocking is not supported when permanent unlock is disabled.",
                     Some("Use personal_sendTransaction instead."),
-                ))
+                ));
             }
         };
         match r {
@@ -342,7 +342,9 @@ impl<D: Dispatcher + 'static> Personal for PersonalClient<D> {
             "personal_signAndSendTransaction",
             Some("use personal_sendTransaction instead."),
         );
-        warn!("Using deprecated personal_signAndSendTransaction, use personal_sendTransaction instead.");
+        warn!(
+            "Using deprecated personal_signAndSendTransaction, use personal_sendTransaction instead."
+        );
         self.send_transaction(meta, request, password)
     }
 }

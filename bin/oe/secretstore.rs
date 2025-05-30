@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{account_utils::AccountProvider, sync::SyncProvider};
-use crypto::publickey::{Public, Secret};
+use crate::{
+    account_utils::AccountProvider,
+    crypto::publickey::{Public, Secret},
+    sync::SyncProvider,
+};
 use dir::{default_data_path, helpers::replace_home};
 use ethcore::{client::Client, miner::Miner};
 use ethereum_types::Address;
@@ -84,6 +87,9 @@ pub struct Configuration {
 }
 
 /// Secret store dependencies
+/// TODO: The compiler complains that none of the struct members are ever used
+/// Remove this struct and all its dependencies
+#[allow(dead_code)]
 pub struct Dependencies<'a> {
     /// Blockchain client.
     pub client: Arc<Client>,
@@ -329,5 +335,5 @@ pub fn start(
         return Ok(None);
     }
 
-    KeyServer::new(conf, deps, executor).map(|s| Some(s))
+    KeyServer::new(conf, deps, executor).map(Some)
 }

@@ -14,20 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::types::{
+    BlockNumber,
+    header::Header as BlockHeader,
+    transaction::{TypedTransaction, UnverifiedTransaction},
+};
 use bytes::Bytes;
 use ethcore::verification::queue::kind::blocks::Unverified;
 use ethereum_types::H256;
-use hash::{keccak, KECCAK_EMPTY_LIST_RLP, KECCAK_NULL_RLP};
+use hash::{KECCAK_EMPTY_LIST_RLP, KECCAK_NULL_RLP, keccak};
 use network;
 use parity_util_mem::MallocSizeOf;
 use rlp::{DecoderError, Rlp, RlpStream};
-use std::collections::{hash_map, BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet, hash_map};
 use triehash_ethereum::ordered_trie_root;
-use types::{
-    header::Header as BlockHeader,
-    transaction::{TypedTransaction, UnverifiedTransaction},
-    BlockNumber,
-};
 
 malloc_size_of_is_0!(HeaderId);
 
@@ -621,12 +621,12 @@ impl BlockCollection {
 #[cfg(test)]
 mod test {
     use super::{BlockCollection, SyncHeader};
+    use crate::types::BlockNumber;
     use ethcore::{
         client::{BlockChainClient, BlockId, EachBlockWith, TestBlockChainClient},
         verification::queue::kind::blocks::Unverified,
     };
     use rlp::*;
-    use types::BlockNumber;
 
     fn is_empty(bc: &BlockCollection) -> bool {
         bc.heads.is_empty()

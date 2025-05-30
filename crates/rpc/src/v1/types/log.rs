@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    types::log_entry::{LocalizedLogEntry, LogEntry},
+    v1::types::Bytes,
+};
 use ethereum_types::{H160, H256, U256};
-use types::log_entry::{LocalizedLogEntry, LogEntry};
-use v1::types::Bytes;
 
 /// Log
 #[derive(Debug, Serialize, PartialEq, Eq, Hash, Clone)]
@@ -86,10 +88,10 @@ impl From<LogEntry> for Log {
 
 #[cfg(test)]
 mod tests {
+    use crate::v1::types::Log;
     use ethereum_types::{H160, H256, U256};
     use serde_json;
     use std::str::FromStr;
-    use v1::types::Log;
 
     #[test]
     fn log_serialization() {

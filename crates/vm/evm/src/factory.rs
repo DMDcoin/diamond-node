@@ -105,7 +105,6 @@ macro_rules! evm_test_ignore(
 	($name_test: ident: $name_int: ident) => {
 		#[test]
 		#[ignore]
-		#[cfg(feature = "ignored-tests")]
 		fn $name_int() {
 			$name_test(Factory::new(VMType::Interpreter, 1024 * 32));
 		}

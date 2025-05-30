@@ -1,26 +1,29 @@
-use client::traits::{EngineClient, TransactionRequest};
-use engines::{
-    hbbft::{
-        contracts::{
-            keygen_history::{
-                engine_signer_to_synckeygen, get_current_key_gen_round, has_acks_of_address_data,
-                key_history_contract, part_of_address, PublicWrapper, KEYGEN_HISTORY_ADDRESS,
+use crate::{
+    client::traits::{EngineClient, TransactionRequest},
+    engines::{
+        hbbft::{
+            contracts::{
+                keygen_history::{
+                    KEYGEN_HISTORY_ADDRESS, PublicWrapper, engine_signer_to_synckeygen,
+                    get_current_key_gen_round, has_acks_of_address_data, key_history_contract,
+                    part_of_address,
+                },
+                staking::get_posdao_epoch,
+                validator_set::{
+                    KeyGenMode, ValidatorType, get_pending_validator_key_generation_mode,
+                    get_validator_pubkeys,
+                },
             },
-            staking::get_posdao_epoch,
-            validator_set::{
-                get_pending_validator_key_generation_mode, get_validator_pubkeys, KeyGenMode,
-                ValidatorType,
-            },
+            utils::bound_contract::CallError,
         },
-        utils::bound_contract::CallError,
+        signer::EngineSigner,
     },
-    signer::EngineSigner,
+    types::ids::BlockId,
 };
 use ethereum_types::{Address, U256};
 use itertools::Itertools;
 use parking_lot::RwLock;
 use std::{collections::BTreeMap, sync::Arc};
-use types::ids::BlockId;
 
 use crate::client::BlockChainClient;
 
@@ -43,6 +46,7 @@ pub enum KeyGenError {
     NoSigner,
     NoFullClient,
     NoPartToWrite,
+    #[allow(dead_code)]
     CallError(CallError),
     Unexpected,
 }
@@ -180,7 +184,7 @@ impl KeygenTransactionSender {
                     .map_err(|e| KeyGenError::CallError(e))?
                 {
                     ShouldSendKeyAnswer::NoNotThisKeyGenMode => {
-                        return Err(KeyGenError::Unexpected)
+                        return Err(KeyGenError::Unexpected);
                     }
                     ShouldSendKeyAnswer::NoWaiting => return Err(KeyGenError::Unexpected),
                     ShouldSendKeyAnswer::Yes => {

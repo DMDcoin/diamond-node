@@ -238,11 +238,11 @@ usage! {
             "--mode=[MODE]",
             "Set the operating mode. MODE can be one of: last - Uses the last-used mode, active if none; active - Parity continuously syncs the chain; passive - Parity syncs initially, then sleeps and wakes regularly to resync; dark - Parity syncs only when the JSON-RPC is active; offline - Parity doesn't sync.",
 
-            ARG arg_mode_timeout: (u64) = 300u64, or |c: &Config| c.parity.as_ref()?.mode_timeout.clone(),
+            ARG arg_mode_timeout: (u64) = 300u64, or |c: &Config| c.parity.as_ref()?.mode_timeout,
             "--mode-timeout=[SECS]",
             "Specify the number of seconds before inactivity timeout occurs when mode is dark or passive",
 
-            ARG arg_mode_alarm: (u64) = 3600u64, or |c: &Config| c.parity.as_ref()?.mode_alarm.clone(),
+            ARG arg_mode_alarm: (u64) = 3600u64, or |c: &Config| c.parity.as_ref()?.mode_alarm,
             "--mode-alarm=[SECS]",
             "Specify the number of seconds before auto sleep reawake timeout occurs when mode is passive",
 
@@ -280,15 +280,15 @@ usage! {
             "Add SHIFT to all port numbers OpenEthereum is listening on. Includes network port and all servers (HTTP JSON-RPC, WebSockets JSON-RPC, SecretStore).",
 
         ["Account Options"]
-            FLAG flag_fast_unlock: (bool) = false, or |c: &Config| c.account.as_ref()?.fast_unlock.clone(),
+            FLAG flag_fast_unlock: (bool) = false, or |c: &Config| c.account.as_ref()?.fast_unlock,
             "--fast-unlock",
             "Use drastically faster unlocking mode. This setting causes raw secrets to be stored unprotected in memory, so use with care.",
 
-            ARG arg_keys_iterations: (u32) = 10240u32, or |c: &Config| c.account.as_ref()?.keys_iterations.clone(),
+            ARG arg_keys_iterations: (u32) = 10240u32, or |c: &Config| c.account.as_ref()?.keys_iterations,
             "--keys-iterations=[NUM]",
             "Specify the number of iterations to use when deriving key from the password (bigger is more secure)",
 
-            ARG arg_accounts_refresh: (u64) = 5u64, or |c: &Config| c.account.as_ref()?.refresh_time.clone(),
+            ARG arg_accounts_refresh: (u64) = 5u64, or |c: &Config| c.account.as_ref()?.refresh_time,
             "--accounts-refresh=[TIME]",
             "Specify the cache time of accounts read from disk. If you manage thousands of accounts set this to 0 to disable refresh.",
 
@@ -306,15 +306,15 @@ usage! {
             "Specify directory where Trusted UIs tokens should be stored.",
 
         ["Networking Options"]
-            FLAG flag_no_warp: (bool) = false, or |c: &Config| c.network.as_ref()?.warp.clone().map(|w| !w),
+            FLAG flag_no_warp: (bool) = false, or |c: &Config| c.network.as_ref()?.warp.map(|w| !w),
             "--no-warp",
             "Disable syncing from the snapshot over the network.",
 
-            FLAG flag_no_discovery: (bool) = false, or |c: &Config| c.network.as_ref()?.discovery.map(|d| !d).clone(),
+            FLAG flag_no_discovery: (bool) = false, or |c: &Config| c.network.as_ref()?.discovery.map(|d| !d),
             "--no-discovery",
             "Disable new peer discovery.",
 
-            FLAG flag_reserved_only: (bool) = false, or |c: &Config| c.network.as_ref()?.reserved_only.clone(),
+            FLAG flag_reserved_only: (bool) = false, or |c: &Config| c.network.as_ref()?.reserved_only,
             "--reserved-only",
             "Connect only to reserved nodes.",
 
@@ -322,11 +322,11 @@ usage! {
             "--no-ancient-blocks",
             "Disable downloading old blocks after snapshot restoration or warp sync. Not recommended.",
 
-            ARG arg_warp_barrier: (Option<u64>) = None, or |c: &Config| c.network.as_ref()?.warp_barrier.clone(),
+            ARG arg_warp_barrier: (Option<u64>) = None, or |c: &Config| c.network.as_ref()?.warp_barrier,
             "--warp-barrier=[NUM]",
             "When warp enabled never attempt regular sync before warping to block NUM.",
 
-            ARG arg_port: (u16) = 30303u16, or |c: &Config| c.network.as_ref()?.port.clone(),
+            ARG arg_port: (u16) = 30303u16, or |c: &Config| c.network.as_ref()?.port,
             "--port=[PORT]",
             "Override the port on which the node should listen.",
 
@@ -334,15 +334,15 @@ usage! {
             "--interface=[IP]",
             "Network interfaces. Valid values are 'all', 'local' or the ip of the interface you want OpenEthereum to listen to.",
 
-            ARG arg_min_peers: (Option<u16>) = None, or |c: &Config| c.network.as_ref()?.min_peers.clone(),
+            ARG arg_min_peers: (Option<u16>) = None, or |c: &Config| c.network.as_ref()?.min_peers,
             "--min-peers=[NUM]",
             "Try to maintain at least NUM peers.",
 
-            ARG arg_max_peers: (Option<u16>) = None, or |c: &Config| c.network.as_ref()?.max_peers.clone(),
+            ARG arg_max_peers: (Option<u16>) = None, or |c: &Config| c.network.as_ref()?.max_peers,
             "--max-peers=[NUM]",
             "Allow up to NUM peers.",
 
-            ARG arg_snapshot_peers: (u16) = 0u16, or |c: &Config| c.network.as_ref()?.snapshot_peers.clone(),
+            ARG arg_snapshot_peers: (u16) = 0u16, or |c: &Config| c.network.as_ref()?.snapshot_peers,
             "--snapshot-peers=[NUM]",
             "Allow additional NUM peers for a snapshot sync.",
 
@@ -354,11 +354,11 @@ usage! {
             "--allow-ips=[FILTER]",
             "Filter outbound connections. Must be one of: private - connect to private network IP addresses only; public - connect to public network IP addresses only; all - connect to any IP address.",
 
-            ARG arg_max_pending_peers: (u16) = 64u16, or |c: &Config| c.network.as_ref()?.max_pending_peers.clone(),
+            ARG arg_max_pending_peers: (u16) = 64u16, or |c: &Config| c.network.as_ref()?.max_pending_peers,
             "--max-pending-peers=[NUM]",
             "Allow up to NUM pending connections.",
 
-            ARG arg_network_id: (Option<u64>) = None, or |c: &Config| c.network.as_ref()?.id.clone(),
+            ARG arg_network_id: (Option<u64>) = None, or |c: &Config| c.network.as_ref()?.id,
             "--network-id=[INDEX]",
             "Override the network identifier from the chain we are on.",
 
@@ -385,11 +385,11 @@ usage! {
             },
 
         ["API and Console Options – HTTP JSON-RPC"]
-            FLAG flag_jsonrpc_allow_missing_blocks: (bool) = false, or |c: &Config| c.rpc.as_ref()?.allow_missing_blocks.clone(),
+            FLAG flag_jsonrpc_allow_missing_blocks: (bool) = false, or |c: &Config| c.rpc.as_ref()?.allow_missing_blocks,
             "--jsonrpc-allow-missing-blocks",
             "RPC calls will return 'null' instead of an error if ancient block sync is still in progress and the block information requested could not be found",
 
-            FLAG flag_no_jsonrpc: (bool) = false, or |c: &Config| c.rpc.as_ref()?.disable.clone(),
+            FLAG flag_no_jsonrpc: (bool) = false, or |c: &Config| c.rpc.as_ref()?.disable,
             "--no-jsonrpc",
             "Disable the HTTP JSON-RPC API server.",
 
@@ -397,11 +397,11 @@ usage! {
             "--jsonrpc-no-keep-alive",
             "Disable HTTP/1.1 keep alive header. Disabling keep alive will prevent re-using the same TCP connection to fire multiple requests, recommended when using one request per connection.",
 
-            FLAG flag_jsonrpc_experimental: (bool) = false, or |c: &Config| c.rpc.as_ref()?.experimental_rpcs.clone(),
+            FLAG flag_jsonrpc_experimental: (bool) = false, or |c: &Config| c.rpc.as_ref()?.experimental_rpcs,
             "--jsonrpc-experimental",
             "Enable experimental RPCs. Enable to have access to methods from unfinalised EIPs in all namespaces",
 
-            ARG arg_jsonrpc_port: (u16) = 8545u16, or |c: &Config| c.rpc.as_ref()?.port.clone(),
+            ARG arg_jsonrpc_port: (u16) = 8545u16, or |c: &Config| c.rpc.as_ref()?.port,
             "--jsonrpc-port=[PORT]",
             "Specify the port portion of the HTTP JSON-RPC API server.",
 
@@ -433,16 +433,16 @@ usage! {
             "--jsonrpc-max-payload=[MB]",
             "Specify maximum size for HTTP JSON-RPC requests in megabytes.",
 
-            ARG arg_poll_lifetime: (u32) = 60u32, or |c: &Config| c.rpc.as_ref()?.poll_lifetime.clone(),
+            ARG arg_poll_lifetime: (u32) = 60u32, or |c: &Config| c.rpc.as_ref()?.poll_lifetime,
             "--poll-lifetime=[S]",
             "Set the RPC filter lifetime to S seconds. The filter has to be polled at least every S seconds , otherwise it is removed.",
 
         ["API and Console Options – WebSockets"]
-            FLAG flag_no_ws: (bool) = false, or |c: &Config| c.websockets.as_ref()?.disable.clone(),
+            FLAG flag_no_ws: (bool) = false, or |c: &Config| c.websockets.as_ref()?.disable,
             "--no-ws",
             "Disable the WebSockets JSON-RPC server.",
 
-            ARG arg_ws_port: (u16) = 8546u16, or |c: &Config| c.websockets.as_ref()?.port.clone(),
+            ARG arg_ws_port: (u16) = 8546u16, or |c: &Config| c.websockets.as_ref()?.port,
             "--ws-port=[PORT]",
             "Specify the port portion of the WebSockets JSON-RPC server.",
 
@@ -471,7 +471,7 @@ usage! {
             "Specify maximum size for WS JSON-RPC requests in megabytes.",
 
         ["Metrics"]
-            FLAG flag_metrics: (bool) = false, or |c: &Config| c.metrics.as_ref()?.enable.clone(),
+            FLAG flag_metrics: (bool) = false, or |c: &Config| c.metrics.as_ref()?.enable,
             "--metrics",
             "Enable prometheus metrics (only full client).",
 
@@ -479,7 +479,7 @@ usage! {
             "--metrics-prefix=[prefix]",
             "Prepend the specified prefix to the exported metrics names.",
 
-            ARG arg_metrics_port: (u16) = 3000u16, or |c: &Config| c.metrics.as_ref()?.port.clone(),
+            ARG arg_metrics_port: (u16) = 3000u16, or |c: &Config| c.metrics.as_ref()?.port,
             "--metrics-port=[PORT]",
             "Specify the port portion of the metrics server.",
 
@@ -488,7 +488,7 @@ usage! {
             "Specify the hostname portion of the metrics server, IP should be an interface's IP address, or all (all interfaces) or local.",
 
         ["API and Console Options – IPC"]
-            FLAG flag_no_ipc: (bool) = false, or |c: &Config| c.ipc.as_ref()?.disable.clone(),
+            FLAG flag_no_ipc: (bool) = false, or |c: &Config| c.ipc.as_ref()?.disable,
             "--no-ipc",
             "Disable JSON-RPC over IPC service.",
 
@@ -501,15 +501,15 @@ usage! {
             "Specify custom API set available via JSON-RPC over IPC using a comma-delimited list of API names. Possible names are: all, safe, web3, net, eth, pubsub, personal, signer, parity, parity_pubsub, parity_accounts, parity_set, traces, rpc, secretstore. You can also disable a specific API by putting '-' in the front, example: all,-personal. 'safe' enables the following APIs: web3, net, eth, pubsub, parity, parity_pubsub, traces, rpc",
 
         ["Secret Store Options"]
-            FLAG flag_no_secretstore: (bool) = false, or |c: &Config| c.secretstore.as_ref()?.disable.clone(),
+            FLAG flag_no_secretstore: (bool) = false, or |c: &Config| c.secretstore.as_ref()?.disable,
             "--no-secretstore",
             "Disable Secret Store functionality.",
 
-            FLAG flag_no_secretstore_http: (bool) = false, or |c: &Config| c.secretstore.as_ref()?.disable_http.clone(),
+            FLAG flag_no_secretstore_http: (bool) = false, or |c: &Config| c.secretstore.as_ref()?.disable_http,
             "--no-secretstore-http",
             "Disable Secret Store HTTP API.",
 
-            FLAG flag_no_secretstore_auto_migrate: (bool) = false, or |c: &Config| c.secretstore.as_ref()?.disable_auto_migrate.clone(),
+            FLAG flag_no_secretstore_auto_migrate: (bool) = false, or |c: &Config| c.secretstore.as_ref()?.disable_auto_migrate,
             "--no-secretstore-auto-migrate",
             "Do not run servers set change session automatically when servers set changes. This option has no effect when servers set is read from configuration file.",
 
@@ -549,7 +549,7 @@ usage! {
             "--secretstore-interface=[IP]",
             "Specify the hostname portion for listening to Secret Store Key Server internal requests, IP should be an interface's IP address, or local.",
 
-            ARG arg_secretstore_port: (u16) = 8083u16, or |c: &Config| c.secretstore.as_ref()?.port.clone(),
+            ARG arg_secretstore_port: (u16) = 8083u16, or |c: &Config| c.secretstore.as_ref()?.port,
             "--secretstore-port=[PORT]",
             "Specify the port portion for listening to Secret Store Key Server internal requests.",
 
@@ -557,7 +557,7 @@ usage! {
             "--secretstore-http-interface=[IP]",
             "Specify the hostname portion for listening to Secret Store Key Server HTTP requests, IP should be an interface's IP address, or local.",
 
-            ARG arg_secretstore_http_port: (u16) = 8082u16, or |c: &Config| c.secretstore.as_ref()?.http_port.clone(),
+            ARG arg_secretstore_http_port: (u16) = 8082u16, or |c: &Config| c.secretstore.as_ref()?.http_port,
             "--secretstore-http-port=[PORT]",
             "Specify the port portion for listening to Secret Store Key Server HTTP requests.",
 
@@ -574,31 +574,31 @@ usage! {
             "Hex-encoded public key of secret store administrator.",
 
         ["Sealing/Mining Options"]
-            FLAG flag_force_sealing: (bool) = false, or |c: &Config| c.mining.as_ref()?.force_sealing.clone(),
+            FLAG flag_force_sealing: (bool) = false, or |c: &Config| c.mining.as_ref()?.force_sealing,
             "--force-sealing",
             "Force the node to author new blocks as if it were always sealing/mining.",
 
-            FLAG flag_reseal_on_uncle: (bool) = false, or |c: &Config| c.mining.as_ref()?.reseal_on_uncle.clone(),
+            FLAG flag_reseal_on_uncle: (bool) = false, or |c: &Config| c.mining.as_ref()?.reseal_on_uncle,
             "--reseal-on-uncle",
             "Force the node to author new blocks when a new uncle block is imported.",
 
-            FLAG flag_remove_solved: (bool) = false, or |c: &Config| c.mining.as_ref()?.remove_solved.clone(),
+            FLAG flag_remove_solved: (bool) = false, or |c: &Config| c.mining.as_ref()?.remove_solved,
             "--remove-solved",
             "Move solved blocks from the work package queue instead of cloning them. This gives a slightly faster import speed, but means that extra solutions submitted for the same work package will go unused.",
 
-            FLAG flag_tx_queue_no_unfamiliar_locals: (bool) = false, or |c: &Config| c.mining.as_ref()?.tx_queue_no_unfamiliar_locals.clone(),
+            FLAG flag_tx_queue_no_unfamiliar_locals: (bool) = false, or |c: &Config| c.mining.as_ref()?.tx_queue_no_unfamiliar_locals,
             "--tx-queue-no-unfamiliar-locals",
             "Local transactions sent through JSON-RPC (HTTP, WebSockets, etc) will be treated as 'external' if the sending account is unknown.",
 
-            FLAG flag_tx_queue_no_early_reject: (bool) = false, or |c: &Config| c.mining.as_ref()?.tx_queue_no_early_reject.clone(),
+            FLAG flag_tx_queue_no_early_reject: (bool) = false, or |c: &Config| c.mining.as_ref()?.tx_queue_no_early_reject,
             "--tx-queue-no-early-reject",
             "Disables transaction queue optimization to early reject transactions below minimal effective gas price. This allows local transactions to always enter the pool, despite it being full, but requires additional ecrecover on every transaction.",
 
-            FLAG flag_refuse_service_transactions: (bool) = false, or |c: &Config| c.mining.as_ref()?.refuse_service_transactions.clone(),
+            FLAG flag_refuse_service_transactions: (bool) = false, or |c: &Config| c.mining.as_ref()?.refuse_service_transactions,
             "--refuse-service-transactions",
             "Always refuse service transactions.",
 
-            FLAG flag_infinite_pending_block: (bool) = false, or |c: &Config| c.mining.as_ref()?.infinite_pending_block.clone(),
+            FLAG flag_infinite_pending_block: (bool) = false, or |c: &Config| c.mining.as_ref()?.infinite_pending_block,
             "--infinite-pending-block",
             "Pending block will be created with maximal possible gas limit and will execute all transactions in the queue. Note that such block is invalid and should never be attempted to be mined.",
 
@@ -614,15 +614,15 @@ usage! {
             "--reseal-on-txs=[SET]",
             "Specify which transactions should force the node to reseal a block. SET is one of: none - never reseal on new transactions; own - reseal only on a new local transaction; ext - reseal only on a new external transaction; all - reseal on all new transactions.",
 
-            ARG arg_reseal_min_period: (u64) = 2000u64, or |c: &Config| c.mining.as_ref()?.reseal_min_period.clone(),
+            ARG arg_reseal_min_period: (u64) = 2000u64, or |c: &Config| c.mining.as_ref()?.reseal_min_period,
             "--reseal-min-period=[MS]",
             "Specify the minimum time between reseals from incoming transactions. MS is time measured in milliseconds.",
 
-            ARG arg_reseal_max_period: (u64) = 120000u64, or |c: &Config| c.mining.as_ref()?.reseal_max_period.clone(),
+            ARG arg_reseal_max_period: (u64) = 120000u64, or |c: &Config| c.mining.as_ref()?.reseal_max_period,
             "--reseal-max-period=[MS]",
             "Specify the maximum time since last block to enable force-sealing. MS is time measured in milliseconds.",
 
-            ARG arg_work_queue_size: (usize) = 20usize, or |c: &Config| c.mining.as_ref()?.work_queue_size.clone(),
+            ARG arg_work_queue_size: (usize) = 20usize, or |c: &Config| c.mining.as_ref()?.work_queue_size,
             "--work-queue-size=[ITEMS]",
             "Specify the number of historical work packages which are kept cached lest a solution is found for them later. High values take more memory but result in fewer unusable solutions.",
 
@@ -650,15 +650,15 @@ usage! {
             "--gas-cap=[GAS]",
             "A cap on how large we will raise the gas limit per block due to transaction volume.",
 
-            ARG arg_tx_queue_mem_limit: (u32) = 4u32, or |c: &Config| c.mining.as_ref()?.tx_queue_mem_limit.clone(),
+            ARG arg_tx_queue_mem_limit: (u32) = 4u32, or |c: &Config| c.mining.as_ref()?.tx_queue_mem_limit,
             "--tx-queue-mem-limit=[MB]",
             "Maximum amount of memory that can be used by the transaction queue. Setting this parameter to 0 disables limiting.",
 
-            ARG arg_tx_queue_size: (usize) = 8_192usize, or |c: &Config| c.mining.as_ref()?.tx_queue_size.clone(),
+            ARG arg_tx_queue_size: (usize) = 8_192usize, or |c: &Config| c.mining.as_ref()?.tx_queue_size,
             "--tx-queue-size=[LIMIT]",
             "Maximum amount of transactions in the queue (waiting to be included in next block).",
 
-            ARG arg_tx_queue_per_sender: (Option<usize>) = None, or |c: &Config| c.mining.as_ref()?.tx_queue_per_sender.clone(),
+            ARG arg_tx_queue_per_sender: (Option<usize>) = None, or |c: &Config| c.mining.as_ref()?.tx_queue_per_sender,
             "--tx-queue-per-sender=[LIMIT]",
             "Maximum number of transactions per sender in the queue. By default it's 1% of the entire queue, but not less than 16.",
 
@@ -674,11 +674,11 @@ usage! {
             "--stratum-interface=[IP]",
             "Interface address for Stratum server.",
 
-            ARG arg_stratum_port: (u16) = 8008u16, or |c: &Config| c.stratum.as_ref()?.port.clone(),
+            ARG arg_stratum_port: (u16) = 8008u16, or |c: &Config| c.stratum.as_ref()?.port,
             "--stratum-port=[PORT]",
             "Port for Stratum server to listen on.",
 
-            ARG arg_min_gas_price: (Option<u64>) = None, or |c: &Config| c.mining.as_ref()?.min_gas_price.clone(),
+            ARG arg_min_gas_price: (Option<u64>) = None, or |c: &Config| c.mining.as_ref()?.min_gas_price,
             "--min-gas-price=[STRING]",
             "Minimum amount of Wei per GAS to be paid for a transaction on top of base fee, to be accepted for mining. Overrides --usd-per-tx.",
 
@@ -698,7 +698,7 @@ usage! {
             "--tx-gas-limit=[GAS]",
             "Apply a limit of GAS as the maximum amount of gas a single transaction may have for it to be mined.",
 
-            ARG arg_tx_time_limit: (Option<u64>) = None, or |c: &Config| c.mining.as_ref()?.tx_time_limit.clone(),
+            ARG arg_tx_time_limit: (Option<u64>) = None, or |c: &Config| c.mining.as_ref()?.tx_time_limit,
             "--tx-time-limit=[MS]",
             "Maximal time for processing single transaction. If enabled senders of transactions offending the limit will get other transactions penalized.",
 
@@ -714,11 +714,11 @@ usage! {
             "--stratum-secret=[STRING]",
             "Secret for authorizing Stratum server for peers.",
 
-            ARG arg_max_round_blocks_to_import: (usize) = 1usize, or |c: &Config| c.mining.as_ref()?.max_round_blocks_to_import.clone(),
+            ARG arg_max_round_blocks_to_import: (usize) = 1usize, or |c: &Config| c.mining.as_ref()?.max_round_blocks_to_import,
             "--max-round-blocks-to-import=[S]",
             "Maximal number of blocks to import for each import round.",
 
-            ARG arg_new_transactions_stats_period: (u64) = 0u64, or |c: &Config| c.mining.as_ref()?.new_transactions_stats_period.clone(),
+            ARG arg_new_transactions_stats_period: (u64) = 0u64, or |c: &Config| c.mining.as_ref()?.new_transactions_stats_period,
             "--new-transactions-stats-period=[N]",
             "Specify number of blocks for which new transactions will be returned in a result of `parity_newTransactionsStats` RPC call. Setting this parameter to 0 will return only transactions imported during the current block. (default: 0)",
 
@@ -728,7 +728,7 @@ usage! {
             "Executable will auto-restart if exiting with 69",
 
         ["Miscellaneous Options"]
-            FLAG flag_no_color: (bool) = false, or |c: &Config| c.misc.as_ref()?.color.map(|c| !c).clone(),
+            FLAG flag_no_color: (bool) = false, or |c: &Config| c.misc.as_ref()?.color.map(|c| !c),
             "--no-color",
             "Don't use terminal color codes in output.",
 
@@ -748,12 +748,12 @@ usage! {
             "--log-file=[FILENAME]",
             "Specify a filename into which logging should be appended.",
 
-            ARG arg_shutdown_on_missing_block_import: (Option<u64>) = None, or |c: &Config| c.misc.as_ref()?.shutdown_on_missing_block_import.clone(),
+            ARG arg_shutdown_on_missing_block_import: (Option<u64>) = None, or |c: &Config| c.misc.as_ref()?.shutdown_on_missing_block_import,
             "--shutdown-on-missing-block-import=[STRING]",
             "Shuts down if no block has been imported for N seconds. Defaults to None. Set to None or 0 to disable this feature. This setting is only respected by the HBBFT Engine",
 
         ["Footprint Options"]
-            FLAG flag_scale_verifiers: (bool) = false, or |c: &Config| c.footprint.as_ref()?.scale_verifiers.clone(),
+            FLAG flag_scale_verifiers: (bool) = false, or |c: &Config| c.footprint.as_ref()?.scale_verifiers,
             "--scale-verifiers",
             "Automatically scale amount of verifier threads based on workload. Not guaranteed to be faster.",
 
@@ -765,27 +765,27 @@ usage! {
             "--pruning=[METHOD]",
             "Configure pruning of the state/storage trie. METHOD may be one of auto, archive, fast: archive - keep all state trie data. No pruning. fast - maintain journal overlay. Fast but 50MB used. auto - use the method most recently synced or default to fast if none synced.",
 
-            ARG arg_pruning_history: (u64) = 64u64, or |c: &Config| c.footprint.as_ref()?.pruning_history.clone(),
+            ARG arg_pruning_history: (u64) = 64u64, or |c: &Config| c.footprint.as_ref()?.pruning_history,
             "--pruning-history=[NUM]",
             "Set a minimum number of recent states to keep in memory when pruning is active.",
 
-            ARG arg_pruning_memory: (usize) = 32usize, or |c: &Config| c.footprint.as_ref()?.pruning_memory.clone(),
+            ARG arg_pruning_memory: (usize) = 32usize, or |c: &Config| c.footprint.as_ref()?.pruning_memory,
             "--pruning-memory=[MB]",
             "The ideal amount of memory in megabytes to use to store recent states. As many states as possible will be kept within this limit, and at least --pruning-history states will always be kept.",
 
-            ARG arg_cache_size_db: (u32) = 128u32, or |c: &Config| c.footprint.as_ref()?.cache_size_db.clone(),
+            ARG arg_cache_size_db: (u32) = 128u32, or |c: &Config| c.footprint.as_ref()?.cache_size_db,
             "--cache-size-db=[MB]",
             "Override database cache size.",
 
-            ARG arg_cache_size_blocks: (u32) = 8u32, or |c: &Config| c.footprint.as_ref()?.cache_size_blocks.clone(),
+            ARG arg_cache_size_blocks: (u32) = 8u32, or |c: &Config| c.footprint.as_ref()?.cache_size_blocks,
             "--cache-size-blocks=[MB]",
             "Specify the preferred size of the blockchain cache in megabytes.",
 
-            ARG arg_cache_size_queue: (u32) = 40u32, or |c: &Config| c.footprint.as_ref()?.cache_size_queue.clone(),
+            ARG arg_cache_size_queue: (u32) = 40u32, or |c: &Config| c.footprint.as_ref()?.cache_size_queue,
             "--cache-size-queue=[MB]",
             "Specify the maximum size of memory to use for block queue.",
 
-            ARG arg_cache_size_state: (u32) = 25u32, or |c: &Config| c.footprint.as_ref()?.cache_size_state.clone(),
+            ARG arg_cache_size_state: (u32) = 25u32, or |c: &Config| c.footprint.as_ref()?.cache_size_state,
             "--cache-size-state=[MB]",
             "Specify the maximum size of memory to use for the state cache.",
 
@@ -797,11 +797,11 @@ usage! {
             "--fat-db=[BOOL]",
             "Build appropriate information to allow enumeration of all accounts and storage keys. Doubles the size of the state database. BOOL may be one of on, off or auto.",
 
-            ARG arg_cache_size: (Option<u32>) = None, or |c: &Config| c.footprint.as_ref()?.cache_size.clone(),
+            ARG arg_cache_size: (Option<u32>) = None, or |c: &Config| c.footprint.as_ref()?.cache_size,
             "--cache-size=[MB]",
             "Set total amount of discretionary memory to use for the entire system, overrides other cache and queue options.",
 
-            ARG arg_num_verifiers: (Option<usize>) = None, or |c: &Config| c.footprint.as_ref()?.num_verifiers.clone(),
+            ARG arg_num_verifiers: (Option<usize>) = None, or |c: &Config| c.footprint.as_ref()?.num_verifiers,
             "--num-verifiers=[INT]",
             "Amount of verifier threads to use or to begin with, if verifier auto-scaling is enabled.",
 
@@ -811,7 +811,7 @@ usage! {
             "Skip block seal check.",
 
         ["Snapshot Options"]
-            FLAG flag_enable_snapshotting: (bool) = false, or |c: &Config| c.snapshots.as_ref()?.enable.clone(),
+            FLAG flag_enable_snapshotting: (bool) = false, or |c: &Config| c.snapshots.as_ref()?.enable,
             "--enable-snapshotting",
             "Enable automated snapshots which usually occur once every 5000 blocks.",
 
@@ -1054,51 +1054,57 @@ mod tests {
         Operating, Rpc, SecretStore, Snapshots, Ws,
     };
     use clap::ErrorKind as ClapErrorKind;
-    use toml;
+    use parity_version::NODE_SOFTWARE_NAME;
 
     #[test]
     fn should_accept_any_argument_order() {
-        let args = Args::parse(&["openethereum", "--no-warp", "account", "list"]).unwrap();
-        assert_eq!(args.flag_no_warp, true);
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "--no-warp", "account", "list"]).unwrap();
+        assert!(args.flag_no_warp);
 
-        let args = Args::parse(&["openethereum", "account", "list", "--no-warp"]).unwrap();
-        assert_eq!(args.flag_no_warp, true);
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "account", "list", "--no-warp"]).unwrap();
+        assert!(args.flag_no_warp);
 
-        let args = Args::parse(&["openethereum", "--chain=dev", "account", "list"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "--chain=dev", "account", "list"]).unwrap();
         assert_eq!(args.arg_chain, "dev");
 
-        let args = Args::parse(&["openethereum", "account", "list", "--chain=dev"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "account", "list", "--chain=dev"]).unwrap();
         assert_eq!(args.arg_chain, "dev");
     }
 
     #[test]
     fn should_reject_invalid_values() {
-        let args = Args::parse(&["openethereum", "--jsonrpc-port=8545"]);
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "--jsonrpc-port=8545"]);
         assert!(args.is_ok());
 
-        let args = Args::parse(&["openethereum", "--jsonrpc-port=asd"]);
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "--jsonrpc-port=asd"]);
         assert!(args.is_err());
     }
 
     #[test]
     fn should_parse_args_and_flags() {
-        let args = Args::parse(&["openethereum", "--no-warp"]).unwrap();
-        assert_eq!(args.flag_no_warp, true);
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "--no-warp"]).unwrap();
+        assert!(args.flag_no_warp);
 
-        let args = Args::parse(&["openethereum", "--pruning", "archive"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "--pruning", "archive"]).unwrap();
         assert_eq!(args.arg_pruning, "archive");
 
-        let args = Args::parse(&["openethereum", "export", "state", "--no-storage"]).unwrap();
-        assert_eq!(args.flag_export_state_no_storage, true);
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "export", "state", "--no-storage"]).unwrap();
+        assert!(args.flag_export_state_no_storage);
 
-        let args =
-            Args::parse(&["openethereum", "export", "state", "--min-balance", "123"]).unwrap();
+        let args = Args::parse(&[
+            NODE_SOFTWARE_NAME,
+            "export",
+            "state",
+            "--min-balance",
+            "123",
+        ])
+        .unwrap();
         assert_eq!(args.arg_export_state_min_balance, Some("123".to_string()));
     }
 
     #[test]
     fn should_exit_gracefully_on_unknown_argument() {
-        let result = Args::parse(&["openethereum", "--please-exit-gracefully"]);
+        let result = Args::parse(&[NODE_SOFTWARE_NAME, "--please-exit-gracefully"]);
         assert!(match result {
             Err(ArgsError::Clap(ref clap_error))
                 if clap_error.kind == ClapErrorKind::UnknownArgument =>
@@ -1109,39 +1115,40 @@ mod tests {
 
     #[test]
     fn should_use_subcommand_arg_default() {
-        let args = Args::parse(&["openethereum", "export", "state", "--at", "123"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "export", "state", "--at", "123"]).unwrap();
         assert_eq!(args.arg_export_state_at, "123");
         assert_eq!(args.arg_snapshot_at, "latest");
 
-        let args = Args::parse(&["openethereum", "snapshot", "--at", "123", "file.dump"]).unwrap();
+        let args =
+            Args::parse(&[NODE_SOFTWARE_NAME, "snapshot", "--at", "123", "file.dump"]).unwrap();
         assert_eq!(args.arg_snapshot_at, "123");
         assert_eq!(args.arg_export_state_at, "latest");
 
-        let args = Args::parse(&["openethereum", "export", "state"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "export", "state"]).unwrap();
         assert_eq!(args.arg_snapshot_at, "latest");
         assert_eq!(args.arg_export_state_at, "latest");
 
-        let args = Args::parse(&["openethereum", "snapshot", "file.dump"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "snapshot", "file.dump"]).unwrap();
         assert_eq!(args.arg_snapshot_at, "latest");
         assert_eq!(args.arg_export_state_at, "latest");
     }
 
     #[test]
     fn should_parse_multiple_values() {
-        let args = Args::parse(&["openethereum", "account", "import", "~/1", "~/2"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "account", "import", "~/1", "~/2"]).unwrap();
         assert_eq!(
             args.arg_account_import_path,
             Some(vec!["~/1".to_owned(), "~/2".to_owned()])
         );
 
-        let args = Args::parse(&["openethereum", "account", "import", "~/1,ext"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "account", "import", "~/1,ext"]).unwrap();
         assert_eq!(
             args.arg_account_import_path,
             Some(vec!["~/1,ext".to_owned()])
         );
 
         let args = Args::parse(&[
-            "openethereum",
+            NODE_SOFTWARE_NAME,
             "--secretstore-nodes",
             "abc@127.0.0.1:3333,cde@10.10.10.10:4444",
         ])
@@ -1152,7 +1159,7 @@ mod tests {
         );
 
         let args = Args::parse(&[
-            "openethereum",
+            NODE_SOFTWARE_NAME,
             "--password",
             "~/.safe/1",
             "--password",
@@ -1164,7 +1171,7 @@ mod tests {
             vec!["~/.safe/1".to_owned(), "~/.safe/2".to_owned()]
         );
 
-        let args = Args::parse(&["openethereum", "--password", "~/.safe/1,~/.safe/2"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "--password", "~/.safe/1,~/.safe/2"]).unwrap();
         assert_eq!(
             args.arg_password,
             vec!["~/.safe/1".to_owned(), "~/.safe/2".to_owned()]
@@ -1173,7 +1180,7 @@ mod tests {
 
     #[test]
     fn should_parse_global_args_with_subcommand() {
-        let args = Args::parse(&["openethereum", "--chain", "dev", "account", "list"]).unwrap();
+        let args = Args::parse(&[NODE_SOFTWARE_NAME, "--chain", "dev", "account", "list"]).unwrap();
         assert_eq!(args.arg_chain, "dev".to_owned());
     }
 
@@ -1201,7 +1208,8 @@ mod tests {
         config.parity = Some(operating);
 
         // when
-        let args = Args::parse_with_config(&["openethereum", "--chain", "xyz"], config).unwrap();
+        let args =
+            Args::parse_with_config(&[NODE_SOFTWARE_NAME, "--chain", "xyz"], config).unwrap();
 
         // then
         assert_eq!(args.arg_chain, "xyz".to_owned());
@@ -1227,7 +1235,8 @@ mod tests {
         let config = toml::from_str(include_str!("./tests/config.full.toml")).unwrap();
 
         // when
-        let args = Args::parse_with_config(&["openethereum", "--chain", "xyz"], config).unwrap();
+        let args =
+            Args::parse_with_config(&[NODE_SOFTWARE_NAME, "--chain", "xyz"], config).unwrap();
 
         // then
         assert_eq!(
@@ -1656,7 +1665,7 @@ mod tests {
 
     #[test]
     fn should_not_accept_min_peers_bigger_than_max_peers() {
-        match Args::parse(&["openethereum", "--max-peers=39", "--min-peers=40"]) {
+        match Args::parse(&[NODE_SOFTWARE_NAME, "--max-peers=39", "--min-peers=40"]) {
             Err(ArgsError::PeerConfiguration) => (),
             _ => assert_eq!(false, true),
         }
@@ -1664,7 +1673,7 @@ mod tests {
 
     #[test]
     fn should_accept_max_peers_equal_or_bigger_than_min_peers() {
-        Args::parse(&["openethereum", "--max-peers=40", "--min-peers=40"]).unwrap();
-        Args::parse(&["openethereum", "--max-peers=100", "--min-peers=40"]).unwrap();
+        Args::parse(&[NODE_SOFTWARE_NAME, "--max-peers=40", "--min-peers=40"]).unwrap();
+        Args::parse(&[NODE_SOFTWARE_NAME, "--max-peers=100", "--min-peers=40"]).unwrap();
     }
 }

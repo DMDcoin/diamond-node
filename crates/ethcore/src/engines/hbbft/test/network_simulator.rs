@@ -1,4 +1,4 @@
-use engines::hbbft::test::hbbft_test_client::HbbftTestClient;
+use crate::engines::hbbft::test::hbbft_test_client::HbbftTestClient;
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
 

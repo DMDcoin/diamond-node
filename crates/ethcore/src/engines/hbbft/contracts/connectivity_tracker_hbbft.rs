@@ -1,10 +1,9 @@
-use client::EngineClient;
+use crate::{client::EngineClient, types::ids::BlockId};
 use ethereum_types::{Address, H256, U256};
 use std::str::FromStr;
-use types::ids::BlockId;
 
 use crate::{
-    client::{traits::TransactionRequest, BlockChainClient},
+    client::{BlockChainClient, traits::TransactionRequest},
     engines::hbbft::utils::bound_contract::{BoundContract, CallError},
 };
 

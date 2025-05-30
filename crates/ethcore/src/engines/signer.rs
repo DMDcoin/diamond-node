@@ -16,7 +16,7 @@
 
 //! A signer used by Engines which need to sign messages.
 
-use crypto::publickey::{self, ecies, Error, Public, Signature};
+use crypto::publickey::{self, Error, Public, Signature, ecies};
 use ethereum_types::{Address, H256};
 //TODO dr
 
@@ -63,7 +63,7 @@ impl EngineSigner for Signer {
 #[cfg(test)]
 mod test_signer {
 
-    extern crate ethkey;
+    use ethkey;
 
     use std::sync::Arc;
 

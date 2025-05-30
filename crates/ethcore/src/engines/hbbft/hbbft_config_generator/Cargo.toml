@@ -3,6 +3,7 @@ description = "parity config generator for hbbft validators"
 name = "hbbft_config_generator"
 version = "0.0.1"
 license = "GPL-3.0"
+edition = "2024"
 authors = [
     "David Forstenlechner <dforsten@gmail.com>",
     "Thomas Haller <thomashaller@gmx.at>"

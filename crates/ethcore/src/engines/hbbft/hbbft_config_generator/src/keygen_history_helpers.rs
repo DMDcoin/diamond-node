@@ -2,7 +2,7 @@ use crate::Enode;
 use ethereum_types::H128;
 use ethjson::spec::hbbft::HbbftNetworkFork;
 use hbbft::sync_key_gen::{AckOutcome, Part, PartOutcome, PublicKey, SecretKey, SyncKeyGen};
-use parity_crypto::publickey::{public_to_address, Address, Public, Secret};
+use parity_crypto::publickey::{Address, Public, Secret, public_to_address};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::{collections::BTreeMap, sync::Arc};

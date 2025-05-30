@@ -17,7 +17,7 @@
 extern crate dir;
 extern crate docopt;
 extern crate ethstore;
-extern crate num_cpus;
+use num_cpus;
 extern crate panic_hook;
 extern crate parking_lot;
 extern crate rustc_hex;
@@ -32,10 +32,10 @@ use std::{collections::VecDeque, env, fmt, fs, io::Read, process};
 
 use docopt::Docopt;
 use ethstore::{
+    EthStore, PresaleWallet, SecretStore, SecretVaultRef, SimpleSecretStore, StoreAccountRef,
     accounts_dir::{KeyDirectory, RootDiskDirectory},
     ethkey::{Address, Password},
-    import_accounts, EthStore, PresaleWallet, SecretStore, SecretVaultRef, SimpleSecretStore,
-    StoreAccountRef,
+    import_accounts,
 };
 
 mod crack;
@@ -150,7 +150,7 @@ impl fmt::Display for Error {
 fn main() {
     panic_hook::set_abort();
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "warn")
+        unsafe { env::set_var("RUST_LOG", "warn") }
     }
     env_logger::try_init().expect("Logger initialized only once.");
 

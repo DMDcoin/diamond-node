@@ -16,20 +16,29 @@
 
 //! Provides a `H256FastMap` type with H256 keys and fast hashing function.
 
-extern crate ethereum_types;
+use ethereum_types;
+extern crate lru;
 extern crate plain_hasher;
 
+use self::lru::LruCache;
 use ethereum_types::H256;
 use plain_hasher::PlainHasher;
 use std::{
     collections::{HashMap, HashSet},
     hash,
+    num::NonZeroUsize,
 };
 
 /// Specialized version of `HashMap` with H256 keys and fast hashing function.
 pub type H256FastMap<T> = HashMap<H256, T, hash::BuildHasherDefault<PlainHasher>>;
 /// Specialized version of HashSet with H256 values and fast hashing function.
 pub type H256FastSet = HashSet<H256, hash::BuildHasherDefault<PlainHasher>>;
+
+pub type H256FastLruMap<T> = LruCache<H256, T, hash::BuildHasherDefault<PlainHasher>>;
+
+pub fn new_h256_fast_lru_map<T>(cap: NonZeroUsize) -> H256FastLruMap<T> {
+    LruCache::with_hasher(cap, hash::BuildHasherDefault::<PlainHasher>::default())
+}
 
 #[cfg(test)]
 mod tests {

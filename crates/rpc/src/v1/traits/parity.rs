@@ -18,15 +18,15 @@
 
 use std::collections::BTreeMap;
 
-use ethereum_types::{H160, H256, H512, H64, U256, U64};
+use ethereum_types::{H64, H160, H256, H512, U64, U256};
 use jsonrpc_core::{BoxFuture, Result};
 use jsonrpc_derive::rpc;
 
-use ethcore::miner::TransactionFilter;
-use v1::types::{
+use crate::v1::types::{
     BlockNumber, Bytes, CallRequest, ChainStatus, Histogram, LocalTransactionStatus, Peers,
     Receipt, RecoveredAccount, RichHeader, RpcSettings, Transaction, TransactionStats,
 };
+use ethcore::miner::TransactionFilter;
 
 /// Parity-specific rpc interface.
 #[rpc(server)]
@@ -137,6 +137,16 @@ pub trait Parity {
         _: Option<TransactionFilter>,
     ) -> Result<Vec<Transaction>>;
 
+    /// Returns all pending transactions from transaction queue.
+    #[rpc(name = "eth_pendingTransactions")]
+    fn pending_transactions_eth(
+        &self,
+        size: Option<usize>,
+        filter: Option<TransactionFilter>,
+    ) -> Result<Vec<Transaction>> {
+        self.pending_transactions(size, filter)
+    }
+
     /// Returns all transactions from transaction queue.
     ///
     /// Some of them might not be ready to be included in a block yet.
@@ -189,7 +199,7 @@ pub trait Parity {
 
     /// Get node kind info.
     #[rpc(name = "parity_nodeKind")]
-    fn node_kind(&self) -> Result<::v1::types::NodeKind>;
+    fn node_kind(&self) -> Result<crate::v1::types::NodeKind>;
 
     /// Get block header.
     /// Same as `eth_getBlockByNumber` but without uncles and transactions.

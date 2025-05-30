@@ -19,7 +19,7 @@ use ethereum_types::H256;
 use jsonrpc_core::Result;
 use jsonrpc_derive::rpc;
 
-use v1::types::Bytes;
+use crate::v1::types::Bytes;
 
 /// Web3 rpc interface.
 #[rpc(server)]

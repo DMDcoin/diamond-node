@@ -17,13 +17,13 @@
 //! Wasm Interpreter
 
 extern crate byteorder;
-extern crate ethereum_types;
+use ethereum_types;
 #[macro_use]
 extern crate log;
 extern crate libc;
 extern crate parity_wasm;
 extern crate pwasm_utils as wasm_utils;
-extern crate vm;
+use vm;
 extern crate wasmi;
 
 #[cfg(test)]
@@ -132,7 +132,6 @@ impl WasmInterpreter {
                     address: self.params.address,
                     sender: self.params.sender,
                     origin: self.params.origin,
-                    code_address: self.params.code_address,
                     value: self.params.value.value(),
                 },
             );

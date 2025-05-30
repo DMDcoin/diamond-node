@@ -17,20 +17,22 @@
 use crate::exit::ShutdownManager;
 
 use super::HookType;
-use client::{
-    Balance, BlockChainClient, BlockId, ChainInfo, Client, ClientConfig, EvmTestClient,
-    ImportBlock, Nonce, StateOrBlock,
+use crate::{
+    client::{
+        Balance, BlockChainClient, BlockId, ChainInfo, Client, ClientConfig, EvmTestClient,
+        ImportBlock, Nonce, StateOrBlock,
+    },
+    io::IoChannel,
+    miner::Miner,
+    spec::Genesis,
+    test_helpers,
+    verification::{VerifierType, queue::kind::blocks::Unverified},
 };
 use ethereum_types::{H256, U256};
 use ethjson;
-use io::IoChannel;
 use log::warn;
-use miner::Miner;
 use rustc_hex::ToHex;
-use spec::Genesis;
 use std::{path::Path, sync::Arc};
-use test_helpers;
-use verification::{queue::kind::blocks::Unverified, VerifierType};
 
 fn check_poststate(
     client: &Arc<Client>,

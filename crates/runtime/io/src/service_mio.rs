@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    IoError, IoHandler,
+    worker::{Work, WorkType, Worker},
+};
 use deque;
 use mio::{
     deprecated::{EventLoop, EventLoopBuilder, Handler, Sender},
@@ -28,9 +32,6 @@ use std::{
     thread::{self, JoinHandle},
     time::Duration,
 };
-use worker::{Work, WorkType, Worker};
-use IoError;
-use IoHandler;
 
 /// Timer ID
 pub type TimerToken = usize;

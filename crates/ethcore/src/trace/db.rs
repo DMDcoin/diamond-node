@@ -17,17 +17,16 @@
 //! Trace database.
 use std::{collections::HashMap, sync::Arc};
 
-use blockchain::BlockChainDB;
-use db::{self, cache_manager::CacheManager, CacheUpdatePolicy, Key, Readable, Writable};
+use crate::{blockchain::BlockChainDB, types::BlockNumber};
+use db::{self, CacheUpdatePolicy, Key, Readable, Writable, cache_manager::CacheManager};
 use ethereum_types::{H256, H264};
 use kvdb::DBTransaction;
 use parity_util_mem::MallocSizeOfExt;
 use parking_lot::RwLock;
-use types::BlockNumber;
 
-use trace::{
-    flat::{FlatBlockTraces, FlatTrace, FlatTransactionTraces},
+use crate::trace::{
     Config, Database as TraceDatabase, DatabaseExtras, Filter, ImportRequest, LocalizedTrace,
+    flat::{FlatBlockTraces, FlatTrace, FlatTransactionTraces},
 };
 
 const TRACE_DB_VER: &'static [u8] = b"1.0";
@@ -406,18 +405,20 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        test_helpers::new_db,
+        trace::{
+            AddressesFilter, Config, Database as TraceDatabase, DatabaseExtras, Filter,
+            ImportRequest, LocalizedTrace, TraceDB, TraceError,
+            flat::{FlatBlockTraces, FlatTrace, FlatTransactionTraces},
+            trace::{Action, Call, Res},
+        },
+        types::BlockNumber,
+    };
     use ethereum_types::{Address, H256, U256};
     use evm::CallType;
     use kvdb::DBTransaction;
     use std::{collections::HashMap, sync::Arc};
-    use test_helpers::new_db;
-    use trace::{
-        flat::{FlatBlockTraces, FlatTrace, FlatTransactionTraces},
-        trace::{Action, Call, Res},
-        AddressesFilter, Config, Database as TraceDatabase, DatabaseExtras, Filter, ImportRequest,
-        LocalizedTrace, TraceDB, TraceError,
-    };
-    use types::BlockNumber;
 
     struct NoopExtras;
 

@@ -1,12 +1,14 @@
-use client::{
-    traits::{EngineClient, TransactionRequest},
-    BlockChainClient,
+use crate::{
+    client::{
+        BlockChainClient,
+        traits::{EngineClient, TransactionRequest},
+    },
+    engines::hbbft::utils::bound_contract::{BoundContract, CallError},
+    types::{ids::BlockId, transaction::Error},
 };
 use crypto::publickey::Public;
-use engines::hbbft::utils::bound_contract::{BoundContract, CallError};
 use ethereum_types::{Address, U256};
 use std::{collections::BTreeMap, net::SocketAddr, str::FromStr};
-use types::{ids::BlockId, transaction::Error};
 
 use_contract!(
     validator_set_hbbft,
@@ -190,6 +192,7 @@ pub fn send_tx_announce_availability(
                 );
                 let transaction = TransactionRequest::call(*VALIDATOR_SET_ADDRESS, send_data.0)
                     .gas(U256::from(1_000_000))
+                    .gas_price(U256::from(0))
                     .nonce(nonce);
 
                 info!(target:"consensus", "sending announce availability with nonce: {}", nonce);

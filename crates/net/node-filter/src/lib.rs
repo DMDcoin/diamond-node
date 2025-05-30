@@ -20,7 +20,7 @@ extern crate ethabi;
 extern crate ethcore;
 extern crate ethcore_network as network;
 extern crate ethcore_network_devp2p as devp2p;
-extern crate ethereum_types;
+use ethereum_types;
 extern crate lru_cache;
 extern crate parking_lot;
 
@@ -97,6 +97,7 @@ impl ConnectionFilter for NodeFilter {
 #[cfg(test)]
 mod test {
     use super::NodeFilter;
+    use crate::io::IoChannel;
     use ethcore::{
         client::{BlockChainClient, Client, ClientConfig},
         exit::ShutdownManager,
@@ -105,7 +106,6 @@ mod test {
         test_helpers,
     };
     use ethereum_types::Address;
-    use io::IoChannel;
     use network::{ConnectionDirection, ConnectionFilter, NodeId};
     use std::{
         str::FromStr,

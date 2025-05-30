@@ -70,10 +70,6 @@ pub type NodeBytes = [u8; NODE_BYTES];
 pub type NodeWords = [u32; NODE_WORDS];
 pub type NodeDwords = [u64; NODE_DWORDS];
 
-unsafe trait AsBigAsUsize: Sized {
-    const _DUMMY: [(); 0];
-}
-
 macro_rules! static_assert_size_eq {
 	(@inner $a:ty, $b:ty, $($rest:ty),*) => {
 		fn first() {
@@ -85,11 +81,11 @@ macro_rules! static_assert_size_eq {
 		}
 	};
 	(@inner $a:ty, $b:ty) => {
-        unsafe impl AsBigAsUsize for $a {
-            #[allow(dead_code)]
-            const _DUMMY: [(); 0] =
-                [(); (::std::mem::size_of::<$a>() - ::std::mem::size_of::<$b>())];
-        }
+        // Use const assertion instead of trait implementation
+        const _: () = assert!(
+            ::std::mem::size_of::<$a>() == ::std::mem::size_of::<$b>(),
+            concat!("Size mismatch between ", stringify!($a), " and ", stringify!($b))
+        );
 	};
 	($($rest:ty),*) => {
 		static_assert_size_eq!(size_eq: $($rest),*);

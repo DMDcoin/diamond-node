@@ -18,17 +18,19 @@
 /// It can also report validators for misbehaviour with two levels: `reportMalicious` and `reportBenign`.
 use std::sync::Weak;
 
+use crate::{
+    machine::{AuxiliaryData, Call, EthereumMachine},
+    types::{BlockNumber, header::Header, ids::BlockId, transaction},
+};
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
-use machine::{AuxiliaryData, Call, EthereumMachine};
 use parking_lot::RwLock;
-use types::{header::Header, ids::BlockId, transaction, BlockNumber};
 
-use client::{traits::TransactionRequest, EngineClient};
+use crate::client::{EngineClient, traits::TransactionRequest};
 
-use error::Error as EthcoreError;
+use crate::error::Error as EthcoreError;
 
-use super::{safe_contract::ValidatorSafeContract, SimpleList, SystemCall, ValidatorSet};
+use super::{SimpleList, SystemCall, ValidatorSet, safe_contract::ValidatorSafeContract};
 
 use_contract!(validator_report, "res/contracts/validator_report.json");
 
@@ -146,7 +148,7 @@ impl ValidatorSet for ValidatorContract {
         first: bool,
         header: &Header,
         call: &mut SystemCall,
-    ) -> Result<(), ::error::Error> {
+    ) -> Result<(), crate::error::Error> {
         self.validators.on_epoch_begin(first, header, call)
     }
 
@@ -163,7 +165,7 @@ impl ValidatorSet for ValidatorContract {
         first: bool,
         header: &Header,
         aux: AuxiliaryData,
-    ) -> ::engines::EpochChange<EthereumMachine> {
+    ) -> crate::engines::EpochChange<EthereumMachine> {
         self.validators.signals_epoch_end(first, header, aux)
     }
 
@@ -173,7 +175,7 @@ impl ValidatorSet for ValidatorContract {
         machine: &EthereumMachine,
         number: BlockNumber,
         proof: &[u8],
-    ) -> Result<(SimpleList, Option<H256>), ::error::Error> {
+    ) -> Result<(SimpleList, Option<H256>), crate::error::Error> {
         self.validators.epoch_set(first, machine, number, proof)
     }
 
@@ -216,20 +218,22 @@ impl ValidatorSet for ValidatorContract {
 #[cfg(test)]
 mod tests {
     use super::{super::ValidatorSet, ValidatorContract};
+    use crate::{
+        client::{BlockChainClient, BlockInfo, ChainInfo, traits::TransactionRequest},
+        miner::{self, MinerService},
+        spec::Spec,
+        test_helpers::generate_dummy_client_with_spec,
+        types::{header::Header, ids::BlockId},
+    };
     use accounts::AccountProvider;
     use bytes::ToPretty;
     use call_contract::CallContract;
-    use client::{traits::TransactionRequest, BlockChainClient, BlockInfo, ChainInfo};
     use ethabi::FunctionOutputDecoder;
     use ethereum_types::{Address, H520};
     use hash::keccak;
-    use miner::{self, MinerService};
     use rlp::encode;
     use rustc_hex::FromHex;
-    use spec::Spec;
     use std::sync::Arc;
-    use test_helpers::generate_dummy_client_with_spec;
-    use types::{header::Header, ids::BlockId};
 
     #[test]
     fn fetches_validators() {
@@ -238,18 +242,22 @@ mod tests {
         let vc = Arc::new(ValidatorContract::new(addr, None));
         vc.register_client(Arc::downgrade(&client) as _);
         let last_hash = client.best_block_header().hash();
-        assert!(vc.contains(
-            &last_hash,
-            &"7d577a597b2742b498cb5cf0c26cdcd726d39e6e"
-                .parse::<Address>()
-                .unwrap()
-        ));
-        assert!(vc.contains(
-            &last_hash,
-            &"82a978b3f5962a5b0957d9ee9eef472ee55b42f1"
-                .parse::<Address>()
-                .unwrap()
-        ));
+        assert!(
+            vc.contains(
+                &last_hash,
+                &"7d577a597b2742b498cb5cf0c26cdcd726d39e6e"
+                    .parse::<Address>()
+                    .unwrap()
+            )
+        );
+        assert!(
+            vc.contains(
+                &last_hash,
+                &"82a978b3f5962a5b0957d9ee9eef472ee55b42f1"
+                    .parse::<Address>()
+                    .unwrap()
+            )
+        );
     }
 
     #[test]
@@ -310,10 +318,12 @@ mod tests {
         );
         // Simulate a misbehaving validator by handling a double proposal.
         let header = client.best_block_header();
-        assert!(client
-            .engine()
-            .verify_block_family(&header, &header)
-            .is_err());
+        assert!(
+            client
+                .engine()
+                .verify_block_family(&header, &header)
+                .is_err()
+        );
         // Seal a block.
         client.engine().step();
         client.engine().step();

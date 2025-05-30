@@ -20,7 +20,7 @@ extern crate backtrace;
 
 use backtrace::Backtrace;
 use std::{
-    panic::{self, PanicInfo},
+    panic::{self, PanicHookInfo},
     process, thread,
 };
 
@@ -54,7 +54,7 @@ This is a bug. Please report it at:
     https://github.com/dmdcoin/diamond-node/issues/new
 ";
 
-fn gen_panic_msg(info: &PanicInfo) -> String {
+fn gen_panic_msg(info: &PanicHookInfo) -> String {
     let location = info.location();
     let file = location.as_ref().map(|l| l.file()).unwrap_or("<unknown>");
     let line = location.as_ref().map(|l| l.line()).unwrap_or(0);

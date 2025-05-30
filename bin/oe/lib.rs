@@ -25,7 +25,6 @@ extern crate atty;
 extern crate dir;
 extern crate futures;
 extern crate jsonrpc_core;
-extern crate num_cpus;
 extern crate number_prefix;
 extern crate parking_lot;
 extern crate regex;
@@ -51,7 +50,7 @@ extern crate ethcore_miner as miner;
 extern crate ethcore_network as network;
 extern crate ethcore_service;
 extern crate ethcore_sync as sync;
-extern crate ethereum_types;
+use ethereum_types;
 extern crate ethkey;
 extern crate ethstore;
 extern crate fetch;
@@ -128,7 +127,7 @@ use std::alloc::System;
 
 pub use self::{configuration::Configuration, run::RunningClient};
 pub use ethcore::exit::ShutdownManager;
-pub use ethcore_logger::{setup_log, Config as LoggerConfig, RotatingLogger};
+pub use ethcore_logger::{Config as LoggerConfig, RotatingLogger, setup_log};
 pub use parity_rpc::PubSubSession;
 
 #[cfg(feature = "memory_profiling")]
@@ -157,23 +156,25 @@ fn run_deadlock_detection_thread() {
     let builder = std::thread::Builder::new().name("DeadlockDetection".to_string());
 
     // Create a background thread which checks for deadlocks every 10s
-    let spawned = builder.spawn(move || loop {
-        thread::sleep(Duration::from_secs(10));
-        let deadlocks = deadlock::check_deadlock();
-        if deadlocks.is_empty() {
-            continue;
-        }
+    let spawned = builder.spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(10));
+            let deadlocks = deadlock::check_deadlock();
+            if deadlocks.is_empty() {
+                continue;
+            }
 
-        warn!(
-            "{} {} detected",
-            deadlocks.len(),
-            Style::new().bold().paint("deadlock(s)")
-        );
-        for (i, threads) in deadlocks.iter().enumerate() {
-            warn!("{} #{}", Style::new().bold().paint("Deadlock"), i);
-            for t in threads {
-                warn!("Thread Id {:#?}", t.thread_id());
-                warn!("{:#?}", t.backtrace());
+            warn!(
+                "{} {} detected",
+                deadlocks.len(),
+                Style::new().bold().paint("deadlock(s)")
+            );
+            for (i, threads) in deadlocks.iter().enumerate() {
+                warn!("{} #{}", Style::new().bold().paint("Deadlock"), i);
+                for t in threads {
+                    warn!("Thread Id {:#?}", t.thread_id());
+                    warn!("{:#?}", t.backtrace());
+                }
             }
         }
     });

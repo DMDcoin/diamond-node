@@ -18,41 +18,45 @@ use bytes::Bytes;
 use crypto::publickey::Secret;
 use devp2p::NetworkService;
 use network::{
-    client_version::ClientVersion, ConnectionFilter, Error, ErrorKind,
-    NetworkConfiguration as BasicNetworkConfiguration, NetworkContext, NetworkProtocolHandler,
-    NodeId, NonReservedPeerMode, PeerId, ProtocolId,
+    ConnectionFilter, Error, ErrorKind, NetworkConfiguration as BasicNetworkConfiguration,
+    NetworkContext, NetworkProtocolHandler, NodeId, NonReservedPeerMode, PeerId, ProtocolId,
+    client_version::ClientVersion,
 };
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     io,
     ops::RangeInclusive,
-    sync::{atomic, mpsc, Arc},
+    sync::{Arc, atomic, mpsc},
     time::Duration,
 };
 
-use chain::{
-    fork_filter::ForkFilterApi, ChainSyncApi, SyncState, SyncStatus as EthSyncStatus,
-    ETH_PROTOCOL_VERSION_63, ETH_PROTOCOL_VERSION_64, ETH_PROTOCOL_VERSION_65,
-    ETH_PROTOCOL_VERSION_66, PAR_PROTOCOL_VERSION_1, PAR_PROTOCOL_VERSION_2,
+use crate::{
+    chain::{
+        ChainSyncApi, ETH_PROTOCOL_VERSION_63, ETH_PROTOCOL_VERSION_64, ETH_PROTOCOL_VERSION_65,
+        ETH_PROTOCOL_VERSION_66, PAR_PROTOCOL_VERSION_1, PAR_PROTOCOL_VERSION_2, SyncState,
+        SyncStatus as EthSyncStatus, fork_filter::ForkFilterApi,
+    },
+    ethcore::{
+        client::{BlockChainClient, ChainMessageType, ChainNotify, NewBlocks},
+        snapshot::SnapshotService,
+    },
+    io::TimerToken,
+    network::IpFilter,
+    stats::{PrometheusMetrics, PrometheusRegistry},
 };
-use ethcore::{
-    client::{BlockChainClient, ChainMessageType, ChainNotify, NewBlocks},
-    snapshot::SnapshotService,
-};
-use ethereum_types::{H256, H512, U256, U64};
-use io::TimerToken;
-use network::IpFilter;
+use ethereum_types::{H256, H512, U64, U256};
 use parking_lot::{Mutex, RwLock};
-use stats::{PrometheusMetrics, PrometheusRegistry};
 
+use crate::{
+    sync_io::{NetSyncIo, SyncIo},
+    types::{
+        BlockNumber, creation_status::CreationStatus, restoration_status::RestorationStatus,
+        transaction::UnverifiedTransaction,
+    },
+};
 use std::{
     net::{AddrParseError, SocketAddr},
     str::FromStr,
-};
-use sync_io::{NetSyncIo, SyncIo};
-use types::{
-    creation_status::CreationStatus, restoration_status::RestorationStatus,
-    transaction::UnverifiedTransaction, BlockNumber,
 };
 
 /// OpenEthereum sync protocol
@@ -318,12 +322,12 @@ impl SyncProvider for EthSync {
 
                         Some(PeerInfo {
                             id: session_info.id.map(|id| format!("{:x}", id)),
-                            client_version: session_info.client_version,
                             capabilities: session_info
-                                .peer_capabilities
-                                .into_iter()
+                                .peer_capabilities()
+                                .iter()
                                 .map(|c| c.to_string())
                                 .collect(),
+                            client_version: session_info.client_version,
                             remote_address: session_info.remote_address,
                             local_address: session_info.local_address,
                             eth_info: peer_info,
@@ -448,6 +452,8 @@ impl PrometheusMetrics for EthSync {
             manifest_block_num as i64,
         );
 
+        self.eth_handler.prometheus_metrics(r);
+
         self.network.prometheus_metrics(r);
     }
 }
@@ -520,6 +526,21 @@ impl SyncProtocolHandler {
     }
 }
 
+impl PrometheusMetrics for SyncProtocolHandler {
+    fn prometheus_metrics(&self, r: &mut PrometheusRegistry) {
+        if let Some(cache) = self.message_cache.try_read_for(Duration::from_millis(50)) {
+            let sum = cache.iter().map(|(_, v)| v.len()).sum::<usize>();
+            r.register_gauge(
+                "consensus_message_cache",
+                "Number of cached consensus messages",
+                sum as i64,
+            );
+        }
+
+        self.sync.prometheus_metrics(r);
+    }
+}
+
 impl NetworkProtocolHandler for SyncProtocolHandler {
     fn initialize(&self, io: &dyn NetworkContext) {
         if io.subprotocol_name() != PAR_PROTOCOL {
@@ -571,7 +592,7 @@ impl NetworkProtocolHandler for SyncProtocolHandler {
     fn disconnected(&self, io: &dyn NetworkContext, peer: &PeerId) {
         trace_time!("sync::disconnected");
         if io.is_reserved_peer(*peer) {
-            trace!(target: "sync", "Disconnected from reserved peer peerID: {} {}",peer,  io.session_info(*peer).expect("").id.map_or("".to_string(), |f| format!("{:?}", f)));
+            warn!(target: "sync", "Disconnected from reserved peer peerID: {} {}",peer,  io.session_info(*peer).expect("").id.map_or("".to_string(), |f| format!("{:?}", f)));
         }
         if io.subprotocol_name() != PAR_PROTOCOL {
             self.sync.write().on_peer_aborting(
@@ -588,7 +609,7 @@ impl NetworkProtocolHandler for SyncProtocolHandler {
             PEERS_TIMER => self.sync.write().maintain_peers(&mut io),
             MAINTAIN_SYNC_TIMER => self.sync.write().maintain_sync(&mut io),
             CONTINUE_SYNC_TIMER => self.sync.write().continue_sync(&mut io),
-            TX_TIMER => self.sync.write().propagate_new_transactions(&mut io),
+            TX_TIMER => self.sync.write().propagate_new_ready_transactions(&mut io),
             PRIORITY_TIMER => self.sync.process_priority_queue(&mut io),
             DELAYED_PROCESSING_TIMER => self.sync.process_delayed_requests(&mut io),
             CONSENSUS_SEND_RETRY_TIMER => self.try_resend_consensus_messages(nc),
@@ -638,7 +659,10 @@ impl ChainNotify for EthSync {
         match self.network.start() {
             Err((err, listen_address)) => match err.into() {
                 ErrorKind::Io(ref e) if e.kind() == io::ErrorKind::AddrInUse => {
-                    warn!("Network port {:?} is already in use, make sure that another instance of an Ethereum client is not running or change the port using the --port option.", listen_address.expect("Listen address is not set."))
+                    warn!(
+                        "Network port {:?} is already in use, make sure that another instance of an Ethereum client is not running or change the port using the --port option.",
+                        listen_address.expect("Listen address is not set.")
+                    )
                 }
                 err => warn!("Error starting network: {}", err),
             },

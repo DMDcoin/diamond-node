@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use ethereum_types::{H160, U256, U64};
-use v1::{
+use crate::v1::{
     helpers::CallRequest as Request,
     types::{AccessList, Bytes},
 };
+use ethereum_types::{H160, U64, U256};
 
 /// Call request
 #[derive(Debug, Default, PartialEq, Deserialize)]

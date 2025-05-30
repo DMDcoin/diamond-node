@@ -3,6 +3,7 @@ description = "Parity Ethereum (EthCore) Client & Network Service Creation & Reg
 name = "ethcore-service"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2024"
 
 [dependencies]
 ansi_term = "0.10"

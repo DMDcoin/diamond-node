@@ -1,6 +1,6 @@
+use crate::types::ids::BlockId;
 use ethereum_types::Address;
 use stats::PrometheusMetrics;
-use types::ids::BlockId;
 
 use crate::{
     client::{BlockChainClient, EngineClient},
@@ -13,9 +13,9 @@ use std::{
 };
 
 use super::{
+    NodeId,
     contracts::connectivity_tracker_hbbft::{is_connectivity_loss_reported, report_reconnect},
     hbbft_message_memorium::HbbftMessageMemorium,
-    NodeId,
 };
 
 pub(crate) struct HbbftEarlyEpochEndManager {
@@ -297,7 +297,7 @@ impl HbbftEarlyEpochEndManager {
         // todo: read this out from contracts: ConnectivityTrackerHbbft -> reportDisallowPeriod
         // requires us to update the Contracts ABIs:
         // https://github.com/DMDcoin/diamond-node/issues/115
-        let treshold_time = Duration::from_secs(22 * 60); // 22 Minutes = 2 times the heartbeat + 2 minutes as grace period.
+        let treshold_time = Duration::from_secs(12 * 60); // 12 Minutes = 1 times the heartbeat + 2 minutes as grace period.
 
         if self.start_time.elapsed() < treshold_time {
             debug!(target: "engine", "early-epoch-end: no decision: Treshold time not reached.");

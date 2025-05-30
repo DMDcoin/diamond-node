@@ -18,9 +18,9 @@
 
 #![allow(unstable_name_collisions)]
 
-use igd::{search_gateway_from_timeout, PortMappingProtocol};
+use crate::node_table::NodeEndpoint;
+use igd::{PortMappingProtocol, search_gateway_from_timeout};
 use ipnetwork::IpNetwork;
-use node_table::NodeEndpoint;
 use std::{
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -229,7 +229,7 @@ impl SocketAddrExt for IpAddr {
 #[cfg(not(any(windows, target_os = "android")))]
 mod getinterfaces {
     use libc::{
-        freeifaddrs, getifaddrs, ifaddrs, sockaddr, sockaddr_in, sockaddr_in6, AF_INET, AF_INET6,
+        AF_INET, AF_INET6, freeifaddrs, getifaddrs, ifaddrs, sockaddr, sockaddr_in, sockaddr_in6,
     };
     use std::{
         io, mem,

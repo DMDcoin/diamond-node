@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use api::PAR_PROTOCOL;
-use bytes::Bytes;
-use chain::{
-    sync_packet::{PacketInfo, SyncPacket},
-    ChainSync, ForkFilterApi, SyncSupplier, ETH_PROTOCOL_VERSION_66, PAR_PROTOCOL_VERSION_2,
+use crate::{
+    api::PAR_PROTOCOL,
+    chain::{
+        ChainSync, ETH_PROTOCOL_VERSION_66, ForkFilterApi, PAR_PROTOCOL_VERSION_2, SyncSupplier,
+        sync_packet::{PacketInfo, SyncPacket},
+    },
 };
+use bytes::Bytes;
 use ethcore::{
     client::{
         BlockChainClient, ChainMessageType, ChainNotify, Client as EthcoreClient, ClientConfig,
@@ -32,19 +34,20 @@ use ethcore::{
     test_helpers,
 };
 
+use crate::{
+    io::{IoChannel, IoContext, IoHandler},
+    sync_io::SyncIo,
+    tests::snapshot::*,
+};
 use ethereum_types::H256;
-use io::{IoChannel, IoContext, IoHandler};
-use network::{self, client_version::ClientVersion, PacketId, PeerId, ProtocolId, SessionInfo};
+use network::{self, PacketId, PeerId, ProtocolId, SessionInfo, client_version::ClientVersion};
 use parking_lot::RwLock;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
 };
-use sync_io::SyncIo;
-use tests::snapshot::*;
 
-use types::BlockNumber;
-use SyncConfig;
+use crate::{SyncConfig, types::BlockNumber};
 
 pub trait FlushingBlockChainClient: BlockChainClient {
     fn flush(&self) {}
@@ -342,7 +345,7 @@ impl<C: FlushingBlockChainClient> Peer for EthPeer<C> {
         self.sync.write().maintain_peers(&mut io);
         self.sync.write().maintain_sync(&mut io);
         self.sync.write().continue_sync(&mut io);
-        self.sync.write().propagate_new_transactions(&mut io);
+        self.sync.write().propagate_new_ready_transactions(&mut io);
     }
 
     fn restart_sync(&self) {

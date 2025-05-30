@@ -9,7 +9,7 @@ use crate::{
     ethereum::public_key_to_address::public_key_to_address,
 };
 
-use super::{contracts::staking::get_pool_public_key, NodeId};
+use super::{NodeId, contracts::staking::get_pool_public_key};
 use bytes::ToPretty;
 use ethereum_types::Address;
 
@@ -208,32 +208,37 @@ impl HbbftPeersManagement {
             }
         }
 
-        info!("removing {} reserved peers, because they are neither a pending validator nor a current validator.", validators_to_remove.len());
+        if validators_to_remove.len() > 0 {
+            info!(
+                "removing {} reserved peers, because they are neither a pending validator nor a current validator.",
+                validators_to_remove.len()
+            );
 
-        let mut peers_management_guard = block_chain_client.reserved_peers_management().lock();
+            let mut peers_management_guard = block_chain_client.reserved_peers_management().lock();
 
-        if let Some(peers_management) = peers_management_guard.as_deref_mut() {
-            for current_validator in self.connected_current_validators.iter() {
-                if validators_to_remove.contains(&current_validator.mining_address) {
-                    match peers_management.remove_reserved_peer(&current_validator.peer_string) {
-                        Ok(_) => {
-                            info!(target: "Engine", "removed reserved peer {}", current_validator.peer_string);
-                        }
-                        Err(error) => {
-                            warn!(target: "Engine", "could not remove reserved peer {}: reason: {}", current_validator.peer_string, error);
+            if let Some(peers_management) = peers_management_guard.as_deref_mut() {
+                for current_validator in self.connected_current_validators.iter() {
+                    if validators_to_remove.contains(&current_validator.mining_address) {
+                        match peers_management.remove_reserved_peer(&current_validator.peer_string)
+                        {
+                            Ok(_) => {
+                                info!(target: "Engine", "removed reserved peer {}", current_validator.peer_string);
+                            }
+                            Err(error) => {
+                                warn!(target: "Engine", "could not remove reserved peer {}: reason: {}", current_validator.peer_string, error);
+                            }
                         }
                     }
                 }
+
+                peers_management
+                    .get_reserved_peers()
+                    .iter()
+                    .for_each(|peer| {
+                        info!(target: "Engine", "reserved peer: {}", peer);
+                    });
             }
-
-            peers_management
-                .get_reserved_peers()
-                .iter()
-                .for_each(|peer| {
-                    info!(target: "Engine", "reserved peer: {}", peer);
-                });
         }
-
         // we have now connected all additional current validators, kept the connection for those that have already been connected,
         // and we have disconnected all previous validators that are not current validators anymore.
         // so we now can set the information of collected validators.
@@ -301,6 +306,7 @@ impl HbbftPeersManagement {
     /// because those should be current validators by now.
     /// Make sure to connect to the new current validators,
     /// before disconnecting from the pending validators.
+    #[allow(dead_code)]
     pub fn disconnect_pending_validators(
         &mut self,
         client: &dyn BlockChainClient,

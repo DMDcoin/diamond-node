@@ -24,30 +24,32 @@ use std::{
     sync::Arc,
 };
 
+use crate::types::{BlockNumber, header::Header};
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H160, H256, U256};
 use ethjson;
-use hash::{keccak, KECCAK_NULL_RLP};
+use hash::{KECCAK_NULL_RLP, keccak};
 use parking_lot::RwLock;
 use rlp::{Rlp, RlpStream};
 use rustc_hex::FromHex;
-use types::{header::Header, BlockNumber};
 use vm::{AccessList, ActionParams, ActionValue, CallType, EnvInfo, ParamsType};
 
-use builtin::Builtin;
-use engines::{
-    AuthorityRound, BasicAuthority, Clique, EthEngine, HoneyBadgerBFT, InstantSeal,
-    InstantSealParams, NullEngine, DEFAULT_BLOCKHASH_CONTRACT,
+use crate::{
+    engines::{
+        AuthorityRound, BasicAuthority, Clique, DEFAULT_BLOCKHASH_CONTRACT, EthEngine,
+        HoneyBadgerBFT, InstantSeal, InstantSealParams, NullEngine,
+    },
+    error::Error,
+    executive::Executive,
+    factory::Factories,
+    machine::EthereumMachine,
+    pod_state::PodState,
+    spec::{Genesis, seal::Generic as GenericSeal},
+    state::{Backend, State, Substate, backend::Basic as BasicBackend},
+    trace::{NoopTracer, NoopVMTracer},
 };
-use error::Error;
-use executive::Executive;
-use factory::Factories;
-use machine::EthereumMachine;
+use builtin::Builtin;
 use maplit::btreeset;
-use pod_state::PodState;
-use spec::{seal::Generic as GenericSeal, Genesis};
-use state::{backend::Basic as BasicBackend, Backend, State, Substate};
-use trace::{NoopTracer, NoopVMTracer};
 
 pub use ethash::OptimizeFor;
 
@@ -791,7 +793,7 @@ impl Spec {
                     }
                 }
 
-                Arc::new(::ethereum::Ethash::new(
+                Arc::new(crate::ethereum::Ethash::new(
                     spec_params.cache_dir,
                     ethash.params.into(),
                     machine,
@@ -1061,7 +1063,7 @@ impl Spec {
     /// initialize genesis epoch data, using in-memory database for
     /// constructor.
     pub fn genesis_epoch_data(&self) -> Result<Vec<u8>, String> {
-        use types::transaction::{Action, Transaction, TypedTransaction};
+        use crate::types::transaction::{Action, Transaction, TypedTransaction};
 
         let genesis = self.genesis_header();
 
@@ -1099,7 +1101,7 @@ impl Spec {
             })
             .fake_sign(from);
 
-            let res = ::state::prove_transaction_virtual(
+            let res = crate::state::prove_transaction_virtual(
                 db.as_hash_db_mut(),
                 *genesis.state_root(),
                 &tx,
@@ -1236,12 +1238,14 @@ impl Spec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        state::State,
+        test_helpers::get_temp_state_db,
+        types::{view, views::BlockView},
+    };
     use ethereum_types::{H160, H256};
-    use state::State;
     use std::str::FromStr;
     use tempdir::TempDir;
-    use test_helpers::get_temp_state_db;
-    use types::{view, views::BlockView};
 
     #[test]
     fn test_load_empty() {

@@ -22,24 +22,28 @@
 use super::{ChunkSink, Rebuilder, SnapshotComponents};
 
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
-use engines::{EpochTransition, EpochVerifier, EthEngine};
-use machine::EthereumMachine;
-use snapshot::{Error, ManifestData, Progress};
+use crate::{
+    engines::{EpochTransition, EpochVerifier, EthEngine},
+    machine::EthereumMachine,
+    snapshot::{Error, ManifestData, Progress},
+};
 
-use blockchain::{BlockChain, BlockChainDB, BlockProvider};
+use crate::{
+    blockchain::{BlockChain, BlockChainDB, BlockProvider},
+    types::{
+        BlockNumber, encoded, header::Header, ids::BlockId, receipt::TypedReceipt,
+        transaction::TypedTransaction,
+    },
+};
 use bytes::Bytes;
 use db::KeyValueDB;
 use ethereum_types::{H256, U256};
 use itertools::{Itertools, Position};
 use rlp::{Rlp, RlpStream};
-use types::{
-    encoded, header::Header, ids::BlockId, receipt::TypedReceipt, transaction::TypedTransaction,
-    BlockNumber,
-};
 
 /// Snapshot creation and restoration for PoA chains.
 /// Chunk format:
@@ -137,7 +141,7 @@ impl SnapshotComponents for PoaSnapshot {
         chain: BlockChain,
         db: Arc<dyn BlockChainDB>,
         manifest: &ManifestData,
-    ) -> Result<Box<dyn Rebuilder>, ::error::Error> {
+    ) -> Result<Box<dyn Rebuilder>, crate::error::Error> {
         Ok(Box::new(ChunkRebuilder {
             manifest: manifest.clone(),
             warp_target: None,
@@ -198,8 +202,8 @@ impl ChunkRebuilder {
         last_verifier: &mut Option<Box<dyn EpochVerifier<EthereumMachine>>>,
         transition_rlp: Rlp,
         engine: &dyn EthEngine,
-    ) -> Result<Verified, ::error::Error> {
-        use engines::ConstructedVerifier;
+    ) -> Result<Verified, crate::error::Error> {
+        use crate::engines::ConstructedVerifier;
 
         // decode.
         let header =
@@ -260,7 +264,7 @@ impl Rebuilder for ChunkRebuilder {
         chunk: &[u8],
         engine: &dyn EthEngine,
         abort_flag: &AtomicBool,
-    ) -> Result<(), ::error::Error> {
+    ) -> Result<(), crate::error::Error> {
         let rlp = Rlp::new(chunk);
         let is_last_chunk: bool = rlp.val_at(0)?;
         let num_items = rlp.item_count()?;
@@ -349,7 +353,7 @@ impl Rebuilder for ChunkRebuilder {
         }
 
         if is_last_chunk {
-            use types::block::Block;
+            use crate::types::block::Block;
 
             let last_rlp = rlp.at(num_items - 1)?;
             let block = Block {
@@ -392,7 +396,7 @@ impl Rebuilder for ChunkRebuilder {
         Ok(())
     }
 
-    fn finalize(&mut self, _engine: &dyn EthEngine) -> Result<(), ::error::Error> {
+    fn finalize(&mut self, _engine: &dyn EthEngine) -> Result<(), crate::error::Error> {
         if !self.had_genesis {
             return Err(Error::WrongChunkFormat("No genesis transition included.".into()).into());
         }
@@ -402,7 +406,7 @@ impl Rebuilder for ChunkRebuilder {
             None => {
                 return Err(
                     Error::WrongChunkFormat("Warp target block not included.".into()).into(),
-                )
+                );
             }
         };
 

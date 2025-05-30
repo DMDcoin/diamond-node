@@ -22,6 +22,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::types::BlockNumber;
 use ethereum_types::{Address, H256};
 use hash_db::HashDB;
 use journaldb::JournalDB;
@@ -30,9 +31,8 @@ use kvdb::{DBTransaction, DBValue};
 use lru_cache::LruCache;
 use memory_cache::MemoryLruCache;
 use parking_lot::Mutex;
-use types::BlockNumber;
 
-use state::{self, Account};
+use crate::state::{self, Account};
 
 const STATE_CACHE_BLOCKS: usize = 12;
 
@@ -168,10 +168,7 @@ impl StateDB {
     pub fn sync_cache(&mut self, enacted: &[H256], retracted: &[H256], is_best: bool) {
         trace!(
             "sync_cache id = (#{:?}, {:?}), parent={:?}, best={}",
-            self.commit_number,
-            self.commit_hash,
-            self.parent_hash,
-            is_best
+            self.commit_number, self.commit_hash, self.parent_hash, is_best
         );
         let mut cache = self.account_cache.lock();
         let cache = &mut *cache;
@@ -445,10 +442,12 @@ unsafe impl Sync for SyncAccount {}
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        state::{Account, Backend},
+        test_helpers::get_temp_state_db,
+    };
     use ethereum_types::{Address, H256, U256};
     use kvdb::DBTransaction;
-    use state::{Account, Backend};
-    use test_helpers::get_temp_state_db;
 
     #[test]
     fn state_db_smoke() {

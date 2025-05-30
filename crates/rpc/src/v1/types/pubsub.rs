@@ -16,10 +16,10 @@
 
 //! Pub-Sub types.
 
+use crate::v1::types::{Filter, Log, RichHeader};
 use ethereum_types::H256;
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{from_value, Value};
-use v1::types::{Filter, Log, RichHeader};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
+use serde_json::{Value, from_value};
 
 /// Subscription result.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,8 +95,8 @@ impl<'a> Deserialize<'a> for Params {
 #[cfg(test)]
 mod tests {
     use super::{Kind, Params, Result};
+    use crate::v1::types::{Filter, Header, RichHeader, filter::VariadicValue};
     use serde_json;
-    use v1::types::{filter::VariadicValue, Filter, Header, RichHeader};
 
     #[test]
     fn should_deserialize_kind() {

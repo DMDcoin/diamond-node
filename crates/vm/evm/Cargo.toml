@@ -3,6 +3,7 @@ description = "Parity Ethereum Virtual Machine (EVM) Rust Implementation"
 name = "evm"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
 
 [dependencies]
 bit-set = "0.4"
@@ -16,7 +17,7 @@ parity-util-mem = "0.7"
 parking_lot = "0.11.1"
 memory-cache = { path = "../../util/memory-cache" }
 ethcore-builtin = { path = "../builtin" }
-num-bigint = "0.2"
+num-bigint = "0.4"
 
 [dev-dependencies]
 rustc-hex = "1.0"

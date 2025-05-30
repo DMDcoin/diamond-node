@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{test_common::*, HookType};
-use client::{EvmTestClient, EvmTestError, TransactErr, TransactSuccess};
+use super::{HookType, test_common::*};
+use crate::{
+    client::{EvmTestClient, EvmTestError, TransactErr, TransactSuccess},
+    pod_state::PodState,
+    trace,
+};
 use ethjson::{self, spec::ForkSpec};
-use pod_state::PodState;
 use std::path::Path;
-use trace;
 use vm::EnvInfo;
 
 fn skip_test(

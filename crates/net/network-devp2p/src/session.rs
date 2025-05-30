@@ -22,22 +22,24 @@ use std::{
     time::{Duration, Instant},
 };
 
-use connection::{Connection, EncryptedConnection, Packet, MAX_PAYLOAD_SIZE};
+use crate::{
+    connection::{Connection, EncryptedConnection, MAX_PAYLOAD_SIZE, Packet},
+    handshake::Handshake,
+    host::*,
+    io::{IoContext, StreamToken},
+    node_table::NodeId,
+};
 use ethereum_types::H256;
-use handshake::Handshake;
-use host::*;
-use io::{IoContext, StreamToken};
 use mio::{
     deprecated::{EventLoop, Handler},
     tcp::*,
     *,
 };
 use network::{
-    client_version::ClientVersion, DisconnectReason, Error, ErrorKind, PeerCapabilityInfo,
-    ProtocolId, SessionCapabilityInfo, SessionInfo,
+    DisconnectReason, Error, ErrorKind, PeerCapabilityInfo, ProtocolId, SessionCapabilityInfo,
+    SessionInfo, client_version::ClientVersion,
 };
-use node_table::NodeId;
-use rlp::{Rlp, RlpStream, EMPTY_LIST_RLP};
+use rlp::{EMPTY_LIST_RLP, Rlp, RlpStream};
 use snappy;
 
 // Timeout must be less than (interval - 1).
@@ -126,17 +128,8 @@ impl Session {
         Ok(Session {
             state: State::Handshake(handshake),
             had_hello: false,
-            info: SessionInfo {
-                id: id.cloned(),
-                client_version: ClientVersion::from(""),
-                protocol_version: 0,
-                capabilities: Vec::new(),
-                peer_capabilities: Vec::new(),
-                ping: None,
-                originated,
-                remote_address: "Handshake".to_owned(),
-                local_address: local_addr,
-            },
+
+            info: SessionInfo::new(id, local_addr, originated),
             ping_time: Instant::now(),
             pong_time: None,
             expired: false,
@@ -257,7 +250,7 @@ impl Session {
     /// Checks if peer supports given capability
     pub fn have_capability(&self, protocol: ProtocolId) -> bool {
         self.info
-            .capabilities
+            .capabilities()
             .iter()
             .any(|c| c.protocol == protocol)
     }
@@ -265,7 +258,7 @@ impl Session {
     /// Checks if peer supports given capability
     pub fn capability_version(&self, protocol: ProtocolId) -> Option<u8> {
         self.info
-            .capabilities
+            .capabilities()
             .iter()
             .filter_map(|c| {
                 if c.protocol == protocol {
@@ -320,7 +313,7 @@ impl Session {
     where
         Message: Send + Sync + Clone,
     {
-        if protocol.is_some() && (self.info.capabilities.is_empty() || !self.had_hello) {
+        if protocol.is_some() && (self.info.capabilities().is_empty() || !self.had_hello) {
             debug!(target: "network", "Sending to unconfirmed session {}, protocol: {:?}, packet: {}", self.token(), protocol.map(|p| str::from_utf8(&p.as_u64().to_ne_bytes()).unwrap_or("??").to_string()), packet_id);
             bail!(ErrorKind::BadProtocol);
         }
@@ -331,14 +324,14 @@ impl Session {
         let mut i = 0usize;
         let pid = match protocol {
             Some(protocol) => {
-                while protocol != self.info.capabilities[i].protocol {
+                while protocol != self.info.capabilities()[i].protocol {
                     i += 1;
-                    if i == self.info.capabilities.len() {
+                    if i == self.info.capabilities().len() {
                         debug!(target: "network", "Unknown protocol: {:?}", protocol);
                         return Ok(());
                     }
                 }
-                self.info.capabilities[i].id_offset + packet_id
+                self.info.capabilities()[i].id_offset + packet_id
             }
             None => packet_id,
         };
@@ -456,19 +449,20 @@ impl Session {
             PACKET_PEERS => Ok(SessionData::None),
             PACKET_USER..=PACKET_LAST => {
                 let mut i = 0usize;
-                while packet_id
-                    >= self.info.capabilities[i].id_offset + self.info.capabilities[i].packet_count
-                {
+                let capabilities = self.info.capabilities();
+                let mut capability = &capabilities[i];
+                while packet_id >= capability.id_offset + capability.packet_count {
                     i += 1;
-                    if i == self.info.capabilities.len() {
+                    if i == self.info.capabilities().len() {
                         debug!(target: "network", "Unknown packet: {:?}", packet_id);
                         return Ok(SessionData::Continue);
                     }
+                    capability = &capabilities[i];
                 }
 
                 // map to protocol
-                let protocol = self.info.capabilities[i].protocol;
-                let protocol_packet_id = packet_id - self.info.capabilities[i].id_offset;
+                let protocol = capability.protocol;
+                let protocol_packet_id = packet_id - capability.id_offset;
 
                 match *self
                     .protocol_states
@@ -476,7 +470,7 @@ impl Session {
                     .or_insert_with(|| ProtocolState::Pending(Vec::new()))
                 {
                     ProtocolState::Connected => {
-                        trace!(target: "network", "Packet {} mapped to {:?}:{}, i={}, capabilities={:?}", packet_id, protocol, protocol_packet_id, i, self.info.capabilities);
+                        trace!(target: "network", "Packet {} mapped to {:?}:{}, i={}, capabilities={:?}", packet_id, protocol, protocol_packet_id, i, self.info.capabilities());
                         Ok(SessionData::Packet {
                             data,
                             protocol,
@@ -580,9 +574,9 @@ impl Session {
         let protocol = ::std::cmp::min(protocol, host.protocol_version);
         self.info.protocol_version = protocol;
         self.info.client_version = client_version;
-        self.info.capabilities = caps;
-        self.info.peer_capabilities = peer_caps;
-        if self.info.capabilities.is_empty() {
+        self.info.set_capabilities(caps, peer_caps);
+
+        if self.info.capabilities().is_empty() {
             trace!(target: "network", "No common capabilities with peer.");
             return Err(self.disconnect(io, DisconnectReason::UselessPeer));
         }

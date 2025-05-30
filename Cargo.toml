@@ -2,13 +2,15 @@
 description = "Diamond Node"
 name = "diamond-node"
 # NOTE Make sure to update util/version/Cargo.toml as well
-version = "3.3.5-hbbft-0.10.1-rc1"
+version = "3.3.5-hbbft-0.11.0-rc3"
 license = "GPL-3.0"
 authors = [
 	"bit.diamonds developers",
 	"OpenEthereum developers",
 	"Parity Technologies <admin@parity.io>"
 ]
+edition = "2024"
+rust-version = "1.85"
 
 [dependencies]
 blooms-db = { path = "crates/db/blooms-db" }
@@ -79,6 +81,10 @@ net2 = "0.2.38"
 
 # ethcore-secretstore = { path = "crates/util/secret-store", optional = true }
 
+[patch.crates-io]
+# patch parity-rocksdb-sys package
+parity-rocksdb = { git = 'https://github.com/DMDcoin/rust-rocksdb.git' }
+
 [build-dependencies]
 rustc_version = "0.2"
 
@@ -111,6 +117,7 @@ deadlock_detection = ["parking_lot/deadlock_detection"]
 # `valgrind --tool=massif /path/to/parity <parity params>`
 # and `massif-visualizer` for visualization
 memory_profiling = []
+secretstore = []
 
 [lib]
 path = "bin/oe/lib.rs"

@@ -1,11 +1,13 @@
-use client::EngineClient;
-use engines::hbbft::utils::bound_contract::{BoundContract, CallError};
+use crate::{
+    client::EngineClient,
+    engines::hbbft::utils::bound_contract::{BoundContract, CallError},
+    types::ids::BlockId,
+};
 use ethereum_types::{Address, Public, U256};
 use std::{
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     str::FromStr,
 };
-use types::ids::BlockId;
 
 use_contract!(staking_contract, "res/contracts/staking_contract.json");
 
@@ -115,8 +117,8 @@ pub fn get_pool_public_key(
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::engines::hbbft::test::hbbft_test_client::HbbftTestClient;
     use crypto::publickey::{Generator, KeyPair, Public, Random};
-    use engines::hbbft::test::hbbft_test_client::HbbftTestClient;
 
     pub fn min_staking(client: &dyn EngineClient) -> Result<U256, CallError> {
         let c = BoundContract::bind(client, BlockId::Latest, *STAKING_CONTRACT_ADDRESS);

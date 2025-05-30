@@ -7,13 +7,12 @@ use super::{
         validator_set::{is_pending_validator, mining_by_staking_address},
     },
     contribution::unix_now_secs,
-    test::hbbft_test_client::{create_hbbft_client, create_hbbft_clients, HbbftTestClient},
+    test::hbbft_test_client::{HbbftTestClient, create_hbbft_client, create_hbbft_clients},
 };
-use client::traits::BlockInfo;
+use crate::{client::traits::BlockInfo, types::ids::BlockId};
 use crypto::publickey::{Generator, KeyPair, Random, Secret};
 use ethereum_types::{Address, U256};
 use std::str::FromStr;
-use types::ids::BlockId;
 
 pub mod create_transactions;
 pub mod hbbft_test_client;
@@ -135,8 +134,10 @@ fn test_epoch_transition() {
     assert!(genesis_transition_time.as_u64() < unix_now_secs());
 
     // We should not be in the pending validator set at the genesis block.
-    assert!(!is_pending_validator(moc.client.as_ref(), &moc.address())
-        .expect("is_pending_validator call must succeed"));
+    assert!(
+        !is_pending_validator(moc.client.as_ref(), &moc.address())
+            .expect("is_pending_validator call must succeed")
+    );
 
     // Fund the transactor.
     // Also triggers the creation of a block.
@@ -149,8 +150,10 @@ fn test_epoch_transition() {
     assert_eq!(moc.client.chain().best_block_number(), 1);
 
     // Now we should be part of the pending validator set.
-    assert!(is_pending_validator(moc.client.as_ref(), &moc.address())
-        .expect("Constant call must succeed"));
+    assert!(
+        is_pending_validator(moc.client.as_ref(), &moc.address())
+            .expect("Constant call must succeed")
+    );
 
     // Check if we are still in the first epoch.
     assert_eq!(

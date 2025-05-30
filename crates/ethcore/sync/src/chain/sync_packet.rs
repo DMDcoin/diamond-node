@@ -24,7 +24,7 @@
 
 #![allow(unused_doc_comments)]
 
-use api::{ETH_PROTOCOL, PAR_PROTOCOL};
+use crate::api::{ETH_PROTOCOL, PAR_PROTOCOL};
 use network::{PacketId, ProtocolId};
 
 // An enum that defines all known packet ids in the context of

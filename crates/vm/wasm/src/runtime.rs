@@ -26,7 +26,6 @@ pub struct RuntimeContext {
     pub address: Address,
     pub sender: Address,
     pub origin: Address,
-    pub code_address: Address,
     pub value: U256,
 }
 
@@ -806,7 +805,7 @@ impl<'a> Runtime<'a> {
 
 mod ext_impl {
 
-    use env::ids::*;
+    use crate::env::ids::*;
     use wasmi::{Externals, RuntimeArgs, RuntimeValue, Trap};
 
     macro_rules! void {

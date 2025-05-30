@@ -18,17 +18,19 @@
 
 use std::{cell::RefCell, str::FromStr, sync::Arc};
 
+use crate::{
+    client::{BlockChainClient, ChainInfo, Client},
+    snapshot::tests::helpers as snapshot_helpers,
+    spec::Spec,
+    test_helpers::generate_dummy_client_with_spec,
+    types::transaction::{Action, SignedTransaction, Transaction, TypedTransaction},
+};
 use accounts::AccountProvider;
-use client::{BlockChainClient, ChainInfo, Client};
 use crypto::publickey::Secret;
-use snapshot::tests::helpers as snapshot_helpers;
-use spec::Spec;
 use tempdir::TempDir;
-use test_helpers::generate_dummy_client_with_spec;
-use types::transaction::{Action, SignedTransaction, Transaction, TypedTransaction};
 
+use crate::test_helpers;
 use ethereum_types::Address;
-use test_helpers;
 
 use_contract!(test_validator_set, "res/contracts/test_validator_set.json");
 
@@ -104,7 +106,7 @@ fn make_chain(
     {
         // push a block with given number, signed by one of the signers, with given transactions.
         let push_block = |signers: &[Address], n, txs: Vec<SignedTransaction>| {
-            use miner::{self, MinerService};
+            use crate::miner::{self, MinerService};
 
             let idx = n as usize % signers.len();
             trace!(target: "snapshot", "Pushing block #{}, {} txs, author={}",

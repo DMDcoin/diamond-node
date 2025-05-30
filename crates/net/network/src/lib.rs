@@ -17,7 +17,7 @@
 #![recursion_limit = "128"]
 
 extern crate ethcore_io as io;
-extern crate ethereum_types;
+use ethereum_types;
 extern crate ethkey;
 extern crate ipnetwork;
 extern crate libc;
@@ -45,11 +45,13 @@ pub mod client_version;
 mod connection_filter;
 mod error;
 
+pub use crate::{
+    error::{DisconnectReason, Error, ErrorKind},
+    io::TimerToken,
+};
 pub use connection_filter::{ConnectionDirection, ConnectionFilter};
-pub use error::{DisconnectReason, Error, ErrorKind};
-pub use io::TimerToken;
 
-use client_version::ClientVersion;
+use crate::client_version::ClientVersion;
 use crypto::publickey::Secret;
 use ethereum_types::{H512, U64};
 use ipnetwork::{IpNetwork, IpNetworkError};
@@ -116,9 +118,9 @@ pub struct SessionInfo {
     /// Peer RLPx protocol version
     pub protocol_version: u32,
     /// Session protocol capabilities
-    pub capabilities: Vec<SessionCapabilityInfo>,
+    capabilities: Vec<SessionCapabilityInfo>,
     /// Peer protocol capabilities
-    pub peer_capabilities: Vec<PeerCapabilityInfo>,
+    peer_capabilities: Vec<PeerCapabilityInfo>,
     /// Peer ping delay
     pub ping: Option<Duration>,
     /// True if this session was originated by us.
@@ -127,6 +129,56 @@ pub struct SessionInfo {
     pub remote_address: String,
     /// Local endpoint address of the session
     pub local_address: String,
+
+    /// peer is capable of doing EIP 2464 transaction gossiping: https://eips.ethereum.org/EIPS/eip-2464
+    is_pooled_transactions_capable: bool,
+}
+
+impl SessionInfo {
+    /// new, SessionInfo that did not handshake yet.
+    pub fn new(id: Option<&NodeId>, local_addr: String, originated: bool) -> Self {
+        return Self {
+            id: id.cloned(),
+            client_version: ClientVersion::from(""),
+            protocol_version: 0,
+            capabilities: Vec::new(),
+            peer_capabilities: Vec::new(),
+            ping: None,
+            originated,
+            remote_address: "Handshake".to_owned(),
+            local_address: local_addr,
+            is_pooled_transactions_capable: false, // we don't know yet, we will know once we get the capabilities
+        };
+    }
+
+    /// on handshake, we get the peer id and the client version.
+    pub fn set_capabilities(
+        &mut self,
+        session_capabilities: Vec<SessionCapabilityInfo>,
+        peer_capabilities: Vec<PeerCapabilityInfo>,
+    ) {
+        self.capabilities = session_capabilities;
+        self.peer_capabilities = peer_capabilities;
+
+        // ETH_PROTOCOL_VERSION_65
+        self.is_pooled_transactions_capable = self
+            .peer_capabilities
+            .iter()
+            .any(|x| x.protocol.low_u64() == 0x657468 /* hex for "eth" */ && x.version == 65);
+    }
+
+    pub fn capabilities(&self) -> &Vec<SessionCapabilityInfo> {
+        &self.capabilities
+    }
+
+    pub fn peer_capabilities(&self) -> &Vec<PeerCapabilityInfo> {
+        &self.peer_capabilities
+    }
+
+    /// Returns if the peer is capable of doing EIP 2464 transaction gossiping: https://eips.ethereum.org/EIPS/eip-2464
+    pub fn is_pooled_transactions_capable(&self) -> bool {
+        return self.is_pooled_transactions_capable;
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

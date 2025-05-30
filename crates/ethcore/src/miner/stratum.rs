@@ -22,15 +22,17 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use client::{Client, ImportSealedBlock};
+use crate::{
+    client::{Client, ImportSealedBlock},
+    miner::{Miner, MinerService},
+};
 use ethash::{self, SeedHashCompute};
 #[cfg(feature = "work-notify")]
 use ethcore_miner::work_notify::NotifyWork;
 #[cfg(feature = "work-notify")]
 use ethcore_stratum::PushWorkHandler;
 use ethcore_stratum::{Error as StratumServiceError, JobDispatcher, Stratum as StratumService};
-use ethereum_types::{H256, H64, U256};
-use miner::{Miner, MinerService};
+use ethereum_types::{H64, H256, U256};
 use parking_lot::Mutex;
 use rlp::encode;
 
@@ -48,11 +50,7 @@ pub struct Options {
 }
 
 fn clean_0x(s: &str) -> &str {
-    if s.starts_with("0x") {
-        &s[2..]
-    } else {
-        s
-    }
+    if s.starts_with("0x") { &s[2..] } else { s }
 }
 
 struct SubmitPayload {
@@ -101,9 +99,13 @@ impl SubmitPayload {
 
 #[derive(Debug)]
 enum PayloadError {
+    #[allow(dead_code)]
     ArgumentsAmountUnexpected(usize),
+    #[allow(dead_code)]
     InvalidNonce(String),
+    #[allow(dead_code)]
     InvalidPowHash(String),
+    #[allow(dead_code)]
     InvalidMixHash(String),
 }
 

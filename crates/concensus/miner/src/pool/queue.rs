@@ -27,12 +27,12 @@ use std::{
 };
 
 use self::scoring::ScoringEvent;
+use crate::types::transaction;
 use ethereum_types::{Address, H256, U256};
 use parking_lot::RwLock;
 use txpool::{self, Verifier};
-use types::transaction;
 
-use pool::{
+use crate::pool::{
     self, client, listener,
     local_transactions::LocalTransactionsList,
     ready, replace, scoring,
@@ -115,6 +115,14 @@ impl CachedPending {
     /// Remove cached pending set.
     pub fn clear(&mut self) {
         self.pending = None;
+    }
+
+    /// Find transaction by hash in cached pending set.
+    /// NOTE: Linear lookup, bad performance.
+    pub fn find(&self, hash: &H256) -> Option<Arc<pool::VerifiedTransaction>> {
+        self.pending
+            .as_ref()
+            .and_then(|pending| pending.iter().find(|tx| tx.hash == *hash).cloned())
     }
 
     /// Returns cached pending set (if any) if it's valid.
@@ -660,7 +668,11 @@ impl TransactionQueue {
     /// Given transaction hash looks up that transaction in the pool
     /// and returns a shared pointer to it or `None` if it's not present.
     pub fn find(&self, hash: &H256) -> Option<Arc<pool::VerifiedTransaction>> {
-        self.pool.read().find(hash)
+        self.pool
+            .read()
+            .find(hash)
+            .or(self.cached_enforced_pending.read().find(hash))
+            .or(self.cached_non_enforced_pending.read().find(hash))
     }
 
     /// Remove a set of transactions from the pool.
@@ -774,12 +786,13 @@ impl TransactionQueue {
         (pool.listener_mut().1).0.add(f);
     }
 
-    /// Check if pending set is cached.
+    /// Check if pending set is cached. (enforced)
     #[cfg(test)]
     pub fn is_enforced_pending_cached(&self) -> bool {
         self.cached_enforced_pending.read().pending.is_some()
     }
 
+    /// Check if pending set is cached. (non-enforced)
     #[cfg(test)]
     pub fn is_non_enforced_pending_cached(&self) -> bool {
         self.cached_non_enforced_pending.read().pending.is_some()
@@ -802,7 +815,7 @@ fn convert_error<H: fmt::Debug + fmt::LowerHex>(err: txpool::Error<H>) -> transa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pool::tests::client::TestClient;
+    use crate::pool::tests::client::TestClient;
 
     #[test]
     fn should_get_pending_transactions() {

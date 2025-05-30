@@ -127,11 +127,7 @@ impl<T> UsingQueue<T> {
     {
         // a bit clumsy - TODO: think about a nicer way of expressing this.
         if let Some(ref x) = self.pending {
-            if predicate(x) {
-                Some(x.clone())
-            } else {
-                None
-            }
+            if predicate(x) { Some(x.clone()) } else { None }
         } else {
             self.in_use
                 .last()

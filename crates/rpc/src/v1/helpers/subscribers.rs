@@ -18,8 +18,8 @@
 
 use ethereum_types::H64;
 use jsonrpc_pubsub::{
-    typed::{Sink, Subscriber},
     SubscriptionId,
+    typed::{Sink, Subscriber},
 };
 use std::{collections::HashMap, ops, str};
 

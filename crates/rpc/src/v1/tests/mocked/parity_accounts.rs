@@ -18,11 +18,11 @@ use std::{str::FromStr, sync::Arc};
 
 use accounts::{AccountProvider, AccountProviderSettings};
 use ethereum_types::Address;
-use ethstore::{accounts_dir::RootDiskDirectory, EthStore};
+use ethstore::{EthStore, accounts_dir::RootDiskDirectory};
 use tempdir::TempDir;
 
+use crate::v1::{ParityAccounts, ParityAccountsClient, ParityAccountsInfo};
 use jsonrpc_core::IoHandler;
-use v1::{ParityAccounts, ParityAccountsClient, ParityAccountsInfo};
 
 struct ParityAccountsTester {
     accounts: Arc<AccountProvider>,
@@ -154,7 +154,10 @@ fn should_be_able_to_get_account_info() {
     let request =
         r#"{"jsonrpc": "2.0", "method": "parity_allAccountsInfo", "params": [], "id": 1}"#;
     let res = tester.io.handle_request_sync(request);
-    let response = format!("{{\"jsonrpc\":\"2.0\",\"result\":{{\"0x{:x}\":{{\"meta\":\"{{foo: 69}}\",\"name\":\"Test\",\"uuid\":\"{}\"}}}},\"id\":1}}", address, uuid);
+    let response = format!(
+        "{{\"jsonrpc\":\"2.0\",\"result\":{{\"0x{:x}\":{{\"meta\":\"{{foo: 69}}\",\"name\":\"Test\",\"uuid\":\"{}\"}}}},\"id\":1}}",
+        address, uuid
+    );
     assert_eq!(res, Some(response));
 }
 
@@ -188,7 +191,10 @@ fn should_be_able_to_set_name() {
     let request =
         r#"{"jsonrpc": "2.0", "method": "parity_allAccountsInfo", "params": [], "id": 1}"#;
     let res = tester.io.handle_request_sync(request);
-    let response = format!("{{\"jsonrpc\":\"2.0\",\"result\":{{\"0x{:x}\":{{\"meta\":\"{{}}\",\"name\":\"Test\",\"uuid\":\"{}\"}}}},\"id\":1}}", address, uuid);
+    let response = format!(
+        "{{\"jsonrpc\":\"2.0\",\"result\":{{\"0x{:x}\":{{\"meta\":\"{{}}\",\"name\":\"Test\",\"uuid\":\"{}\"}}}},\"id\":1}}",
+        address, uuid
+    );
     assert_eq!(res, Some(response));
 }
 
@@ -222,7 +228,10 @@ fn should_be_able_to_set_meta() {
     let request =
         r#"{"jsonrpc": "2.0", "method": "parity_allAccountsInfo", "params": [], "id": 1}"#;
     let res = tester.io.handle_request_sync(request);
-    let response = format!("{{\"jsonrpc\":\"2.0\",\"result\":{{\"0x{:x}\":{{\"meta\":\"{{foo: 69}}\",\"name\":\"\",\"uuid\":\"{}\"}}}},\"id\":1}}", address, uuid);
+    let response = format!(
+        "{{\"jsonrpc\":\"2.0\",\"result\":{{\"0x{:x}\":{{\"meta\":\"{{foo: 69}}\",\"name\":\"\",\"uuid\":\"{}\"}}}},\"id\":1}}",
+        address, uuid
+    );
     assert_eq!(res, Some(response));
 }
 
@@ -297,10 +306,12 @@ fn rpc_parity_new_vault() {
         Some(response.to_owned())
     );
     assert!(tester.accounts.close_vault("vault1").is_ok());
-    assert!(tester
-        .accounts
-        .open_vault("vault1", &"password1".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .open_vault("vault1", &"password1".into())
+            .is_ok()
+    );
 }
 
 #[test]
@@ -308,10 +319,12 @@ fn rpc_parity_open_vault() {
     let tempdir = TempDir::new("").unwrap();
     let tester = setup_with_vaults_support(tempdir.path().to_str().unwrap());
 
-    assert!(tester
-        .accounts
-        .create_vault("vault1", &"password1".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault1", &"password1".into())
+            .is_ok()
+    );
     assert!(tester.accounts.close_vault("vault1").is_ok());
 
     let request = r#"{"jsonrpc": "2.0", "method": "parity_openVault", "params":["vault1", "password1"], "id": 1}"#;
@@ -328,10 +341,12 @@ fn rpc_parity_close_vault() {
     let tempdir = TempDir::new("").unwrap();
     let tester = setup_with_vaults_support(tempdir.path().to_str().unwrap());
 
-    assert!(tester
-        .accounts
-        .create_vault("vault1", &"password1".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault1", &"password1".into())
+            .is_ok()
+    );
 
     let request =
         r#"{"jsonrpc": "2.0", "method": "parity_closeVault", "params":["vault1"], "id": 1}"#;
@@ -348,10 +363,12 @@ fn rpc_parity_change_vault_password() {
     let tempdir = TempDir::new("").unwrap();
     let tester = setup_with_vaults_support(tempdir.path().to_str().unwrap());
 
-    assert!(tester
-        .accounts
-        .create_vault("vault1", &"password1".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault1", &"password1".into())
+            .is_ok()
+    );
 
     let request = r#"{"jsonrpc": "2.0", "method": "parity_changeVaultPassword", "params":["vault1", "password2"], "id": 1}"#;
     let response = r#"{"jsonrpc":"2.0","result":true,"id":1}"#;
@@ -371,10 +388,12 @@ fn rpc_parity_change_vault() {
         .accounts
         .new_account_and_public(&"root_password".into())
         .unwrap();
-    assert!(tester
-        .accounts
-        .create_vault("vault1", &"password1".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault1", &"password1".into())
+            .is_ok()
+    );
 
     let request = format!(
         r#"{{"jsonrpc": "2.0", "method": "parity_changeVault", "params":["0x{:x}", "vault1"], "id": 1}}"#,
@@ -403,10 +422,12 @@ fn rpc_parity_vault_adds_vault_field_to_acount_meta() {
         .unwrap()
         .uuid
         .unwrap();
-    assert!(tester
-        .accounts
-        .create_vault("vault1", &"password1".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault1", &"password1".into())
+            .is_ok()
+    );
     assert!(tester.accounts.change_vault(address1, "vault1").is_ok());
 
     let request = r#"{"jsonrpc": "2.0", "method": "parity_allAccountsInfo", "params":[], "id": 1}"#;
@@ -440,14 +461,18 @@ fn rpc_parity_list_vaults() {
     let tempdir = TempDir::new("").unwrap();
     let tester = setup_with_vaults_support(tempdir.path().to_str().unwrap());
 
-    assert!(tester
-        .accounts
-        .create_vault("vault1", &"password1".into())
-        .is_ok());
-    assert!(tester
-        .accounts
-        .create_vault("vault2", &"password2".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault1", &"password1".into())
+            .is_ok()
+    );
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault2", &"password2".into())
+            .is_ok()
+    );
 
     let request = r#"{"jsonrpc": "2.0", "method": "parity_listVaults", "params":[], "id": 1}"#;
     let response1 = r#"{"jsonrpc":"2.0","result":["vault1","vault2"],"id":1}"#;
@@ -465,18 +490,24 @@ fn rpc_parity_list_opened_vaults() {
     let tempdir = TempDir::new("").unwrap();
     let tester = setup_with_vaults_support(tempdir.path().to_str().unwrap());
 
-    assert!(tester
-        .accounts
-        .create_vault("vault1", &"password1".into())
-        .is_ok());
-    assert!(tester
-        .accounts
-        .create_vault("vault2", &"password2".into())
-        .is_ok());
-    assert!(tester
-        .accounts
-        .create_vault("vault3", &"password3".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault1", &"password1".into())
+            .is_ok()
+    );
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault2", &"password2".into())
+            .is_ok()
+    );
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault3", &"password3".into())
+            .is_ok()
+    );
     assert!(tester.accounts.close_vault("vault2").is_ok());
 
     let request =
@@ -496,10 +527,12 @@ fn rpc_parity_get_set_vault_meta() {
     let tempdir = TempDir::new("").unwrap();
     let tester = setup_with_vaults_support(tempdir.path().to_str().unwrap());
 
-    assert!(tester
-        .accounts
-        .create_vault("vault1", &"password1".into())
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .create_vault("vault1", &"password1".into())
+            .is_ok()
+    );
 
     // when no meta set
     let request =
@@ -512,10 +545,12 @@ fn rpc_parity_get_set_vault_meta() {
     );
 
     // when meta set
-    assert!(tester
-        .accounts
-        .set_vault_meta("vault1", "vault1_meta")
-        .is_ok());
+    assert!(
+        tester
+            .accounts
+            .set_vault_meta("vault1", "vault1_meta")
+            .is_ok()
+    );
 
     let request =
         r#"{"jsonrpc": "2.0", "method": "parity_getVaultMeta", "params":["vault1"], "id": 1}"#;

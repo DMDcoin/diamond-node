@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 description = "Journaling bloom filter"
 license = "GPL3"
+edition = "2024"
 
 [lib]
 path = "src/lib.rs"

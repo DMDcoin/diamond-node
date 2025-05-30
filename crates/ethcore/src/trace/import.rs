@@ -15,10 +15,10 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Traces import request.
+use crate::types::BlockNumber;
 use ethereum_types::H256;
-use types::BlockNumber;
 
-use trace::FlatBlockTraces;
+use crate::trace::FlatBlockTraces;
 
 /// Traces import request.
 pub struct ImportRequest {

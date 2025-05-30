@@ -1,6 +1,6 @@
+use crate::types::transaction::{Action, SignedTransaction, Transaction, TypedTransaction};
 use crypto::publickey::KeyPair;
 use ethereum_types::{Address, U256};
-use types::transaction::{Action, SignedTransaction, Transaction, TypedTransaction};
 
 pub fn create_transaction(keypair: &KeyPair, nonce: &U256) -> SignedTransaction {
     TypedTransaction::Legacy(Transaction {

@@ -36,7 +36,7 @@ impl<'a> HeaderView<'a> {
     /// #[macro_use]
     /// extern crate common_types as types;
     ///
-    /// use types::views::{HeaderView};
+    /// use crate::types::views::{HeaderView};
     ///
     /// fn main() {
     /// let bytes : &[u8] = &[];

@@ -25,7 +25,7 @@ use std::{
 use ethereum_types::H256;
 use hash::keccak;
 use itertools::Itertools;
-use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
+use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 
 /// Providing current time in seconds
 pub trait TimeProvider {

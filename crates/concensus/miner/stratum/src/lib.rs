@@ -16,7 +16,7 @@
 
 //! Stratum protocol implementation for parity ethereum/bitcoin clients
 
-extern crate ethereum_types;
+use ethereum_types;
 extern crate jsonrpc_core;
 extern crate jsonrpc_tcp_server;
 extern crate keccak_hash as hash;
@@ -36,7 +36,7 @@ mod traits;
 
 pub use traits::{Error, JobDispatcher, PushWorkHandler, ServiceConfiguration};
 
-use jsonrpc_core::{to_value, Compatibility, IoDelegate, MetaIoHandler, Metadata, Params, Value};
+use jsonrpc_core::{Compatibility, IoDelegate, MetaIoHandler, Metadata, Params, Value, to_value};
 use jsonrpc_tcp_server::{
     Dispatcher, MetaExtractor, PushMessageError, RequestContext, Server as JsonRpcServer,
     ServerBuilder as JsonRpcServerBuilder,
@@ -318,7 +318,7 @@ mod tests {
         sync::Arc,
     };
 
-    use jsonrpc_core::futures::{future, Future};
+    use jsonrpc_core::futures::{Future, future};
     use tokio::{
         io,
         net::TcpStream,
@@ -504,8 +504,9 @@ mod tests {
         .expect("Response should be utf-8");
 
         assert_eq!(
-			"{ \"id\": 17, \"method\": \"mining.notify\", \"params\": { \"00040008\", \"100500\" } }\n",
-			response);
+            "{ \"id\": 17, \"method\": \"mining.notify\", \"params\": { \"00040008\", \"100500\" } }\n",
+            response
+        );
     }
 
     #[test]

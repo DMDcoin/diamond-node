@@ -116,22 +116,21 @@ fn encodable_field(index: usize, field: &syn::Field) -> TokenStream {
                 .segments
                 .first()
                 .expect("there must be at least 1 segment");
-            let ident = &top_segment.value().ident;
+            let ident = &top_segment.ident;
             if &ident.to_string() == "Vec" {
-                let inner_ident = match top_segment.value().arguments {
+                let inner_ident = match top_segment.arguments {
                     syn::PathArguments::AngleBracketed(ref angle) => {
                         let ty = angle
                             .args
                             .first()
                             .expect("Vec has only one angle bracketed type; qed");
-                        match **ty.value() {
+                        match ty {
                             syn::GenericArgument::Type(syn::Type::Path(ref path)) => {
                                 &path
                                     .path
                                     .segments
                                     .first()
                                     .expect("there must be at least 1 segment")
-                                    .value()
                                     .ident
                             }
                             _ => panic!("rlp_derive not supported"),

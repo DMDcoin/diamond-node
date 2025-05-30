@@ -14,7 +14,7 @@
 
 #[macro_use]
 extern crate criterion;
-use criterion::{black_box, Criterion};
+use criterion::{Criterion, black_box};
 criterion_group!(
     benches,
     instantiation,

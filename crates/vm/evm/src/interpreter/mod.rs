@@ -34,8 +34,10 @@ use vm::{
     GasLeft, MessageCallResult, ParamsType, ReturnData, Schedule, TrapError, TrapKind,
 };
 
-use evm::CostType;
-use instructions::{self, Instruction, InstructionInfo};
+use crate::{
+    evm::CostType,
+    instructions::{self, Instruction, InstructionInfo},
+};
 
 pub use self::shared_cache::SharedCache;
 use self::{
@@ -1543,8 +1545,8 @@ fn address_to_u256(value: Address) -> U256 {
 
 #[cfg(test)]
 mod tests {
+    use crate::{factory::Factory, vmtype::VMType};
     use ethereum_types::Address;
-    use factory::Factory;
     use rustc_hex::FromHex;
     use std::sync::Arc;
     use vm::{
@@ -1552,7 +1554,6 @@ mod tests {
         tests::{test_finalize, FakeExt},
         ActionParams, ActionValue, Exec,
     };
-    use vmtype::VMType;
 
     fn interpreter(params: ActionParams, ext: &dyn vm::Ext) -> Box<dyn Exec> {
         Factory::new(VMType::Interpreter, 1).create(params, ext.schedule(), ext.depth())

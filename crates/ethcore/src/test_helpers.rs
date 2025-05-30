@@ -18,8 +18,18 @@
 
 use std::{fs, io, path::Path, sync::Arc};
 
-use blockchain::{
-    BlockChain, BlockChainDB, BlockChainDBHandler, Config as BlockChainConfig, ExtrasInsert,
+use crate::{
+    blockchain::{
+        BlockChain, BlockChainDB, BlockChainDBHandler, Config as BlockChainConfig, ExtrasInsert,
+    },
+    io::IoChannel,
+    types::{
+        BlockNumber, encoded,
+        header::Header,
+        transaction::{Action, SignedTransaction, Transaction, TypedTransaction},
+        view,
+        views::BlockView,
+    },
 };
 use blooms_db;
 use bytes::Bytes;
@@ -28,33 +38,26 @@ use db::KeyValueDB;
 use ethereum_types::{Address, H256, H512, U256};
 use evm::Factory as EvmFactory;
 use hash::keccak;
-use io::IoChannel;
 use kvdb_rocksdb::{self, Database, DatabaseConfig};
 use parking_lot::RwLock;
 use rlp::{self, RlpStream};
 use tempdir::TempDir;
-use types::{
-    encoded,
-    header::Header,
-    transaction::{Action, SignedTransaction, Transaction, TypedTransaction},
-    view,
-    views::BlockView,
-    BlockNumber,
-};
 
-use block::{Drain, OpenBlock};
-use client::{
-    BlockInfo, ChainInfo, ChainMessageType, ChainNotify, Client, ClientConfig, ImportBlock,
-    PrepareOpenBlock,
+use crate::{
+    block::{Drain, OpenBlock},
+    client::{
+        BlockInfo, ChainInfo, ChainMessageType, ChainNotify, Client, ClientConfig, ImportBlock,
+        PrepareOpenBlock,
+    },
+    engines::{EngineSigner, Seal},
+    factory::Factories,
+    miner::Miner,
+    spec::Spec,
+    state::*,
+    state_db::StateDB,
+    verification::queue::kind::blocks::Unverified,
 };
-use engines::{EngineSigner, Seal};
 use ethjson::crypto::publickey::{Public, Signature};
-use factory::Factories;
-use miner::Miner;
-use spec::Spec;
-use state::*;
-use state_db::StateDB;
-use verification::queue::kind::blocks::Unverified;
 
 use crate::exit::ShutdownManager;
 
@@ -525,7 +528,7 @@ pub fn generate_dummy_blockchain(block_number: u32) -> BlockChain {
             encoded::Block::new(create_unverifiable_block(block_order, bc.best_block_hash())),
             vec![],
             ExtrasInsert {
-                fork_choice: ::engines::ForkChoice::New,
+                fork_choice: crate::engines::ForkChoice::New,
                 is_finalized: false,
             },
         );
@@ -557,7 +560,7 @@ pub fn generate_dummy_blockchain_with_extra(block_number: u32) -> BlockChain {
             )),
             vec![],
             ExtrasInsert {
-                fork_choice: ::engines::ForkChoice::New,
+                fork_choice: crate::engines::ForkChoice::New,
                 is_finalized: false,
             },
         );
@@ -580,13 +583,13 @@ pub fn generate_dummy_empty_blockchain() -> BlockChain {
 }
 
 /// Returns temp state
-pub fn get_temp_state() -> State<::state_db::StateDB> {
+pub fn get_temp_state() -> State<crate::state_db::StateDB> {
     let journal_db = get_temp_state_db();
     State::new(journal_db, U256::from(0), Default::default())
 }
 
 /// Returns temp state using coresponding factory
-pub fn get_temp_state_with_factory(factory: EvmFactory) -> State<::state_db::StateDB> {
+pub fn get_temp_state_with_factory(factory: EvmFactory) -> State<crate::state_db::StateDB> {
     let journal_db = get_temp_state_db();
     let mut factories = Factories::default();
     factories.vm = factory.into();

@@ -22,12 +22,12 @@ pub mod keccak_512 {
     use super::hash;
 
     pub use self::hash::{
-        keccak512 as inplace, keccak512_range as inplace_range, keccak_512 as write,
+        keccak_512 as write, keccak512 as inplace, keccak512_range as inplace_range,
     };
 }
 
 pub mod keccak_256 {
     use super::hash;
 
-    pub use self::hash::{keccak256 as inplace, keccak_256 as write};
+    pub use self::hash::{keccak_256 as write, keccak256 as inplace};
 }

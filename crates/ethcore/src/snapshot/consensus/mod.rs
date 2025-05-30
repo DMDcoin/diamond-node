@@ -17,12 +17,14 @@
 //! Secondary chunk creation and restoration, implementations for different consensus
 //! engines.
 
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, atomic::AtomicBool};
 
-use blockchain::{BlockChain, BlockChainDB};
-use engines::EthEngine;
-use snapshot::{Error, ManifestData, Progress};
-use types::BlockNumber;
+use crate::{
+    blockchain::{BlockChain, BlockChainDB},
+    engines::EthEngine,
+    snapshot::{Error, ManifestData, Progress},
+    types::BlockNumber,
+};
 
 use ethereum_types::H256;
 
@@ -65,7 +67,7 @@ pub trait SnapshotComponents: Send {
         chain: BlockChain,
         db: Arc<dyn BlockChainDB>,
         manifest: &ManifestData,
-    ) -> Result<Box<dyn Rebuilder>, ::error::Error>;
+    ) -> Result<Box<dyn Rebuilder>, crate::error::Error>;
 
     /// Minimum supported snapshot version number.
     fn min_supported_version(&self) -> u64;
@@ -85,12 +87,12 @@ pub trait Rebuilder: Send {
         chunk: &[u8],
         engine: &dyn EthEngine,
         abort_flag: &AtomicBool,
-    ) -> Result<(), ::error::Error>;
+    ) -> Result<(), crate::error::Error>;
 
     /// Finalize the restoration. Will be done after all chunks have been
     /// fed successfully.
     ///
     /// This should apply the necessary "glue" between chunks,
     /// and verify against the restored state.
-    fn finalize(&mut self, engine: &dyn EthEngine) -> Result<(), ::error::Error>;
+    fn finalize(&mut self, engine: &dyn EthEngine) -> Result<(), crate::error::Error>;
 }

@@ -24,6 +24,9 @@ use bytes::Bytes;
 use rlp::RlpStream;
 use target_info::Target;
 
+/// The name of the node software.
+pub const NODE_SOFTWARE_NAME: &str = "diamond-node";
+
 mod vergen {
     #![allow(unused)]
     include!(concat!(env!("OUT_DIR"), "/version.rs"));
@@ -55,7 +58,8 @@ pub fn version() -> String {
     let commit_date = vergen::commit_date().replace("-", "");
     let date_dash = if commit_date.is_empty() { "" } else { "-" };
     format!(
-        "OpenEthereum/v{}-{}{}{}{}{}/{}/rustc{}",
+        "{}/v{}-{}{}{}{}{}/{}/rustc{}",
+        NODE_SOFTWARE_NAME,
         env!("CARGO_PKG_VERSION"),
         THIS_TRACK,
         sha3_dash,

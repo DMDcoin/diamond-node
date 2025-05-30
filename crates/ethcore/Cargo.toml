@@ -5,6 +5,7 @@ license = "GPL-3.0"
 name = "ethcore"
 version = "1.12.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2024"
 
 [dependencies]
 ansi_term = "0.10"
@@ -67,7 +68,7 @@ rayon = "1.1"
 regex = "1.3.9"
 rmp-serde = "1.1.0"
 rlp = { version = "0.4.6" }
-rlp_derive = { path = "../util/rlp-derive" }
+rlp-derive = { version = "0.2" }
 rustc-hex = "1.0"
 serde = "1.0"
 serde_derive = "1.0"
@@ -87,6 +88,7 @@ walkdir = "2.3"
 wasm = { path = "../vm/wasm" }
 derive_more = "0.99"
 scopeguard = "1.1.0"
+fastmap = { path = "../util/fastmap"}
 
 [dev-dependencies]
 blooms-db = { path = "../db/blooms-db" }

@@ -4,6 +4,7 @@ name = "ethcore-sync"
 version = "1.12.0"
 license = "GPL-3.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2024"
 
 [lib]
 
@@ -46,3 +47,6 @@ ethcore = { path = "..", features = ["test-helpers"] }
 ethcore-io = { path = "../../runtime/io", features = ["mio"] }
 kvdb-memorydb = "0.1"
 rustc-hex = "1.0"
+
+[features]
+devP2PTests = []

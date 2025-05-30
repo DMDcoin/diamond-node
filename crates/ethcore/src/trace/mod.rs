@@ -33,6 +33,7 @@ pub use self::{
 };
 
 pub use self::types::{
+    Tracing,
     error::Error as TraceError,
     filter,
     filter::{AddressesFilter, Filter},
@@ -40,12 +41,11 @@ pub use self::types::{
     flat::{FlatBlockTraces, FlatTrace, FlatTransactionTraces},
     localized, trace,
     trace::{MemoryDiff, RewardType, StorageDiff, VMExecutedOperation, VMOperation, VMTrace},
-    Tracing,
 };
 
+use crate::types::BlockNumber;
 use ethereum_types::{Address, H256, U256};
 use kvdb::DBTransaction;
-use types::BlockNumber;
 use vm::{ActionParams, Error as VmError};
 
 /// This trait is used by executive to build traces.
