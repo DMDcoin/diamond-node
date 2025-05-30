@@ -60,6 +60,7 @@ pub type SharedTransaction = Arc<Transaction>;
 type TestPool = Pool<Transaction, DummyScoring>;
 
 impl TestPool {
+    /// Creates a new instance with a specified maximum count limit.
     pub fn with_limit(max_count: usize) -> Self {
         Self::with_options(Options {
             max_count,

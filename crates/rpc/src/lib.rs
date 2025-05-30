@@ -59,9 +59,6 @@ extern crate log;
 extern crate serde_derive;
 
 #[cfg(test)]
-use ethjson;
-
-#[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
 
@@ -70,18 +67,10 @@ extern crate pretty_assertions;
 extern crate macros;
 
 #[cfg(test)]
-extern crate fake_fetch;
-
-#[cfg(test)]
 extern crate ethcore_io as io;
 
 #[cfg(test)]
 extern crate ethcore_call_contract as call_contract;
-
-// #[cfg(test)]
-
-#[cfg(test)]
-extern crate rpc_servers;
 
 pub extern crate jsonrpc_ws_server as ws;
 

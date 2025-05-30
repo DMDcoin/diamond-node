@@ -44,8 +44,10 @@ use parking_lot::Mutex;
 use serde_json;
 
 struct SigningTester {
+    #[allow(dead_code)]
     pub runtime: Runtime,
     pub signer: Arc<SignerService>,
+    #[allow(dead_code)]
     pub client: Arc<TestBlockChainClient>,
     pub miner: Arc<TestMinerService>,
     pub accounts: Arc<AccountProvider>,

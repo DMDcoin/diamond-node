@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-#![warn(missing_docs)]
-
 //! Parse ethereum client ID strings and provide querying functionality
 
 use semver::{Identifier, Version};

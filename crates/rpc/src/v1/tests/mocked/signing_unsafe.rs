@@ -48,7 +48,9 @@ fn miner_service() -> Arc<TestMinerService> {
 }
 
 struct EthTester {
+    #[allow(dead_code)]
     pub runtime: Runtime,
+    #[allow(dead_code)]
     pub client: Arc<TestBlockChainClient>,
     pub accounts_provider: Arc<AccountProvider>,
     pub miner: Arc<TestMinerService>,
