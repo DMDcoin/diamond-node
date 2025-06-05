@@ -2,8 +2,6 @@ extern crate bincode;
 #[macro_use]
 extern crate clap;
 extern crate ethcore;
-use ethereum_types;
-use ethjson;
 extern crate ethkey;
 extern crate ethstore;
 extern crate hbbft;

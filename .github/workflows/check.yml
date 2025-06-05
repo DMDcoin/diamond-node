@@ -21,17 +21,12 @@ jobs:
           toolchain:            1.85
           profile:              minimal
           override:             true
-      - name:                   Run cargo check 1/3
+      - name:                   Run cargo check
         uses:                   actions-rs/cargo@v1
         with:
           command:              check
-          args:                 --locked --no-default-features --verbose
-      - name:                   Run cargo check 2/3
-        uses:                   actions-rs/cargo@v1
-        with:
-          command:              check
-          args:                 --locked --manifest-path crates/runtime/io/Cargo.toml --no-default-features --verbose
-      - name:                   Run cargo check 3/3
+          args:                 --locked --all --benches --verbose --tests
+      - name:                   Run cargo check mio io
         uses:                   actions-rs/cargo@v1
         with:
           command:              check
@@ -41,10 +36,7 @@ jobs:
         with:
           command:              check
           args:                 --locked -p evmbin --verbose
-      - name:                   Run cargo check benches
-        uses:                   actions-rs/cargo@v1
-        with:
-          command:              check
-          args:                 --locked --all --benches --verbose
       - name:                   Run validate chainspecs
         run:                    ./scripts/actions/validate-chainspecs.sh
+          args:                 --locked --all --benches --verbose --tests
+

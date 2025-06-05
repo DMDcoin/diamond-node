@@ -18,6 +18,3 @@ mod chain;
 mod consensus;
 pub mod helpers;
 pub mod snapshot;
-
-#[cfg(feature = "ipc")]
-mod rpc;
