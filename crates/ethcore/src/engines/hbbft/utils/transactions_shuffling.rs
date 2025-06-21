@@ -25,8 +25,7 @@ fn address_xor_u256(address: &Address, seed: U256) -> Address {
 }
 
 /// The list of transactions is expected to be free of duplicates.
-#[allow(dead_code)]
-fn deterministic_transactions_shuffling(
+pub fn deterministic_transactions_shuffling(
     transactions: Vec<SignedTransaction>,
     seed: U256,
 ) -> Vec<SignedTransaction> {

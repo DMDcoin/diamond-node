@@ -1,2 +1,2 @@
 pub mod bound_contract;
-mod transactions_shuffling;
+pub mod transactions_shuffling;

@@ -503,7 +503,7 @@ impl HoneyBadgerBFT {
         trace!(target: "consensus", "Batch received for epoch {}, creating new Block.", batch.epoch);
 
         // Decode and de-duplicate transactions
-        let batch_txns: Vec<_> = batch
+        let mut batch_txns: Vec<_> = batch
             .contributions
             .iter()
             .flat_map(|(_, c)| &c.transactions)
@@ -563,6 +563,9 @@ impl HoneyBadgerBFT {
         self.random_numbers
             .write()
             .insert(batch.epoch, random_number);
+
+        // Shuffelin transactions deterministically based on the random number.
+        batch_txns = crate::engines::hbbft::utils::transactions_shuffling::deterministic_transactions_shuffling(batch_txns, random_number);
 
         if let Some(header) = client.create_pending_block_at(batch_txns, timestamp, batch.epoch) {
             let block_num = header.number();
