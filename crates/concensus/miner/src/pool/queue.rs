@@ -24,6 +24,7 @@ use std::{
         atomic::{self, AtomicUsize},
         Arc,
     },
+    time::Duration,
 };
 
 use self::scoring::ScoringEvent;
@@ -680,12 +681,23 @@ impl TransactionQueue {
     ///
     /// Given transaction hash looks up that transaction in the pool
     /// and returns a shared pointer to it or `None` if it's not present, or a readlock could not get acquired.
-    pub fn find_if_readable(&self, hash: &H256) -> Option<Arc<pool::VerifiedTransaction>> {
+    pub fn find_if_readable(
+        &self,
+        hash: &H256,
+        max_lock_duration: &Duration,
+    ) -> Option<Arc<pool::VerifiedTransaction>> {
+        let splitted_duration = max_lock_duration.div_f32(3.0);
         self.cached_enforced_pending
-            .try_read()?
+            .try_read_for(splitted_duration.clone())?
             .find(hash)
-            .or(self.cached_non_enforced_pending.try_read()?.find(hash))
-            .or(self.pool.try_read()?.find(hash))
+            .or(self
+                .cached_non_enforced_pending
+                .try_read_for(splitted_duration.clone())?
+                .find(hash))
+            .or(self
+                .pool
+                .try_read_for(splitted_duration.clone())?
+                .find(hash))
     }
 
     /// Remove a set of transactions from the pool.

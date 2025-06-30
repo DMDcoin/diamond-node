@@ -32,12 +32,13 @@ macros = { path = "../../util/macros" }
 parity-bytes = "0.1"
 parity-crypto = { version = "0.6.2", features = [ "publickey" ] }
 parity-util-mem = "0.7"
-parking_lot = "0.11.2"
+parking_lot = "0.12"
 rand = "0.7.3"
 rand_xorshift = "0.2.0"
 rlp = { version = "0.4.6" }
 trace-time = "0.1"
 triehash-ethereum = {version = "0.2", path = "../../util/triehash-ethereum" }
+time-utils = { path = "../../util/time-utils" }
 stats = { path = "../../util/stats" }
 crossbeam-channel = "0.5.2"
 

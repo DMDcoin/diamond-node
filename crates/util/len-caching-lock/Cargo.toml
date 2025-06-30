@@ -8,4 +8,4 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2024"
 
 [dependencies]
-parking_lot = "0.11.2"
+parking_lot = "0.12"

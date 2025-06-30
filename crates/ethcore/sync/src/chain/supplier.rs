@@ -18,6 +18,7 @@ use bytes::Bytes;
 
 #[cfg(not(test))]
 use devp2p::PAYLOAD_SOFT_LIMIT;
+use time_utils::DeadlineStopwatch;
 #[cfg(test)]
 pub const PAYLOAD_SOFT_LIMIT: usize = 100_000;
 
@@ -27,7 +28,7 @@ use ethereum_types::{H256, H512};
 use network::{self, PeerId};
 use parking_lot::RwLock;
 use rlp::{Rlp, RlpStream};
-use std::cmp;
+use std::{cmp, time::Duration};
 
 use crate::sync_io::SyncIo;
 
@@ -316,14 +317,24 @@ impl SyncSupplier {
         rlp.begin_unbounded_list();
         let mut not_found = 0;
         let mut parse_errors = 0;
+
+        let deadline = DeadlineStopwatch::new(Duration::from_millis(200));
         for v in r {
             if let Ok(hash) = v.as_val::<H256>() {
                 // io.chain().transaction(hash)
 
+                if deadline.is_expired() {
+                    debug!(target: "sync", "{} -> GetPooledTransactions: deadline reached, only returning partial result to ", peer_id);
+                    break;
+                }
+
                 // we do not lock here, if we cannot access the memory at this point in time,
                 // we will just skip this transaction, otherwise the other peer might wait to long, resulting in a timeout.
                 // also this solved a potential deadlock situation:
-                if let Some(tx) = io.chain().transaction_if_readable(&hash) {
+                if let Some(tx) = io
+                    .chain()
+                    .transaction_if_readable(&hash, &deadline.time_left())
+                {
                     tx.signed().rlp_append(&mut rlp);
                     added += 1;
                     if rlp.len() > PAYLOAD_SOFT_LIMIT {

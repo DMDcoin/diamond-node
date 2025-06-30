@@ -35,6 +35,7 @@ pub use ethcore_miner::{
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
+    time::Duration,
 };
 
 use crate::types::{
@@ -201,7 +202,11 @@ pub trait MinerService: Send + Sync {
 
     /// Query transaction from the pool given it's hash, without blocking.
     /// Might return "None" in cases when the lock could not get acquired.
-    fn transaction_if_readable(&self, hash: &H256) -> Option<Arc<VerifiedTransaction>>;
+    fn transaction_if_readable(
+        &self,
+        hash: &H256,
+        max_lock_duration: &Duration,
+    ) -> Option<Arc<VerifiedTransaction>>;
 
     /// Returns next valid nonce for given address.
     ///

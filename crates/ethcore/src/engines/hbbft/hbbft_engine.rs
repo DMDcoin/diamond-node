@@ -382,7 +382,7 @@ impl IoHandler<()> for TransitionHandler {
 
             let is_staked = self.engine.is_staked();
             if is_staked {
-                debug!(target: "consensus", "We are staked!");
+                trace!(target: "consensus", "We are staked!");
                 let is_available = self.engine.is_available();
                 if !is_available {
                     warn!(target: "consensus", "Initiating Shutdown: Honey Badger Consensus detected that this Node has been flagged as unavailable, while it should be available.");
@@ -965,7 +965,7 @@ impl HoneyBadgerBFT {
     fn do_validator_engine_actions(&self) -> Result<(), Error> {
         // here we need to differentiate the different engine functions,
         // that requre different levels of access to the client.
-        debug!(target: "engine", "do_validator_engine_actions.");
+        trace!(target: "engine", "do_validator_engine_actions.");
         match self.client_arc() {
             Some(client_arc) => {
                 if self.is_syncing(&client_arc) {
@@ -1031,7 +1031,7 @@ impl HoneyBadgerBFT {
                         }
                         None => {
                             // maybe improve here, to return with a result, that triggers a retry soon.
-                            warn!(target: "engine", "Unable to do_validator_engine_actions: Could not acquire read lock for hbbft state. Unable to decide about early epoch end.");
+                            info!(target: "engine", "Unable to do_validator_engine_actions: Could not acquire read lock for hbbft state. Unable to decide about early epoch end. retrying soon.");
                         }
                     };
                 } // drop lock for hbbft_state

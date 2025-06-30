@@ -695,11 +695,13 @@ impl ChainNotify for TestNotify {
         self.messages.write().push(data);
     }
 
-    fn send(&self, message: ChainMessageType, node_id: Option<H512>) {
+    fn send(&self, message: ChainMessageType, node_id: &H512) {
         let data = match message {
             ChainMessageType::Consensus(data) => data,
         };
-        self.targeted_messages.write().push((data, node_id));
+        self.targeted_messages
+            .write()
+            .push((data, Some(node_id.clone())));
     }
 }
 

@@ -20,6 +20,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     net::SocketAddr,
     sync::Arc,
+    time::Duration,
 };
 
 use crate::{
@@ -425,7 +426,11 @@ pub trait BlockChainClient:
 
     /// see queued_transactions(&self).
     /// Get pool transaction with a given hash, but returns NONE fast, if if cannot acquire a readlock fast.
-    fn transaction_if_readable(&self, hash: &H256) -> Option<Arc<VerifiedTransaction>>;
+    fn transaction_if_readable(
+        &self,
+        hash: &H256,
+        max_lock_duration: &Duration,
+    ) -> Option<Arc<VerifiedTransaction>>;
 
     /// Sorted list of transaction gas prices from at least last sample_size blocks.
     fn gas_price_corpus(&self, sample_size: usize) -> ::stats::Corpus<U256> {

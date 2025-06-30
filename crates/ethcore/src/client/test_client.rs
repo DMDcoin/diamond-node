@@ -23,6 +23,7 @@ use std::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrder},
     },
+    time::Duration,
 };
 
 use crate::{
@@ -1160,8 +1161,12 @@ impl BlockChainClient for TestBlockChainClient {
         self.miner.transaction(tx_hash)
     }
 
-    fn transaction_if_readable(&self, hash: &H256) -> Option<Arc<VerifiedTransaction>> {
-        self.miner.transaction_if_readable(hash)
+    fn transaction_if_readable(
+        &self,
+        hash: &H256,
+        max_lock_duration: &Duration,
+    ) -> Option<Arc<VerifiedTransaction>> {
+        self.miner.transaction_if_readable(hash, max_lock_duration)
     }
 
     /// Returns the devp2p network endpoint IP and Port information that is used to communicate with other peers.

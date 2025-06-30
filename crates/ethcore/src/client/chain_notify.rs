@@ -184,7 +184,7 @@ pub trait ChainNotify: Send + Sync {
     }
 
     /// fires when chain sends a message to a specific peer
-    fn send(&self, _message_type: ChainMessageType, _node_id: Option<H512>) {
+    fn send(&self, _message_type: ChainMessageType, _node_id: &H512) {
         // does nothing by default
     }
 

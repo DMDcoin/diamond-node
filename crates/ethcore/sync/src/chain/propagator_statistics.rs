@@ -79,7 +79,7 @@ impl SyncPropagatorStatistics {
         }
     }
 
-    pub(crate) fn log_consensus(&mut self, _peer_id: usize, bytelen: usize) {
+    pub(crate) fn log_consensus(&mut self, bytelen: usize) {
         if self.logging_enabled {
             self.consensus_bytes += bytelen as i64;
             self.consensus_packages += 1;

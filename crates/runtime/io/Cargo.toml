@@ -11,7 +11,7 @@ edition = "2024"
 fnv = "1.0"
 mio = { version = "0.6.8", optional = true }
 crossbeam-deque = "0.7.4"
-parking_lot = "0.11.2"
+parking_lot = "0.12"
 log = "0.4"
 slab = "0.4"
 timer = "0.2"

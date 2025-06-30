@@ -1468,8 +1468,13 @@ impl miner::MinerService for Miner {
         return result;
     }
 
-    fn transaction_if_readable(&self, hash: &H256) -> Option<Arc<VerifiedTransaction>> {
-        self.transaction_queue.find_if_readable(hash)
+    fn transaction_if_readable(
+        &self,
+        hash: &H256,
+        max_lock_duration: &Duration,
+    ) -> Option<Arc<VerifiedTransaction>> {
+        self.transaction_queue
+            .find_if_readable(hash, max_lock_duration)
     }
 
     fn remove_transaction(&self, hash: &H256) -> Option<Arc<VerifiedTransaction>> {
