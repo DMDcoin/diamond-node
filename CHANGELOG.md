@@ -1,3 +1,6 @@
+## Diamond Node Software 3.3.5-hbbft-0.11.5
+- [Improved reliability of Hbbft targeted message delivery](https://github.com/DMDcoin/diamond-node/issues/248)
+
 ## Diamond Node Software 3.3.5-hbbft-0.11.4
 - [Balanced lock approach for solving the lock problems in devp2p](https://github.com/DMDcoin/diamond-node/issues/236)
 

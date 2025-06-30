@@ -25,9 +25,9 @@ use crate::{
     types::{BlockNumber, blockchain_info::BlockChainInfo, transaction::SignedTransaction},
 };
 use bytes::Bytes;
-use ethereum_types::H256;
+use ethereum_types::{H256, H512};
 use fastmap::H256FastSet;
-use network::{PeerId, client_version::ClientCapabilities};
+use network::{Error, PeerId, client_version::ClientCapabilities};
 use rand::RngCore;
 use rlp::RlpStream;
 
@@ -77,10 +77,12 @@ impl ChainSync {
                 self.statistics
                     .log_propagated_block(io, *peer_id, blocks.len(), rlp.len());
 
-                ChainSync::send_packet(io, *peer_id, NewBlockPacket, rlp.clone());
+                let send_result = ChainSync::send_packet(io, *peer_id, NewBlockPacket, rlp.clone());
 
-                if let Some(ref mut peer) = self.peers.get_mut(peer_id) {
-                    peer.latest_hash = chain_info.best_block_hash.clone();
+                if send_result.is_ok() {
+                    if let Some(ref mut peer) = self.peers.get_mut(peer_id) {
+                        peer.latest_hash = chain_info.best_block_hash.clone();
+                    }
                 }
             }
         };
@@ -122,7 +124,7 @@ impl ChainSync {
             if let Some(ref mut peer) = self.peers.get_mut(peer_id) {
                 peer.latest_hash = best_block_hash;
             }
-            ChainSync::send_packet(io, *peer_id, NewBlockHashesPacket, rlp.clone());
+            let _ = ChainSync::send_packet(io, *peer_id, NewBlockHashesPacket, rlp.clone());
         }
         sent
     }
@@ -200,13 +202,7 @@ impl ChainSync {
                            rlp: Bytes| {
             let size = rlp.len();
 
-            if is_hashes {
-                stats.log_propagated_hashes(sent, size);
-            } else {
-                stats.log_propagated_transactions(sent, size);
-            }
-
-            ChainSync::send_packet(
+            let send_result = ChainSync::send_packet(
                 io,
                 peer_id,
                 if is_hashes {
@@ -216,7 +212,15 @@ impl ChainSync {
                 },
                 rlp,
             );
-            trace!(target: "sync", "{:02} <- {} ({} entries; {} bytes)", peer_id, if is_hashes { "NewPooledTransactionHashes" } else { "Transactions" }, sent, size);
+
+            if send_result.is_ok() {
+                if is_hashes {
+                    stats.log_propagated_hashes(sent, size);
+                } else {
+                    stats.log_propagated_transactions(sent, size);
+                }
+                trace!(target: "sync", "{:02} <- {} ({} entries; {} bytes)", peer_id, if is_hashes { "NewPooledTransactionHashes" } else { "Transactions" }, sent, size);
+            }
         };
 
         let mut sent_to_peers = HashSet::new();
@@ -385,7 +389,7 @@ impl ChainSync {
             // more about: https://github.com/DMDcoin/diamond-node/issues/61
             let rlp = ChainSync::create_block_rlp(block, io.chain().chain_info().total_difficulty);
             for peer_id in &peers {
-                ChainSync::send_packet(io, *peer_id, NewBlockPacket, rlp.clone());
+                let _ = ChainSync::send_packet(io, *peer_id, NewBlockPacket, rlp.clone());
             }
         }
     }
@@ -395,21 +399,48 @@ impl ChainSync {
         let lucky_peers = ChainSync::select_random_peers(&self.get_consensus_peers());
         trace!(target: "sync", "Sending consensus packet to {:?}", lucky_peers);
 
-        self.statistics
-            .log_consensus_broadcast(lucky_peers.len(), packet.len());
+        let mut num_sent_messages = 0;
         for peer_id in lucky_peers {
-            ChainSync::send_packet(io, peer_id, ConsensusDataPacket, packet.clone());
+            let send_result =
+                ChainSync::send_packet(io, peer_id, ConsensusDataPacket, packet.clone());
+
+            if let Err(e) = send_result {
+                info!(target: "sync", "Error broadcast consensus packet to peer {}: {:?}", peer_id, e);
+            } else {
+                num_sent_messages += 1;
+            }
         }
+
+        self.statistics
+            .log_consensus_broadcast(num_sent_messages, packet.len());
     }
 
+    /// Sends a packet to a specific peer.
+    /// The caller has to take care about Errors, and reshedule if an error occurs.
     pub(crate) fn send_consensus_packet(
         &mut self,
         io: &mut dyn SyncIo,
         packet: Bytes,
-        peer_id: usize,
-    ) {
-        self.statistics.log_consensus(peer_id, packet.len());
-        ChainSync::send_packet(io, peer_id, ConsensusDataPacket, packet.clone());
+        peer: &H512,
+    ) -> Result<(), Error> {
+        let peer_id = match io.node_id_to_peer_id(peer) {
+            Some(id) => id,
+            None => {
+                warn!(target: "sync", "Peer with node id {} not found in peers list.", peer);
+                return Err("No Session for Peer".into());
+            }
+        };
+        let packet_len = packet.len();
+        let send_result = ChainSync::send_packet(io, peer_id, ConsensusDataPacket, packet.clone());
+        match &send_result {
+            Ok(_) => {
+                self.statistics.log_consensus(packet_len);
+            }
+            Err(e) => {
+                warn!(target: "sync", "Error sending consensus packet to peer {}: {:?}", peer_id, e);
+            }
+        }
+        return send_result;
     }
 
     fn select_peers_for_transactions<F>(&self, filter: F, are_new: bool) -> Vec<PeerId>
@@ -444,11 +475,14 @@ impl ChainSync {
         peer_id: PeerId,
         packet_id: SyncPacket,
         packet: Bytes,
-    ) {
-        if let Err(e) = sync.send(peer_id, packet_id, packet) {
+    ) -> Result<(), Error> {
+        let result = sync.send(peer_id, packet_id, packet);
+        if let Err(e) = &result {
             debug!(target:"sync", "Error sending packet: {:?}", e);
             sync.disconnect_peer(peer_id);
         }
+
+        return result;
     }
 
     /// propagates new transactions to all peers

@@ -296,14 +296,17 @@ impl<'s> NetworkContextTrait for NetworkContext<'s> {
             .unwrap_or(false)
     }
 
-    fn node_id_to_peer_id(&self, node_id: NodeId) -> Option<PeerId> {
+    fn node_id_to_peer_id(&self, node_id: &NodeId) -> Option<PeerId> {
         let sessions = self.sessions.read();
         let sessions = &*sessions;
 
         for i in (0..MAX_SESSIONS).map(|x| x + FIRST_SESSION) {
             if let Some(session) = sessions.get(i) {
-                if session.lock().info.id == Some(node_id) {
-                    return Some(i);
+                let session_node_id_o = session.lock().info.id;
+                if let Some(session_node_id) = session_node_id_o {
+                    if session_node_id == *node_id {
+                        return Some(i);
+                    }
                 }
             }
         }

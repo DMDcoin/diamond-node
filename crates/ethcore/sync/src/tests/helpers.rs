@@ -181,6 +181,10 @@ where
     fn chain_overlay(&self) -> &RwLock<HashMap<BlockNumber, Bytes>> {
         &self.overlay
     }
+
+    fn node_id_to_peer_id(&self, node_id: &ethereum_types::H512) -> Option<PeerId> {
+        return Some(node_id.to_low_u64_le() as PeerId);
+    }
 }
 
 /// Mock for emulution of async run of new blocks

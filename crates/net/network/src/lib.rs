@@ -368,7 +368,7 @@ pub trait NetworkContext {
     fn is_reserved_peer(&self, peer: PeerId) -> bool;
 
     /// Returns the peer ID for a given node id, if a corresponding peer exists.
-    fn node_id_to_peer_id(&self, node_id: NodeId) -> Option<PeerId>;
+    fn node_id_to_peer_id(&self, node_id: &NodeId) -> Option<PeerId>;
 }
 
 impl<'a, T> NetworkContext for &'a T
@@ -429,8 +429,8 @@ where
         (**self).is_reserved_peer(peer)
     }
 
-    fn node_id_to_peer_id(&self, node_id: NodeId) -> Option<PeerId> {
-        (**self).node_id_to_peer_id(node_id)
+    fn node_id_to_peer_id(&self, node_id: &NodeId) -> Option<PeerId> {
+        (**self).node_id_to_peer_id(&node_id)
     }
 }
 

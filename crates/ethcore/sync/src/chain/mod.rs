@@ -577,9 +577,12 @@ impl ChainSyncApi {
                     for peers in sync.get_peers(&chain_info, PeerState::SameBlock).chunks(10) {
                         check_deadline(deadline)?;
                         for peer in peers {
-                            ChainSync::send_packet(io, *peer, NewBlockPacket, rlp.clone());
-                            if let Some(ref mut peer) = sync.peers.get_mut(peer) {
-                                peer.latest_hash = hash;
+                            let send_result =
+                                ChainSync::send_packet(io, *peer, NewBlockPacket, rlp.clone());
+                            if send_result.is_ok() {
+                                if let Some(ref mut peer) = sync.peers.get_mut(peer) {
+                                    peer.latest_hash = hash;
+                                }
                             }
                         }
                     }

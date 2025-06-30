@@ -3307,7 +3307,9 @@ impl super::traits::EngineClient for Client {
             .sent_consensus_messages_bytes
             .fetch_add(message.len() as u64, std::sync::atomic::Ordering::Relaxed);
 
-        self.notify(|notify| notify.send(ChainMessageType::Consensus(message.clone()), node_id));
+        if let Some(n) = node_id {
+            self.notify(|notify| notify.send(ChainMessageType::Consensus(message.clone()), &n));
+        }
     }
 
     fn epoch_transition_for(&self, parent_hash: H256) -> Option<crate::engines::EpochTransition> {
