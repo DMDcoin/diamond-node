@@ -385,7 +385,7 @@ impl ChainSync {
         let peers = self.get_consensus_peers();
         trace!(target: "sync", "Sending proposed blocks to {:?}", peers);
         for block in proposed {
-            // todo: sometimes we get at the receiving end blocks, with mismatching total difficulty,
+            // todo: sometimes we get at the receiving end blocks, with mismatched total difficulty,
             // so we ignore those blocks on import.
             // might that be the case if we are sending more than 1 block here ?
             // more about: https://github.com/DMDcoin/diamond-node/issues/61

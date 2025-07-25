@@ -418,7 +418,6 @@ impl SessionContainer {
                     }
                 } else {
                     trace!(target: "network", "No session active for {node_id} with peer id {existing_peer_id}");
-                    // todo: make sure the mapping is rewritten.
                 }
 
                 trace!(target: "network", "Session {peer_id} has a duplicate :{existing_peer_id} {node_id}");
