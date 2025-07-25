@@ -1465,13 +1465,13 @@ impl ChainSync {
                             peer.unfetched_pooled_transactions
                                 .retain(|u| !to_send.contains(u));
 
-                            // trace!(
-                            //     target: "sync",
-                            //     "Asking {} pooled transactions from peer {}: {:?}",
-                            //     to_send.len(),
-                            //     peer_id,
-                            //     to_send
-                            // );
+                            trace!(
+                                target: "sync",
+                                "Asking {} pooled transactions from peer {}: {:?}",
+                                to_send.len(),
+                                peer_id,
+                                to_send
+                            );
                             peer.asking_pooled_transactions = to_send.clone();
                         }
                     } else {

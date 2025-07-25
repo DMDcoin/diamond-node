@@ -258,7 +258,7 @@ fn to_toml(
     misc.insert(
         "logging".into(),
         Value::String(
-            logging.unwrap_or("txqueue=trace,consensus=debug,engine=debug,own_tx=trace,tx_filter=trace,sync=trace")
+            logging.unwrap_or("txqueue=trace,consensus=trace,engine=trace,own_tx=trace,tx_filter=trace,sync=trace,network=trace,io=trace")
                 .into(),
         ),
     );
@@ -419,7 +419,7 @@ fn main() {
         ).arg(
             Arg::with_name("logging")
                 .long("log definition string")
-                .help("example: txqueue=trace,consensus=debug,engine=debug,own_tx=trace,tx_filter=trace,sync=trace")
+                .help("example: txqueue=trace,consensus=debug,engine=debug,own_tx=trace,tx_filter=trace,sync=trace,network=trace")
                 .required(false)
                 .takes_value(true),
         )

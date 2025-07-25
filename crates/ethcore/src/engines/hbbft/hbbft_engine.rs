@@ -344,7 +344,13 @@ impl IoHandler<()> for TransitionHandler {
     fn timeout(&self, io: &IoContext<()>, timer: TimerToken) {
         if timer == ENGINE_TIMEOUT_TOKEN {
             if let Err(err) = self.handle_engine(io) {
-                error!(target: "consensus", "Error in Honey Badger Engine timeout handler: {:?}", err);
+                trace!(target: "consensus", "Error in Honey Badger Engine timeout handler: {:?}", err);
+
+                // in error cases we try again soon.
+                io.register_timer_once(ENGINE_TIMEOUT_TOKEN, DEFAULT_DURATION)
+                .unwrap_or_else(
+                    |e| warn!(target: "consensus", "Failed to restart consensus step timer: {}.", e),
+                );
             }
         } else if timer == ENGINE_SHUTDOWN {
             // we do not run this on the first occurence,
@@ -1014,7 +1020,7 @@ impl HoneyBadgerBFT {
 
                 {
                     let hbbft_state_option =
-                        self.hbbft_state.try_read_for(Duration::from_millis(50));
+                        self.hbbft_state.try_read_for(Duration::from_millis(250));
                     match hbbft_state_option {
                         Some(hbbft_state) => {
                             should_handle_early_epoch_end = hbbft_state.is_validator();
@@ -1031,7 +1037,7 @@ impl HoneyBadgerBFT {
                         }
                         None => {
                             // maybe improve here, to return with a result, that triggers a retry soon.
-                            info!(target: "engine", "Unable to do_validator_engine_actions: Could not acquire read lock for hbbft state. Unable to decide about early epoch end. retrying soon.");
+                            debug!(target: "engine", "Unable to do_validator_engine_actions: Could not acquire read lock for hbbft state. Unable to decide about early epoch end. retrying soon.");
                         }
                     };
                 } // drop lock for hbbft_state

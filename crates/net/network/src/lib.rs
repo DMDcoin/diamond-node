@@ -17,7 +17,7 @@
 #![recursion_limit = "128"]
 
 extern crate ethcore_io as io;
-use ethereum_types;
+use ethereum_types::{self, H256};
 extern crate ethkey;
 extern crate ipnetwork;
 extern crate libc;
@@ -130,6 +130,10 @@ pub struct SessionInfo {
     /// Local endpoint address of the session
     pub local_address: String,
 
+    /// A unique identifier that is the same on both sessions endpoints after the handshake is completed.
+    /// it is the XOR of the Nonces for the handshake that initialized this Session.
+    pub session_uid: Option<H256>,
+
     /// peer is capable of doing EIP 2464 transaction gossiping: https://eips.ethereum.org/EIPS/eip-2464
     is_pooled_transactions_capable: bool,
 }
@@ -148,6 +152,7 @@ impl SessionInfo {
             remote_address: "Handshake".to_owned(),
             local_address: local_addr,
             is_pooled_transactions_capable: false, // we don't know yet, we will know once we get the capabilities
+            session_uid: None, // session-uid is set after the handshake has completed.
         };
     }
 

@@ -241,7 +241,7 @@ impl Handshake {
     where
         Message: Send + Clone + Sync + 'static,
     {
-        trace!(target: "network", "Received EIP8 handshake auth from {:?}", self.connection.remote_addr_str());
+        trace!(target: "network", "{} Received EIP8 handshake auth from {:?}", self.connection.token,  self.connection.remote_addr_str());
         self.auth_cipher.extend_from_slice(data);
         let auth = ecies::decrypt(secret, &self.auth_cipher[0..2], &self.auth_cipher[2..])?;
         let rlp = Rlp::new(&auth);
@@ -273,6 +273,7 @@ impl Handshake {
                 self.remote_ephemeral = Public::from_slice(&ack[0..64]);
                 self.remote_nonce = H256::from_slice(&ack[64..(64 + 32)]);
                 self.state = HandshakeState::StartSession;
+                trace!(target: "network", "handshake completed for from {:?}", self.connection.remote_addr_str());
             }
             Err(_) => {
                 // Try to interpret as EIP-8 packet
@@ -290,7 +291,7 @@ impl Handshake {
     }
 
     fn read_ack_eip8(&mut self, secret: &Secret, data: &[u8]) -> Result<(), Error> {
-        trace!(target: "network", "Received EIP8 handshake auth from {:?}", self.connection.remote_addr_str());
+        trace!(target: "network", "{} Received EIP8 handshake auth from {:?}",self.connection.token, self.connection.remote_addr_str());
         self.ack_cipher.extend_from_slice(data);
         let ack = ecies::decrypt(secret, &self.ack_cipher[0..2], &self.ack_cipher[2..])?;
         let rlp = Rlp::new(&ack);
