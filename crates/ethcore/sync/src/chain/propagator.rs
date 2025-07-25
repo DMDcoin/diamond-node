@@ -27,7 +27,7 @@ use crate::{
 use bytes::Bytes;
 use ethereum_types::{H256, H512};
 use fastmap::H256FastSet;
-use network::{Error, PeerId, client_version::ClientCapabilities};
+use network::{Error, ErrorKind, PeerId, client_version::ClientCapabilities};
 use rand::RngCore;
 use rlp::RlpStream;
 
@@ -131,6 +131,8 @@ impl ChainSync {
 
     /// propagates new transactions to all peers
     pub(crate) fn propagate_new_ready_transactions(&mut self, io: &mut dyn SyncIo) {
+        debug!(target: "sync", "propagate_new_ready_transactions");
+
         let deadline = Instant::now() + Duration::from_millis(500);
 
         self.propagate_ready_transactions(io, || {
@@ -383,7 +385,7 @@ impl ChainSync {
         let peers = self.get_consensus_peers();
         trace!(target: "sync", "Sending proposed blocks to {:?}", peers);
         for block in proposed {
-            // todo: sometimes we get at the receiving end blocks, with missmatching total difficulty,
+            // todo: sometimes we get at the receiving end blocks, with mismatching total difficulty,
             // so we ignore those blocks on import.
             // might that be the case if we are sending more than 1 block here ?
             // more about: https://github.com/DMDcoin/diamond-node/issues/61
@@ -427,17 +429,17 @@ impl ChainSync {
             Some(id) => id,
             None => {
                 warn!(target: "sync", "Peer with node id {} not found in peers list.", peer);
-                return Err("No Session for Peer".into());
+                return Err(ErrorKind::PeerNotFound.into());
             }
         };
         let packet_len = packet.len();
         let send_result = ChainSync::send_packet(io, peer_id, ConsensusDataPacket, packet.clone());
-        match &send_result {
+        match send_result {
             Ok(_) => {
                 self.statistics.log_consensus(packet_len);
             }
             Err(e) => {
-                warn!(target: "sync", "Error sending consensus packet to peer {}: {:?}", peer_id, e);
+                return Err(e);
             }
         }
         return send_result;
@@ -497,6 +499,8 @@ impl ChainSync {
         F: FnMut() -> bool,
         G: Fn(&dyn SyncIo) -> Vec<Arc<VerifiedTransaction>>,
     {
+        trace!(target:"sync", "propagate_transactions");
+
         // Early out if nobody to send to.
         if self.peers.is_empty() {
             return 0;

@@ -305,7 +305,11 @@ where
                     handler_id: handler_index,
                 });
                 self.work_ready.notify_all();
+            } else {
+                debug!(target: "io", "No timer available for token {}. handler_index {handler_index}, subtoken {token_id}", token.0);
             }
+        } else {
+            debug!(target: "io", "No handler for token {} registered. handler_index {handler_index}, subtoken {token_id}", token.0);
         }
     }
 
@@ -346,6 +350,7 @@ where
                 delay,
                 once,
             } => {
+                trace!(target: "io", "Registering timer: handler_id={}, token={}, delay={:?}, once={}", handler_id, token, delay, once);
                 let timer_id = token + handler_id * TOKENS_PER_HANDLER;
                 let timeout = event_loop
                     .timeout(Token(timer_id), delay)
