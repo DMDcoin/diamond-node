@@ -506,6 +506,11 @@ impl SyncProtocolHandler {
     }
 
     fn send_cached_consensus_messages_for(&self, sync_io: &mut dyn SyncIo, node_id: &NodeId) {
+        let last_interesting_block = self
+            .chain
+            .block_number(types::ids::BlockId::Latest)
+            .unwrap_or(0);
+
         // now since we are connected, lets send any cached messages
         if let Some(vec_msg) = self.message_cache.write().remove(&Some(*node_id)) {
             trace!(target: "consensus", "Cached Messages: Trying to send cached messages to {:?}", node_id);
@@ -514,7 +519,11 @@ impl SyncProtocolHandler {
 
             for msg in vec_msg {
                 match msg {
-                    ChainMessageType::Consensus(message) => {
+                    ChainMessageType::Consensus(block, message) => {
+                        if block < last_interesting_block {
+                            // https://github.com/DMDcoin/diamond-node/issues/261
+                            continue;
+                        }
                         let send_consensus_result = self.sync.write().send_consensus_packet(
                             sync_io,
                             message.clone(),
@@ -525,7 +534,7 @@ impl SyncProtocolHandler {
                             Ok(_) => {}
                             Err(e) => {
                                 info!(target: "consensus", "Error sending cached consensus message to peer (re-adding) {:?}: {:?}", node_id, e);
-                                failed_messages.push(ChainMessageType::Consensus(message));
+                                failed_messages.push(ChainMessageType::Consensus(block, message));
                             }
                         }
                     }
@@ -534,8 +543,9 @@ impl SyncProtocolHandler {
 
             if !failed_messages.is_empty() {
                 // If we failed to send some messages, cache them for later
-                let mut lock = self.message_cache.write();
-                lock.entry(Some(*node_id))
+                self.message_cache
+                    .write()
+                    .entry(Some(*node_id))
                     .or_default()
                     .extend(failed_messages);
             } else {
@@ -729,7 +739,7 @@ impl ChainNotify for EthSync {
                 &self.eth_handler.overlay,
             );
             match message_type {
-                ChainMessageType::Consensus(message) => self
+                ChainMessageType::Consensus(_block, message) => self
                     .eth_handler
                     .sync
                     .write()
@@ -746,13 +756,13 @@ impl ChainNotify for EthSync {
                                              &self.eth_handler.overlay);
 
             match message_type {
-                ChainMessageType::Consensus(message) => {
+                ChainMessageType::Consensus(block, message) => {
                     let send_result = self.eth_handler.sync.write().send_consensus_packet(&mut sync_io, message.clone(), node_id);
                     if let Err(e) = send_result {
                         info!(target: "consensus", "Error sending consensus message to peer - caching message {:?}: {:?}", node_id, e);
                         // If we failed to send the message, cache it for later
                         let mut lock = self.eth_handler.message_cache.write();
-                        lock.entry(Some(node_id.clone())).or_default().push(ChainMessageType::Consensus(message));
+                        lock.entry(Some(node_id.clone())).or_default().push(ChainMessageType::Consensus(block, message));
                     }
                 },
             }

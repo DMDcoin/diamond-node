@@ -433,7 +433,7 @@ impl SessionContainer {
     pub(crate) fn deregister_session_stream<Host: mio::deprecated::Handler>(
         &self,
         stream: usize,
-        
+
         event_loop: &mut mio::deprecated::EventLoop<Host>,
     ) {
         let connections = if stream < self.last_handshake {

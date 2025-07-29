@@ -405,7 +405,6 @@ impl ChainSync {
         for peer_id in lucky_peers {
             let send_result =
                 ChainSync::send_packet(io, peer_id, ConsensusDataPacket, packet.clone());
-
             if let Err(e) = send_result {
                 info!(target: "sync", "Error broadcast consensus packet to peer {}: {:?}", peer_id, e);
             } else {

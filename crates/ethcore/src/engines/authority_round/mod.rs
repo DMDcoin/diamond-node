@@ -1158,7 +1158,7 @@ impl AuthorityRound {
         self.empty_steps.lock().insert(empty_step);
     }
 
-    fn generate_empty_step(&self, parent_hash: &H256) {
+    fn generate_empty_step(&self, future_block_id: u64, parent_hash: &H256) {
         let step = self.step.inner.load();
         let empty_step_rlp = empty_step_rlp(step, parent_hash);
 
@@ -1173,16 +1173,16 @@ impl AuthorityRound {
             };
 
             trace!(target: "engine", "broadcasting empty step message: {:?}", empty_step);
-            self.broadcast_message(message_rlp);
+            self.broadcast_message(future_block_id, message_rlp);
             self.handle_empty_step_message(empty_step);
         } else {
             warn!(target: "engine", "generate_empty_step: FAIL: accounts secret key unavailable");
         }
     }
 
-    fn broadcast_message(&self, message: Vec<u8>) {
+    fn broadcast_message(&self, future_block_id: u64, message: Vec<u8>) {
         if let Ok(c) = self.upgrade_client_or(None) {
-            c.broadcast_consensus_message(message);
+            c.broadcast_consensus_message(future_block_id, message);
         }
     }
 
@@ -1759,7 +1759,7 @@ impl Engine<EthereumMachine> for AuthorityRound {
                     .compare_exchange(true, false, AtomicOrdering::SeqCst, AtomicOrdering::SeqCst)
                     .is_ok()
                 {
-                    self.generate_empty_step(header.parent_hash());
+                    self.generate_empty_step(header.number(), header.parent_hash());
                 }
 
                 return Seal::None;

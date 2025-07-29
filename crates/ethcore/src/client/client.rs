@@ -3288,7 +3288,7 @@ impl super::traits::EngineClient for Client {
         }
     }
 
-    fn broadcast_consensus_message(&self, message: Bytes) {
+    fn broadcast_consensus_message(&self, future_block_id: u64, message: Bytes) {
         self.statistics
             .broadcasted_consensus_messages
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -3296,10 +3296,15 @@ impl super::traits::EngineClient for Client {
             .broadcasted_consensus_messages_bytes
             .fetch_add(message.len() as u64, std::sync::atomic::Ordering::Relaxed);
 
-        self.notify(|notify| notify.broadcast(ChainMessageType::Consensus(message.clone())));
+        self.notify(|notify| {
+            notify.broadcast(ChainMessageType::Consensus(
+                future_block_id,
+                message.clone(),
+            ))
+        });
     }
 
-    fn send_consensus_message(&self, message: Bytes, node_id: Option<H512>) {
+    fn send_consensus_message(&self, future_block_id: u64, message: Bytes, node_id: Option<H512>) {
         self.statistics
             .sent_consensus_messages
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -3308,7 +3313,12 @@ impl super::traits::EngineClient for Client {
             .fetch_add(message.len() as u64, std::sync::atomic::Ordering::Relaxed);
 
         if let Some(n) = node_id {
-            self.notify(|notify| notify.send(ChainMessageType::Consensus(message.clone()), &n));
+            self.notify(|notify| {
+                notify.send(
+                    ChainMessageType::Consensus(future_block_id, message.clone()),
+                    &n,
+                )
+            });
         }
     }
 
