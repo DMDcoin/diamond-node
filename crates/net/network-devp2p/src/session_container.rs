@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use crate::{io::*, node_table::*, session::Session};
 use network::{Error, ErrorKind, NetworkIoMessage, PeerId};
-use parking_lot::{Mutex, RwLock, RwLockReadGuard};
+use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard};
 
 pub type SharedSession = Arc<Mutex<Session>>;
 
@@ -25,8 +25,8 @@ pub struct SessionContainer {
     last_handshake: usize,
     // the handshake cursor is a improvement to find new available handshake slots. it defines the next starting search position.
     current_handshake_cursor: Mutex<usize>,
-    sessions: Arc<RwLock<std::collections::BTreeMap<usize, SharedSession>>>,
-    handshakes: Arc<RwLock<std::collections::BTreeMap<usize, SharedSession>>>, // Separate map for handshakes
+    sessions: RwLock<std::collections::BTreeMap<usize, SharedSession>>,
+    handshakes: RwLock<std::collections::BTreeMap<usize, SharedSession>>, // Separate map for handshakes
     // for egress handshakes, we know the Node ID we want to do a handshake with, so we can do efficient lookups.
     handshakes_egress_map: RwLock<BTreeMap<ethereum_types::H512, usize>>,
     node_id_to_session: Mutex<LruCache<ethereum_types::H512, usize>>, // used to map Node IDs to last used session tokens.
@@ -41,8 +41,8 @@ impl SessionContainer {
         max_handshakes: usize,
     ) -> Self {
         SessionContainer {
-            sessions: Arc::new(RwLock::new(std::collections::BTreeMap::new())),
-            handshakes: Arc::new(RwLock::new(std::collections::BTreeMap::new())),
+            sessions: RwLock::new(std::collections::BTreeMap::new()),
+            handshakes: RwLock::new(std::collections::BTreeMap::new()),
             handshakes_egress_map: RwLock::new(BTreeMap::new()),
             current_handshake_cursor: Mutex::new(first_handshake_token),
             first_handshake: first_handshake_token,
@@ -433,12 +433,13 @@ impl SessionContainer {
     pub(crate) fn deregister_session_stream<Host: mio::deprecated::Handler>(
         &self,
         stream: usize,
+
         event_loop: &mut mio::deprecated::EventLoop<Host>,
     ) {
-        let mut connections = if stream < self.last_handshake {
-            self.handshakes.write()
+        let connections = if stream < self.last_handshake {
+            self.handshakes.upgradable_read()
         } else {
-            self.sessions.write()
+            self.sessions.upgradable_read()
         };
 
         if let Some(connection) = connections.get(&stream).cloned() {
@@ -447,8 +448,15 @@ impl SessionContainer {
                 // make sure it is the same connection that the event was generated for
                 c.deregister_socket(event_loop)
                     .expect("Error deregistering socket");
-                connections.remove(&stream);
+                drop(c);
+                let mut connections_write = RwLockUpgradableReadGuard::upgrade(connections);
+                connections_write.remove(&stream);
+                //RwLockUpgradableReadGuard::<'_, parking_lot::RawRwLock, BTreeMap<usize, Arc<parking_lot::lock_api::Mutex<parking_lot::RawMutex, Session>>>>::upgrade(connections).remove(&stream);
+            } else {
+                debug!(target: "network", "Tried to deregister session stream {} but it is not expired.", stream);
             }
+        } else {
+            debug!(target: "network", "Tried to deregister session stream {} but it does not exist.", stream);
         }
     }
 

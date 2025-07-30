@@ -72,6 +72,16 @@ enum Message {
     Sealing(BlockNumber, sealing::Message),
 }
 
+impl Message {
+    /// Returns the epoch (block number) of the message.
+    pub fn block_number(&self) -> BlockNumber {
+        match self {
+            Message::HoneyBadger(_, msg) => msg.epoch(),
+            Message::Sealing(block_num, _) => *block_num,
+        }
+    }
+}
+
 /// The Honey Badger BFT Engine.
 pub struct HoneyBadgerBFT {
     transition_service: IoService<()>,
@@ -727,7 +737,11 @@ impl HoneyBadgerBFT {
                     trace!(target: "consensus", "Dispatching message {:?} to {:?}", m.message, set);
                     for node_id in set.into_iter().filter(|p| p != net_info.our_id()) {
                         trace!(target: "consensus", "Sending message to {}", node_id.0);
-                        client.send_consensus_message(ser.clone(), Some(node_id.0));
+                        client.send_consensus_message(
+                            m.message.block_number(),
+                            ser.clone(),
+                            Some(node_id.0),
+                        );
                     }
                 }
                 Target::AllExcept(set) => {
@@ -737,7 +751,11 @@ impl HoneyBadgerBFT {
                         .filter(|p| (p != &net_info.our_id() && !set.contains(p)))
                     {
                         trace!(target: "consensus", "Sending exclusive message to {}", node_id.0);
-                        client.send_consensus_message(ser.clone(), Some(node_id.0));
+                        client.send_consensus_message(
+                            m.message.block_number(),
+                            ser.clone(),
+                            Some(node_id.0),
+                        );
                     }
                 }
             }
@@ -780,6 +798,7 @@ impl HoneyBadgerBFT {
                 message: Message::HoneyBadger(*message_counter, msg.message),
             }
         });
+
         self.dispatch_messages(&client, messages, network_info);
         std::mem::drop(message_counter);
         self.process_output(client, step.output, network_info);
@@ -813,7 +832,7 @@ impl HoneyBadgerBFT {
 
         let step = match self
             .hbbft_state
-            .try_write_for(std::time::Duration::from_millis(10))
+            .try_write_for(std::time::Duration::from_millis(100))
         {
             Some(mut state_lock) => state_lock.try_send_contribution(client.clone(), &self.signer),
             None => {
