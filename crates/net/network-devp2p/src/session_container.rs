@@ -20,7 +20,7 @@ fn socket_address_to_string(socket: &TcpStream) -> String {
 /// It has high performance lookup capabilities for NodeIDs by using a hashmap, instead of linear locking iteration of sessions.
 pub struct SessionContainer {
     max_sessions: usize,
-    max_handshakes: usize, // New field to limit concurrent handshakes
+    max_handshakes: usize,
     first_handshake: usize,
     last_handshake: usize,
     // the handshake cursor is a improvement to find new available handshake slots. it defines the next starting search position.
