@@ -276,7 +276,7 @@ where
     fn process_io_message(&self, message: ChainMessageType) {
         let mut io = TestIo::new(&*self.chain, &self.snapshot_service, &self.queue, None);
         match message {
-            ChainMessageType::Consensus(data) => {
+            ChainMessageType::Consensus(_block, data) => {
                 self.sync.write().propagate_consensus_packet(&mut io, data)
             }
         }

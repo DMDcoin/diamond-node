@@ -22,7 +22,7 @@ use std::{collections::HashMap, time::Duration};
 /// Messages to broadcast via chain
 pub enum ChainMessageType {
     /// Consensus message
-    Consensus(Vec<u8>),
+    Consensus(u64, Vec<u8>),
 }
 
 /// Route type to indicate whether it is enacted or retracted.

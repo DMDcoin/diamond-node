@@ -668,10 +668,10 @@ pub trait EngineClient: Sync + Send + ChainInfo {
     fn submit_seal(&self, block_hash: H256, seal: Vec<Bytes>);
 
     /// Broadcast a consensus message to the network.
-    fn broadcast_consensus_message(&self, message: Bytes);
+    fn broadcast_consensus_message(&self, future_block_id: u64, message: Bytes);
 
     /// Send a consensus message to the specified peer
-    fn send_consensus_message(&self, message: Bytes, node_id: Option<H512>);
+    fn send_consensus_message(&self, future_block_id: u64, message: Bytes, node_id: Option<H512>);
 
     /// Get the transition to the epoch the given parent hash is part of
     /// or transitions to.

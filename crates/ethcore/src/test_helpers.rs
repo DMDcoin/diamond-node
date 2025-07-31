@@ -690,14 +690,14 @@ pub struct TestNotify {
 impl ChainNotify for TestNotify {
     fn broadcast(&self, message: ChainMessageType) {
         let data = match message {
-            ChainMessageType::Consensus(data) => data,
+            ChainMessageType::Consensus(_message, data) => data,
         };
         self.messages.write().push(data);
     }
 
     fn send(&self, message: ChainMessageType, node_id: &H512) {
         let data = match message {
-            ChainMessageType::Consensus(data) => data,
+            ChainMessageType::Consensus(_message, data) => data,
         };
         self.targeted_messages
             .write()

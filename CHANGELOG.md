@@ -1,3 +1,10 @@
+## Diamond Node Software 3.3.5-hbbft-0.11.7
+- [Handshake and Session Management improvements](https://github.com/DMDcoin/diamond-node/issues/262)
+- [Reliable Message Broadcast Protocol: message_cache of SyncProtocolHandler does not get cleaned up](https://github.com/DMDcoin/diamond-node/issues/261)
+- reduced log outputs for RMBP cached messages
+- Fix possible deadlock in deregister_session_stream in combination with session_readable
+- reduce timings for shutdown from 90 seconds to 5 seconds, so auto restart of nodes in deadlock cases is faster
+
 ## Diamond Node Software 3.3.5-hbbft-0.11.6
 - [session double kill problem.](https://github.com/DMDcoin/diamond-node/issues/252)
 - [Network Host logic: peer_id to NodeID consistency](https://github.com/DMDcoin/diamond-node/issues/251)
