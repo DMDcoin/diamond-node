@@ -1613,7 +1613,13 @@ impl IoHandler<NetworkIoMessage> for Host {
         event_loop: &mut EventLoop<IoManager<NetworkIoMessage>>,
     ) {
         match stream {
-            FIRST_HANDSHAKE.. => {
+            FIRST_HANDSHAKE..FIRST_SESSION => {
+                let _handhake_lock = self.handshake_lock.lock(); // we do not allow new handshakes to get processed during deregistering a stream.
+                self.sessions
+                    .deregister_handshake_stream(stream, event_loop);
+            }
+            FIRST_SESSION..=LAST_SESSION => {
+                let _handhake_lock = self.handshake_lock.lock(); // since finalizing handshakes is the only way to promot a handshake to a session, we also block handshakes here.
                 self.sessions.deregister_session_stream(stream, event_loop);
             }
             DISCOVERY => (),
