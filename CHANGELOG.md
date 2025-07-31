@@ -1,3 +1,6 @@
+## Diamond Node Software 3.3.5-hbbft-0.11.8
+-  [deregister_session_stream can cause deadlocks](https://github.com/DMDcoin/diamond-node/issues/267)
+
 ## Diamond Node Software 3.3.5-hbbft-0.11.7
 - [Handshake and Session Management improvements](https://github.com/DMDcoin/diamond-node/issues/262)
 - [Reliable Message Broadcast Protocol: message_cache of SyncProtocolHandler does not get cleaned up](https://github.com/DMDcoin/diamond-node/issues/261)

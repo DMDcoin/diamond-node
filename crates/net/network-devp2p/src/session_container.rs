@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use crate::{io::*, node_table::*, session::Session};
 use network::{Error, ErrorKind, NetworkIoMessage, PeerId};
-use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard};
+use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 
 pub type SharedSession = Arc<Mutex<Session>>;
 
@@ -430,28 +430,53 @@ impl SessionContainer {
         return None;
     }
 
-    pub(crate) fn deregister_session_stream<Host: mio::deprecated::Handler>(
+    pub(crate) fn deregister_handshake_stream<Host: mio::deprecated::Handler>(
         &self,
         stream: usize,
-
         event_loop: &mut mio::deprecated::EventLoop<Host>,
     ) {
-        let connections = if stream < self.last_handshake {
-            self.handshakes.upgradable_read()
-        } else {
-            self.sessions.upgradable_read()
-        };
+        if stream < self.first_handshake || stream >= self.last_handshake {
+            warn!(target: "network", "Tried to deregister handshake stream {} but it is out of range.", stream);
+            return;
+        }
 
-        if let Some(connection) = connections.get(&stream).cloned() {
+        if let Some(connection) = self.get_handshake(stream) {
             let c = connection.lock();
             if c.expired() {
                 // make sure it is the same connection that the event was generated for
                 c.deregister_socket(event_loop)
                     .expect("Error deregistering socket");
                 drop(c);
-                let mut connections_write = RwLockUpgradableReadGuard::upgrade(connections);
-                connections_write.remove(&stream);
+
+                self.handshakes.write().remove(&stream);
                 //RwLockUpgradableReadGuard::<'_, parking_lot::RawRwLock, BTreeMap<usize, Arc<parking_lot::lock_api::Mutex<parking_lot::RawMutex, Session>>>>::upgrade(connections).remove(&stream);
+            } else {
+                debug!(target: "network", "Tried to deregister session stream {} but it is not expired.", stream);
+            }
+        } else {
+            debug!(target: "network", "Tried to deregister session stream {} but it does not exist.", stream);
+        }
+    }
+
+    pub(crate) fn deregister_session_stream<Host: mio::deprecated::Handler>(
+        &self,
+        stream: usize,
+
+        event_loop: &mut mio::deprecated::EventLoop<Host>,
+    ) {
+        if stream < self.last_handshake + 1 {
+            warn!(target: "network", "Tried to deregister session stream {} but it is out of range.", stream);
+            return;
+        }
+
+        if let Some(connection) = self.get_session(stream) {
+            let c = connection.lock();
+            if c.expired() {
+                // make sure it is the same connection that the event was generated for
+                c.deregister_socket(event_loop)
+                    .expect("Error deregistering socket");
+                drop(c);
+                self.sessions.write().remove(&stream);
             } else {
                 debug!(target: "network", "Tried to deregister session stream {} but it is not expired.", stream);
             }
