@@ -451,10 +451,10 @@ impl SessionContainer {
                 self.handshakes.write().remove(&stream);
                 //RwLockUpgradableReadGuard::<'_, parking_lot::RawRwLock, BTreeMap<usize, Arc<parking_lot::lock_api::Mutex<parking_lot::RawMutex, Session>>>>::upgrade(connections).remove(&stream);
             } else {
-                debug!(target: "network", "Tried to deregister session stream {} but it is not expired.", stream);
+                debug!(target: "network", "Tried to deregister handshake stream {} but it is not expired.", stream);
             }
         } else {
-            debug!(target: "network", "Tried to deregister session stream {} but it does not exist.", stream);
+            debug!(target: "network", "Tried to deregister handshake stream {} but it does not exist.", stream);
         }
     }
 
