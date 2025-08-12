@@ -468,7 +468,7 @@ impl HoneyBadgerBFT {
             machine,
             hbbft_state: RwLock::new(HbbftState::new()),
             hbbft_message_dispatcher: HbbftMessageDispatcher::new(
-                params.blocks_to_keep_on_disk.unwrap_or(0),
+                params.blocks_to_keep_on_disk.unwrap_or(1),
                 params
                     .blocks_to_keep_directory
                     .clone()
