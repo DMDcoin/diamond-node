@@ -102,6 +102,7 @@ pub struct HoneyBadgerBFT {
     current_minimum_gas_price: Mutex<Option<U256>>,
     early_epoch_manager: Mutex<Option<HbbftEarlyEpochEndManager>>,
     hbbft_engine_cache: Mutex<HbbftEngineCache>,
+    delayed_hbbft_join: AtomicBool,
 }
 
 struct TransitionHandler {
@@ -292,6 +293,17 @@ impl TransitionHandler {
         // Periodically allow messages received for future epochs to be processed.
         self.engine.replay_cached_messages();
 
+        // rejoin Hbbft Epoch after sync was completed.
+        if self
+            .engine
+            .delayed_hbbft_join
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            if let Err(e) = self.engine.join_hbbft_epoch() {
+                error!(target: "engine", "Error trying to join epoch after synced: {}", e);
+            }
+        }
+
         self.handle_shutdown_on_missing_block_import(shutdown_on_missing_block_import_config);
 
         let mut timer_duration = self.min_block_time_remaining(client.clone());
@@ -456,7 +468,7 @@ impl HoneyBadgerBFT {
             machine,
             hbbft_state: RwLock::new(HbbftState::new()),
             hbbft_message_dispatcher: HbbftMessageDispatcher::new(
-                params.blocks_to_keep_on_disk.unwrap_or(0),
+                params.blocks_to_keep_on_disk.unwrap_or(1),
                 params
                     .blocks_to_keep_directory
                     .clone()
@@ -469,7 +481,7 @@ impl HoneyBadgerBFT {
             ),
             sealing: RwLock::new(BTreeMap::new()),
             params,
-            message_counter: Mutex::new(0),
+            message_counter: Mutex::new(0), // restore message counter from memory here for RBC ?  */
             random_numbers: RwLock::new(BTreeMap::new()),
             keygen_transaction_sender: RwLock::new(KeygenTransactionSender::new()),
 
@@ -477,6 +489,7 @@ impl HoneyBadgerBFT {
             current_minimum_gas_price: Mutex::new(None),
             early_epoch_manager: Mutex::new(None),
             hbbft_engine_cache: Mutex::new(HbbftEngineCache::new()),
+            delayed_hbbft_join: AtomicBool::new(false),
         });
 
         if !engine.params.is_unit_test.unwrap_or(false) {
@@ -496,6 +509,8 @@ impl HoneyBadgerBFT {
             .hbbft_peers_service
             .register_handler(Arc::new(peers_handler))?;
 
+        // todo:
+        // setup rev
         Ok(engine)
     }
 
@@ -810,7 +825,16 @@ impl HoneyBadgerBFT {
         let client = self.client_arc().ok_or(EngineError::RequiresClient)?;
         if self.is_syncing(&client) {
             trace!(target: "consensus", "tried to join HBBFT Epoch, but still syncing.");
+            self.delayed_hbbft_join
+                .store(true, std::sync::atomic::Ordering::SeqCst);
             return Ok(());
+        }
+
+        if self
+            .delayed_hbbft_join
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            trace!(target: "consensus", "continued join_hbbft_epoch after sync was completed.");
         }
 
         let step = self
@@ -1295,6 +1319,9 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
                 error!(target: "engine", "hbbft-hardfork : could not initialialize hardfork manager, no latest block found.");
             }
 
+            // RBC: we need to replay disk cached messages here.
+            // state.replay_cached_messages(client)
+
             match state.update_honeybadger(
                 client,
                 &self.signer,
@@ -1664,6 +1691,7 @@ mod tests {
 
         let mut builder: HoneyBadgerBuilder<Contribution, _> =
             HoneyBadger::builder(Arc::new(net_info.clone()));
+        builder.max_future_epochs(20);
 
         let mut honey_badger = builder.build();
 
