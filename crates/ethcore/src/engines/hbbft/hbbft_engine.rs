@@ -1691,7 +1691,7 @@ mod tests {
 
         let mut builder: HoneyBadgerBuilder<Contribution, _> =
             HoneyBadger::builder(Arc::new(net_info.clone()));
-        builder.max_future_epochs(20);
+        builder.max_future_epochs(0);
 
         let mut honey_badger = builder.build();
 
