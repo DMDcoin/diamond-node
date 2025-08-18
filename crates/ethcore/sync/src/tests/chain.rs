@@ -15,13 +15,11 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::helpers::*;
-use chain::SyncState;
+use crate::{SyncConfig, WarpSync, chain::SyncState};
 use ethcore::client::{
     BlockChainClient, BlockId, BlockInfo, ChainInfo, EachBlockWith, TestBlockChainClient,
 };
 use std::sync::Arc;
-use SyncConfig;
-use WarpSync;
 
 #[test]
 fn two_peers() {
@@ -67,7 +65,8 @@ fn takes_few_steps() {
     net.peer(1).chain.add_blocks(100, EachBlockWith::Uncle);
     net.peer(2).chain.add_blocks(100, EachBlockWith::Uncle);
     let total_steps = net.sync();
-    assert!(total_steps < 20);
+    // hotfix for https://github.com/DMDcoin/diamond-node/issues/209 increased the number of steps required to sync.
+    assert!(total_steps <= 110);
 }
 
 #[test]

@@ -21,7 +21,7 @@ use std::{fmt, sync::Arc};
 use ethereum_types::H256;
 use txpool::{self, VerifiedTransaction};
 
-use pool::VerifiedTransaction as Transaction;
+use crate::pool::VerifiedTransaction as Transaction;
 
 type Listener = Box<dyn Fn(&[H256]) + Send + Sync>;
 
@@ -124,10 +124,10 @@ impl txpool::Listener<Transaction> for Logger {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::transaction;
     use ethereum_types::H160;
     use parking_lot::Mutex;
     use txpool::Listener;
-    use types::transaction;
 
     #[test]
     fn should_notify_listeners() {

@@ -14,36 +14,40 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use api::PAR_PROTOCOL;
-use bytes::Bytes;
-use chain::{
-    sync_packet::{PacketInfo, SyncPacket},
-    ChainSync, ForkFilterApi, SyncSupplier, ETH_PROTOCOL_VERSION_66, PAR_PROTOCOL_VERSION_2,
+use crate::{
+    api::PAR_PROTOCOL,
+    chain::{
+        ChainSync, ETH_PROTOCOL_VERSION_66, ForkFilterApi, PAR_PROTOCOL_VERSION_2, SyncSupplier,
+        sync_packet::{PacketInfo, SyncPacket},
+    },
 };
+use bytes::Bytes;
 use ethcore::{
     client::{
         BlockChainClient, ChainMessageType, ChainNotify, Client as EthcoreClient, ClientConfig,
         ClientIoMessage, NewBlocks, TestBlockChainClient,
     },
+    exit::ShutdownManager,
     miner::Miner,
     snapshot::SnapshotService,
     spec::Spec,
     test_helpers,
 };
 
+use crate::{
+    io::{IoChannel, IoContext, IoHandler},
+    sync_io::SyncIo,
+    tests::snapshot::*,
+};
 use ethereum_types::H256;
-use io::{IoChannel, IoContext, IoHandler};
-use network::{self, client_version::ClientVersion, PacketId, PeerId, ProtocolId, SessionInfo};
+use network::{self, PacketId, PeerId, ProtocolId, SessionInfo, client_version::ClientVersion};
 use parking_lot::RwLock;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
 };
-use sync_io::SyncIo;
-use tests::snapshot::*;
 
-use types::BlockNumber;
-use SyncConfig;
+use crate::{SyncConfig, types::BlockNumber};
 
 pub trait FlushingBlockChainClient: BlockChainClient {
     fn flush(&self) {}
@@ -177,6 +181,10 @@ where
     fn chain_overlay(&self) -> &RwLock<HashMap<BlockNumber, Bytes>> {
         &self.overlay
     }
+
+    fn node_id_to_peer_id(&self, node_id: &ethereum_types::H512) -> Option<PeerId> {
+        return Some(node_id.to_low_u64_le() as PeerId);
+    }
 }
 
 /// Mock for emulution of async run of new blocks
@@ -268,7 +276,7 @@ where
     fn process_io_message(&self, message: ChainMessageType) {
         let mut io = TestIo::new(&*self.chain, &self.snapshot_service, &self.queue, None);
         match message {
-            ChainMessageType::Consensus(data) => {
+            ChainMessageType::Consensus(_block, data) => {
                 self.sync.write().propagate_consensus_packet(&mut io, data)
             }
         }
@@ -341,7 +349,7 @@ impl<C: FlushingBlockChainClient> Peer for EthPeer<C> {
         self.sync.write().maintain_peers(&mut io);
         self.sync.write().maintain_sync(&mut io);
         self.sync.write().continue_sync(&mut io);
-        self.sync.write().propagate_new_transactions(&mut io);
+        self.sync.write().propagate_new_ready_transactions(&mut io);
     }
 
     fn restart_sync(&self) {
@@ -447,6 +455,7 @@ impl TestNet<EthPeer<EthcoreClient>> {
             test_helpers::new_db(),
             miner.clone(),
             channel.clone(),
+            Arc::new(ShutdownManager::null()),
         )
         .unwrap();
 

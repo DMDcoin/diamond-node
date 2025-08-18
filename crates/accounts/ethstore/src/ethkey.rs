@@ -15,9 +15,9 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! ethkey reexport to make documentation look pretty.
+use crate::json;
 pub use _ethkey::*;
 pub use crypto::publickey::Address;
-use json;
 
 impl Into<json::H160> for Address {
     fn into(self) -> json::H160 {

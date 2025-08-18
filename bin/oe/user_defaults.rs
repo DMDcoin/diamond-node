@@ -41,9 +41,9 @@ impl From<Duration> for Seconds {
     }
 }
 
-impl Into<Duration> for Seconds {
-    fn into(self) -> Duration {
-        self.0
+impl From<Seconds> for Duration {
+    fn from(val: Seconds) -> Self {
+        val.0
     }
 }
 
@@ -77,9 +77,9 @@ pub enum Mode {
     Offline,
 }
 
-impl Into<ClientMode> for Mode {
-    fn into(self) -> ClientMode {
-        match self {
+impl From<Mode> for ClientMode {
+    fn from(val: Mode) -> Self {
+        match val {
             Mode::Active => ClientMode::Active,
             Mode::Passive { timeout, alarm } => ClientMode::Passive(timeout.into(), alarm.into()),
             Mode::Dark { timeout } => ClientMode::Dark(timeout.into()),
@@ -127,7 +127,7 @@ impl UserDefaults {
 
 mod algorithm_serde {
     use journaldb::Algorithm;
-    use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
 
     pub fn serialize<S>(algorithm: &Algorithm, serializer: S) -> Result<S::Ok, S::Error>
     where

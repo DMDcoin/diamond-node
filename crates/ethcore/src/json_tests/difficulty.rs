@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{spec::Spec, types::header::Header};
 use ethereum_types::U256;
 use ethjson;
-use spec::Spec;
 use std::path::Path;
-use types::header::Header;
 
 use super::HookType;
 

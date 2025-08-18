@@ -1,5 +1,5 @@
-OpenEthereum Client.
-    By Wood/Paronyan/Kotewicz/Drwięga/Volf/Greeff
+diamond-node bit.diamonds Node Software
+    By Haller/Forstenlechner/Wood/Paronyan/Kotewicz/Drwięga/Volf/Greeff
        Habermeier/Czaban/Gotchac/Redman/Nikolsky
        Schoedon/Tang/Adolfsson/Silva/Palm/Hirsz et al.
     Copyright 2015-2020 Parity Technologies (UK) Ltd.

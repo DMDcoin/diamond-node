@@ -16,8 +16,7 @@
 
 //! Definition of valid items for the verification queue.
 
-use engines::EthEngine;
-use error::Error;
+use crate::{engines::EthEngine, error::Error};
 
 use ethereum_types::{H256, U256};
 use parity_util_mem::MallocSizeOf;
@@ -78,14 +77,16 @@ pub trait Kind: 'static + Sized + Send + Sync {
 pub mod blocks {
     use super::{BlockLike, Kind};
 
-    use engines::EthEngine;
-    use error::{BlockError, Error, ErrorKind};
-    use types::{
-        header::Header,
-        transaction::{TypedTransaction, UnverifiedTransaction},
-        BlockNumber,
+    use crate::{
+        engines::EthEngine,
+        error::{BlockError, Error, ErrorKind},
+        types::{
+            BlockNumber,
+            header::Header,
+            transaction::{TypedTransaction, UnverifiedTransaction},
+        },
+        verification::{PreverifiedBlock, verify_block_basic, verify_block_unordered},
     };
-    use verification::{verify_block_basic, verify_block_unordered, PreverifiedBlock};
 
     use bytes::Bytes;
     use ethereum_types::{H256, U256};
@@ -213,10 +214,9 @@ pub mod blocks {
 pub mod headers {
     use super::{BlockLike, Kind};
 
-    use engines::EthEngine;
-    use error::Error;
-    use types::header::Header;
-    use verification::verify_header_params;
+    use crate::{
+        engines::EthEngine, error::Error, types::header::Header, verification::verify_header_params,
+    };
 
     use ethereum_types::{H256, U256};
 

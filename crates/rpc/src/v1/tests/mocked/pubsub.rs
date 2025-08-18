@@ -14,17 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::{atomic, Arc};
+use std::sync::{Arc, atomic};
 
 use jsonrpc_core::{
-    self as core,
+    self as core, MetaIoHandler,
     futures::{self, Future, Stream},
-    MetaIoHandler,
 };
 use jsonrpc_pubsub::Session;
 
+use crate::v1::{Metadata, PubSub, PubSubClient};
 use parity_runtime::Runtime;
-use v1::{Metadata, PubSub, PubSubClient};
 
 fn rpc() -> MetaIoHandler<Metadata, core::NoopMiddleware> {
     let mut io = MetaIoHandler::default();

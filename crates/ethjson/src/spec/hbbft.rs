@@ -17,6 +17,7 @@
 //! Hbbft parameter deserialization.
 
 use ethereum_types::Address;
+use serde_with::serde_as;
 
 /// Skip block reward parameter.
 /// Defines one (potential open) range about skips
@@ -30,6 +31,37 @@ pub struct HbbftParamsSkipBlockReward {
     pub from_block: u64,
     /// No block reward calls get executed up to this block (inclusive).
     pub to_block: Option<u64>,
+}
+
+#[serde_as]
+#[derive(Debug, PartialEq, Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct HbbftNetworkFork {
+    /// Block number at which the fork starts.
+    pub block_number_start: u64,
+
+    /// Forks that became finished, require a definition when the take over of the
+    /// specified validators was finished.
+    #[serde(default)]
+    pub block_number_end: Option<u64>,
+
+    /// Validator set (public keys) of the fork.
+    #[serde_as(as = "Vec<serde_with::hex::Hex>")]
+    pub validators: Vec<Vec<u8>>,
+
+    #[serde_as(as = "Vec<serde_with::hex::Hex>")]
+    pub parts: Vec<Vec<u8>>,
+
+    #[serde_as(as = "Vec<Vec<serde_with::hex::Hex>>")]
+    pub acks: Vec<Vec<Vec<u8>>>,
+}
+
+impl HbbftNetworkFork {
+    /// Returns true if the fork is finished.
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).expect("HbbftNetworkFork must convert to JSON")
+    }
 }
 
 /// Hbbft parameters.
@@ -54,6 +86,13 @@ pub struct HbbftParams {
     /// Directory where to store the Hbbft Messages.
     /// Usually only the latest HBBFT messages are interesting for Debug, Analytics or Evidence.
     pub blocks_to_keep_directory: Option<String>,
+    /// Hbbft network forks.
+    /// A Fork defines a new Validator Set.
+    /// This validator set is becomming pending so it can write it's PARTs and ACKS.
+    /// From beginning of the fork trigger block until the finality of the key gen transactions,
+    /// no block verifications are done.
+    #[serde(default)]
+    pub forks: Vec<HbbftNetworkFork>,
 }
 
 /// Hbbft engine config.
@@ -88,9 +127,63 @@ impl HbbftParams {
 
 #[cfg(test)]
 mod tests {
-    use super::Hbbft;
     use ethereum_types::Address;
+
+    use super::Hbbft;
     use std::str::FromStr;
+
+    #[test]
+    fn hbbft_deserialization_forks() {
+        let s = r#"{
+			"params": {
+                "minimumBlockTime": 0,
+				"maximumBlockTime": 600,
+				"transactionQueueSizeTrigger": 1,
+				"isUnitTest": true,
+				"blockRewardContractAddress": "0x2000000000000000000000000000000000000002",
+				"forks": [
+                    {
+                        "blockNumberStart" : 777,
+                        "validators": [
+                            "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678"
+                        ],
+                        "parts": ["19585436b7d97298a751e2a6020c30677497772013001420c0a6aea5790347bdf5531c1387be685a232b01ec614913b18da0a6cbcd1074f1733f902a7eb656e9"],
+                        "acks": [["19585436b7d97298a751e2a6020c30677497772013001420c0a6aea5790347bdf5531c1387be685a232b01ec614913b18da0a6cbcd1074f1733f902a7eb656e9"]]
+                    }
+                ]
+			}
+		}"#;
+
+        let deserialized: Hbbft = serde_json::from_str(s).unwrap();
+        assert_eq!(deserialized.params.forks.len(), 1);
+        assert_eq!(
+            deserialized
+                .params
+                .forks
+                .get(0)
+                .expect("")
+                .block_number_start,
+            777
+        );
+        assert_eq!(deserialized.params.forks.get(0).expect("").parts.len(), 1);
+        assert_eq!(deserialized.params.forks.get(0).expect("").acks.len(), 1);
+        assert_eq!(
+            deserialized.params.forks.get(0).expect("").validators.len(),
+            1
+        );
+        assert_eq!(
+            deserialized
+                .params
+                .forks
+                .get(0)
+                .expect("")
+                .validators
+                .get(0)
+                .expect("")
+                .len(),
+            64
+        );
+    }
 
     #[test]
     fn hbbft_deserialization() {
@@ -175,5 +268,27 @@ mod tests {
                 .should_do_block_reward_contract_call(100_000),
             false
         );
+    }
+
+    #[test]
+    fn test_fork_serialisation() {
+        let fork = super::HbbftNetworkFork {
+            block_number_start: 10,
+            block_number_end: Some(100),
+            validators: vec![vec![1, 2, 3, 4]],
+            parts: vec![vec![5, 6, 7, 8]],
+            acks: vec![vec![vec![9, 10, 11, 12]]],
+        };
+
+        let json = fork.to_json();
+        let deserialized: super::HbbftNetworkFork = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.block_number_start, 10);
+        assert_eq!(deserialized.block_number_end, Some(100));
+        assert_eq!(deserialized.validators.len(), 1);
+        assert_eq!(deserialized.parts.len(), 1);
+        assert_eq!(deserialized.acks.len(), 1);
+
+        assert_eq!(deserialized.parts[0][1], 6);
+        assert_eq!(deserialized.acks[0][0][2], 11);
     }
 }

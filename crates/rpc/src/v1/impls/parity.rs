@@ -17,7 +17,26 @@
 //! Parity-specific rpc implementation.
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
-use crypto::{publickey::ecies, DEFAULT_MAC};
+use crate::{
+    Host,
+    types::ids::BlockId,
+    v1::{
+        helpers::{
+            self, NetworkSettings,
+            block_import::is_major_importing,
+            errors,
+            external_signer::{SignerService, SigningQueue},
+            fake_sign, verify_signature,
+        },
+        traits::Parity,
+        types::{
+            BlockNumber, Bytes, CallRequest, ChainStatus, Header, Histogram,
+            LocalTransactionStatus, Peers, Receipt, RecoveredAccount, RichHeader, RpcSettings,
+            Transaction, TransactionStats, block_number_to_id,
+        },
+    },
+};
+use crypto::{DEFAULT_MAC, publickey::ecies};
 use ethcore::{
     client::{BlockChainClient, Call, EngineInfo, StateClient},
     miner::{self, MinerService, TransactionFilter},
@@ -25,30 +44,13 @@ use ethcore::{
     state::StateInfo,
 };
 use ethcore_logger::RotatingLogger;
-use ethereum_types::{Address, H160, H256, H512, H64, U256, U64};
+use ethereum_types::{Address, H64, H160, H256, H512, U64, U256};
 use ethkey::Brain;
 use ethstore::random_phrase;
-use jsonrpc_core::{futures::future, BoxFuture, Result};
+use jsonrpc_core::{BoxFuture, Result, futures::future};
 use stats::PrometheusMetrics;
 use sync::{ManageNetwork, SyncProvider};
-use types::ids::BlockId;
-use v1::{
-    helpers::{
-        self,
-        block_import::is_major_importing,
-        errors,
-        external_signer::{SignerService, SigningQueue},
-        fake_sign, verify_signature, NetworkSettings,
-    },
-    traits::Parity,
-    types::{
-        block_number_to_id, BlockNumber, Bytes, CallRequest, ChainStatus, Header, Histogram,
-        LocalTransactionStatus, Peers, Receipt, RecoveredAccount, RichHeader, RpcSettings,
-        Transaction, TransactionStats,
-    },
-};
 use version::version_data;
-use Host;
 
 /// Parity implementation.
 pub struct ParityClient<C, M>
@@ -352,8 +354,8 @@ where
         Ok(ChainStatus { block_gap: gap })
     }
 
-    fn node_kind(&self) -> Result<::v1::types::NodeKind> {
-        use v1::types::{Availability, Capability, NodeKind};
+    fn node_kind(&self) -> Result<crate::v1::types::NodeKind> {
+        use crate::v1::types::{Availability, Capability, NodeKind};
 
         Ok(NodeKind {
             availability: Availability::Personal,
@@ -367,10 +369,11 @@ where
 
         let (header, extra) = if number == BlockNumber::Pending {
             let info = self.client.chain_info();
-            let header = try_bf!(self
-                .miner
-                .pending_block_header(info.best_block_number)
-                .ok_or_else(errors::unknown_block));
+            let header = try_bf!(
+                self.miner
+                    .pending_block_header(info.best_block_number)
+                    .ok_or_else(errors::unknown_block)
+            );
 
             (header.encoded(), None)
         } else {
@@ -382,10 +385,11 @@ where
                 BlockNumber::Pending => unreachable!(), // Already covered
             };
 
-            let header = try_bf!(self
-                .client
-                .block_header(id)
-                .ok_or_else(errors::unknown_block));
+            let header = try_bf!(
+                self.client
+                    .block_header(id)
+                    .ok_or_else(errors::unknown_block)
+            );
             let info = self.client.block_extra_info(id).expect(EXTRA_INFO_PROOF);
 
             (header, Some(info))
@@ -403,10 +407,11 @@ where
         let id = match number {
             BlockNumber::Pending => {
                 let info = self.client.chain_info();
-                let receipts = try_bf!(self
-                    .miner
-                    .pending_receipts(info.best_block_number)
-                    .ok_or_else(errors::unknown_block));
+                let receipts = try_bf!(
+                    self.miner
+                        .pending_receipts(info.best_block_number)
+                        .ok_or_else(errors::unknown_block)
+                );
                 return Box::new(future::ok(receipts.into_iter().map(Into::into).collect()));
             }
             BlockNumber::Hash { hash, .. } => BlockId::Hash(hash),
@@ -414,10 +419,11 @@ where
             BlockNumber::Earliest => BlockId::Earliest,
             BlockNumber::Latest => BlockId::Latest,
         };
-        let receipts = try_bf!(self
-            .client
-            .localized_block_receipts(id)
-            .ok_or_else(errors::unknown_block));
+        let receipts = try_bf!(
+            self.client
+                .localized_block_receipts(id)
+                .ok_or_else(errors::unknown_block)
+        );
         Box::new(future::ok(receipts.into_iter().map(Into::into).collect()))
     }
 

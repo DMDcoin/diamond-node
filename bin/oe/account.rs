@@ -57,7 +57,7 @@ mod command {
         accounts::{AccountProvider, AccountProviderSettings},
         helpers::{password_from_file, password_prompt},
     };
-    use ethstore::{accounts_dir::RootDiskDirectory, import_account, import_accounts, EthStore};
+    use ethstore::{EthStore, accounts_dir::RootDiskDirectory, import_account, import_accounts};
     use std::path::PathBuf;
 
     pub fn execute(cmd: AccountCmd) -> Result<String, String> {

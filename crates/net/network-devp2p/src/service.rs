@@ -15,14 +15,18 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use ansi_term::Colour;
-use host::Host;
-use io::*;
-use network::{
+
+use crate::io::*;
+
+use crate::network::{
     ConnectionFilter, Error, NetworkConfiguration, NetworkContext, NetworkIoMessage,
     NetworkProtocolHandler, NonReservedPeerMode, PeerId, ProtocolId,
 };
 use parking_lot::RwLock;
-use std::{net::SocketAddr, ops::RangeInclusive, sync::Arc};
+use stats::{PrometheusMetrics, PrometheusRegistry};
+use std::{net::SocketAddr, ops::RangeInclusive, sync::Arc, time::Duration};
+
+use crate::host::Host;
 
 struct HostHandler {
     public_url: RwLock<Option<String>>,
@@ -60,7 +64,7 @@ impl NetworkService {
         let host_handler = Arc::new(HostHandler {
             public_url: RwLock::new(None),
         });
-        let io_service = IoService::<NetworkIoMessage>::start("devp2p")?;
+        let io_service = IoService::<NetworkIoMessage>::start("devp2p", 4)?;
 
         Ok(NetworkService {
             io_service,
@@ -223,5 +227,16 @@ impl NetworkService {
         let host = self.host.read();
         host.as_ref()
             .map(|ref host| host.with_context_eval(protocol, &io, action))
+    }
+}
+
+impl PrometheusMetrics for NetworkService {
+    fn prometheus_metrics(&self, r: &mut PrometheusRegistry) {
+        if let Some(host_o) = self.host.try_read_for(Duration::from_millis(50)) {
+            if let Some(host) = host_o.as_ref() {
+                host.prometheus_metrics(r);
+            }
+        }
+        //self.connected_peers()
     }
 }

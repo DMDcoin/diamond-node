@@ -14,27 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    miner::pool::local_transactions::Status as LocalTransactionStatus,
+    types::{
+        receipt::{LocalizedReceipt, TransactionOutcome},
+        transaction::TypedTxId,
+    },
+};
 use crypto::publickey::{Generator, Random};
 use ethcore::client::{Executed, TestBlockChainClient, TransactionId};
 use ethcore_logger::RotatingLogger;
 use ethereum_types::{Address, BigEndianHash, Bloom, H256, U256};
-use miner::pool::local_transactions::Status as LocalTransactionStatus;
 use std::{str::FromStr, sync::Arc};
 use sync::ManageNetwork;
-use types::{
-    receipt::{LocalizedReceipt, TransactionOutcome},
-    transaction::TypedTxId,
-};
 
 use super::manage_network::TestManageNetwork;
-use jsonrpc_core::IoHandler;
-use v1::{
-    helpers::{external_signer::SignerService, NetworkSettings},
-    metadata::Metadata,
-    tests::helpers::{Config, TestMinerService, TestSyncProvider},
-    Parity, ParityClient,
+use crate::{
+    Host,
+    v1::{
+        Parity, ParityClient,
+        helpers::{NetworkSettings, external_signer::SignerService},
+        metadata::Metadata,
+        tests::helpers::{Config, TestMinerService, TestSyncProvider},
+    },
 };
-use Host;
+use jsonrpc_core::IoHandler;
 
 pub type TestParityClient = ParityClient<TestBlockChainClient, TestMinerService>;
 
@@ -307,7 +311,7 @@ fn assert_txs_filtered(io: &IoHandler<Metadata>, filter: &str, expected: Vec<u8>
 
 #[test]
 fn rpc_parity_pending_transactions_with_filter() {
-    use types::transaction::{Action, Transaction, TypedTransaction};
+    use crate::types::transaction::{Action, Transaction, TypedTransaction};
     let deps = Dependencies::new();
     let io = deps.default_client();
 
@@ -450,7 +454,7 @@ fn rpc_parity_transactions_stats() {
 
 #[test]
 fn rpc_parity_local_transactions() {
-    use types::transaction::{Transaction, TypedTransaction};
+    use crate::types::transaction::{Transaction, TypedTransaction};
     let deps = Dependencies::new();
     let io = deps.default_client();
     let tx = TypedTransaction::Legacy(Transaction {
@@ -462,7 +466,7 @@ fn rpc_parity_local_transactions() {
         nonce: 0.into(),
     })
     .fake_sign(Address::from_low_u64_be(3));
-    let tx = Arc::new(::miner::pool::VerifiedTransaction::from_pending_block_transaction(tx));
+    let tx = Arc::new(crate::miner::pool::VerifiedTransaction::from_pending_block_transaction(tx));
     deps.miner.local_transactions.lock().insert(
         H256::from_low_u64_be(10),
         LocalTransactionStatus::Pending(tx.clone()),

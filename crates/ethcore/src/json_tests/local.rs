@@ -1,14 +1,16 @@
 use super::HookType;
+use crate::{
+    types::{
+        BlockNumber,
+        transaction::{TypedTransaction, TypedTxId, UnverifiedTransaction},
+    },
+    verification::queue::kind::blocks::Unverified,
+};
 use ethereum_types::U256;
 use ethjson::{self, blockchain::Block};
 use log::warn;
 use rlp::RlpStream;
 use std::path::Path;
-use types::{
-    transaction::{TypedTransaction, TypedTxId, UnverifiedTransaction},
-    BlockNumber,
-};
-use verification::queue::kind::blocks::Unverified;
 
 pub fn json_local_block_en_de_test<H: FnMut(&str, HookType)>(
     _test: &ethjson::test::LocalTests,

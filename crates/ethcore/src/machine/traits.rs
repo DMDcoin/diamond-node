@@ -17,7 +17,7 @@
 //! Generalization of a state machine for a consensus engine.
 //! This will define traits for the header, block, and state of a blockchain.
 
-use block::ExecutedBlock;
+use crate::block::ExecutedBlock;
 use ethereum_types::{Address, U256};
 
 /// Generalization of types surrounding blockchain-suitable state machines.

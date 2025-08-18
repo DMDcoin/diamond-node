@@ -2,7 +2,9 @@
 name = "stats"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2018"
 
 [dependencies]
 log = "0.4"
-prometheus = "0.13.0"
+prometheus = "0.13.3"
+vergen = "0.1"

@@ -19,7 +19,7 @@
 use jsonrpc_core::Result;
 use jsonrpc_derive::rpc;
 
-use v1::types::RichBlock;
+use crate::v1::types::RichBlock;
 
 /// Debug RPC interface.
 #[rpc(server)]

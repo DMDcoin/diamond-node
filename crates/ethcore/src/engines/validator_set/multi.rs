@@ -18,15 +18,17 @@
 use std::collections::BTreeMap;
 use std::sync::Weak;
 
+use crate::types::{BlockNumber, header::Header, ids::BlockId};
 use bytes::Bytes;
 use ethereum_types::{Address, H256};
 use parking_lot::RwLock;
-use types::{header::Header, ids::BlockId, BlockNumber};
 
 use super::{SystemCall, ValidatorSet};
-use client::EngineClient;
-use error::Error as EthcoreError;
-use machine::{AuxiliaryData, Call, EthereumMachine};
+use crate::{
+    client::EngineClient,
+    error::Error as EthcoreError,
+    machine::{AuxiliaryData, Call, EthereumMachine},
+};
 
 type BlockNumberLookup =
     Box<dyn Fn(BlockId) -> Result<BlockNumber, String> + Send + Sync + 'static>;
@@ -136,7 +138,7 @@ impl ValidatorSet for Multi {
         _first: bool,
         header: &Header,
         aux: AuxiliaryData,
-    ) -> ::engines::EpochChange<EthereumMachine> {
+    ) -> crate::engines::EpochChange<EthereumMachine> {
         let (set_block, set) = self.correct_set_by_number(header.number());
         let first = set_block == header.number();
 
@@ -149,7 +151,7 @@ impl ValidatorSet for Multi {
         machine: &EthereumMachine,
         number: BlockNumber,
         proof: &[u8],
-    ) -> Result<(super::SimpleList, Option<H256>), ::error::Error> {
+    ) -> Result<(super::SimpleList, Option<H256>), crate::error::Error> {
         let (set_block, set) = self.correct_set_by_number(number);
         let first = set_block == number;
 
@@ -206,21 +208,23 @@ impl ValidatorSet for Multi {
 
 #[cfg(test)]
 mod tests {
-    use accounts::AccountProvider;
-    use client::{
-        traits::{ForceUpdateSealing, TransactionRequest},
-        BlockChainClient, BlockInfo, ChainInfo, ImportBlock,
+    use crate::{
+        client::{
+            BlockChainClient, BlockInfo, ChainInfo, ImportBlock,
+            traits::{ForceUpdateSealing, TransactionRequest},
+        },
+        engines::{EpochChange, validator_set::ValidatorSet},
+        miner::{self, MinerService},
+        spec::Spec,
+        test_helpers::generate_dummy_client_with_spec,
+        types::{header::Header, ids::BlockId},
+        verification::queue::kind::blocks::Unverified,
     };
+    use accounts::AccountProvider;
     use crypto::publickey::Secret;
-    use engines::{validator_set::ValidatorSet, EpochChange};
     use ethereum_types::Address;
     use hash::keccak;
-    use miner::{self, MinerService};
-    use spec::Spec;
     use std::{collections::BTreeMap, sync::Arc};
-    use test_helpers::generate_dummy_client_with_spec;
-    use types::{header::Header, ids::BlockId};
-    use verification::queue::kind::blocks::Unverified;
 
     use super::Multi;
 
@@ -249,12 +253,12 @@ mod tests {
                 Default::default(),
             ))
             .unwrap();
-        ::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
+        crate::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
         assert_eq!(client.chain_info().best_block_number, 0);
         // Right signer for the first block.
         let signer = Box::new((tap.clone(), v0, "".into()));
         client.miner().set_author(miner::Author::Sealer(signer));
-        ::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
+        crate::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
         assert_eq!(client.chain_info().best_block_number, 1);
         // This time v0 is wrong.
         client
@@ -263,11 +267,11 @@ mod tests {
                 Default::default(),
             ))
             .unwrap();
-        ::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
+        crate::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
         assert_eq!(client.chain_info().best_block_number, 1);
         let signer = Box::new((tap.clone(), v1, "".into()));
         client.miner().set_author(miner::Author::Sealer(signer));
-        ::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
+        crate::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
         assert_eq!(client.chain_info().best_block_number, 2);
         // v1 is still good.
         client
@@ -276,7 +280,7 @@ mod tests {
                 Default::default(),
             ))
             .unwrap();
-        ::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
+        crate::client::EngineClient::update_sealing(&*client, ForceUpdateSealing::No);
         assert_eq!(client.chain_info().best_block_number, 3);
 
         // Check syncing.

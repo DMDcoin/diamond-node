@@ -18,12 +18,7 @@
 
 use std::sync::Arc;
 
-use ethereum_types::{Address, H160, H256, H520, U256};
-use jsonrpc_core::{
-    futures::{future, Future},
-    BoxFuture, Result,
-};
-use v1::{
+use crate::v1::{
     helpers::{
         deprecated::{self, DeprecationNotice},
         dispatch::{self, Dispatcher},
@@ -36,6 +31,11 @@ use v1::{
         ConfirmationResponse as RpcConfirmationResponse, Either as RpcEither,
         RichRawTransaction as RpcRichRawTransaction, TransactionRequest as RpcTransactionRequest,
     },
+};
+use ethereum_types::{Address, H160, H256, H520, U256};
+use jsonrpc_core::{
+    BoxFuture, Result,
+    futures::{Future, future},
 };
 
 /// Implementation of functions that require signing when no trusted signer is used.

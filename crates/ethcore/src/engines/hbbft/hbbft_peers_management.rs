@@ -9,25 +9,19 @@ use crate::{
     ethereum::public_key_to_address::public_key_to_address,
 };
 
+use super::{NodeId, contracts::staking::get_pool_public_key};
 use bytes::ToPretty;
-
 use ethereum_types::Address;
-use hbbft::NetworkInfo;
-
-use super::{contracts::staking::get_pool_public_key, NodeId};
 
 #[derive(Clone, Debug)]
 struct ValidatorConnectionData {
     // mining_address: Address,
-    staking_address: Address,
-    socket_addr: SocketAddr,
-    public_key: NodeId,
+    // staking_address: Address,
+    // socket_addr: SocketAddr,
+    // public_key: NodeId,
     peer_string: String,
     mining_address: Address,
 }
-
-// impl ValidatorConnectionData {
-// }
 
 pub struct HbbftPeersManagement {
     own_validator_address: Address,
@@ -46,7 +40,9 @@ impl HbbftPeersManagement {
         }
     }
 
-    /// connections are not always required
+    /// connections are not always required.
+    /// - during syncing
+    /// - if not validator address specified.
     fn should_not_connect(&self, client: &dyn BlockChainClient) -> bool {
         // don't do any connections while the network is syncing.
         // the connection is not required yet, and might be outdated.
@@ -158,10 +154,12 @@ impl HbbftPeersManagement {
     // a current validator.
     pub fn connect_to_current_validators(
         &mut self,
-        network_info: &NetworkInfo<NodeId>,
+        validator_set: &Vec<NodeId>,
         client_arc: &Arc<dyn EngineClient>,
     ) {
-        warn!(target: "Engine", "adding current validators as reserved peers: {}", network_info.validator_set().all_ids().count());
+        if validator_set.len() > 0 {
+            debug!(target: "Engine", "adding current validators as reserved peers. potential {}", validator_set.len());
+        }
         // todo: iterate over NodeIds, extract the address
         // we do not need to connect to ourself.
         // figure out the IP and port from the contracts
@@ -181,8 +179,6 @@ impl HbbftPeersManagement {
             return;
         }
 
-        let ids: Vec<&NodeId> = network_info.validator_set().all_ids().collect();
-
         // let mut validators_to_remove: BTreeSet<String> =  BTreeSet::new();
 
         let mut validators_to_remove: BTreeSet<Address> = self
@@ -193,8 +189,8 @@ impl HbbftPeersManagement {
 
         // validators_to_remove
         let mut current_validator_connections: Vec<ValidatorConnectionData> = Vec::new();
-
-        for node in ids.iter() {
+        let mut validators_to_connect_count = 0;
+        for node in validator_set.iter() {
             let address = public_key_to_address(&node.0);
 
             if address == self.own_validator_address {
@@ -208,49 +204,59 @@ impl HbbftPeersManagement {
                 self.connect_to_validator(client, block_chain_client, &address)
             {
                 validators_to_remove.remove(&connection.mining_address);
+                validators_to_connect_count += 1;
                 current_validator_connections.push(connection);
             } else {
                 warn!(target: "Engine", "could not add current validator to reserved peers: {}", address);
             }
         }
 
-        info!("removing {} reserved peers, because they are neither a pending validator nor a current validator.", validators_to_remove.len());
+        if validators_to_remove.len() > 0 {
+            info!(
+                "removing {} reserved peers, because they are neither a pending validator nor a current validator.",
+                validators_to_remove.len()
+            );
 
-        let mut peers_management_guard = block_chain_client.reserved_peers_management().lock();
+            let mut peers_management_guard = block_chain_client.reserved_peers_management().lock();
 
-        if let Some(peers_management) = peers_management_guard.as_deref_mut() {
-            for current_validator in self.connected_current_validators.iter() {
-                if validators_to_remove.contains(&current_validator.mining_address) {
-                    match peers_management.remove_reserved_peer(&current_validator.peer_string) {
-                        Ok(_) => {
-                            info!(target: "Engine", "removed reserved peer {}", current_validator.peer_string);
-                        }
-                        Err(error) => {
-                            warn!(target: "Engine", "could not remove reserved peer {}: reason: {}", current_validator.peer_string, error);
+            if let Some(peers_management) = peers_management_guard.as_deref_mut() {
+                for current_validator in self.connected_current_validators.iter() {
+                    if validators_to_remove.contains(&current_validator.mining_address) {
+                        match peers_management.remove_reserved_peer(&current_validator.peer_string)
+                        {
+                            Ok(_) => {
+                                info!(target: "Engine", "removed reserved peer {}", current_validator.peer_string);
+                            }
+                            Err(error) => {
+                                warn!(target: "Engine", "could not remove reserved peer {}: reason: {}", current_validator.peer_string, error);
+                            }
                         }
                     }
                 }
+
+                peers_management
+                    .get_reserved_peers()
+                    .iter()
+                    .for_each(|peer| {
+                        info!(target: "Engine", "reserved peer: {}", peer);
+                    });
             }
-
-            peers_management
-                .get_reserved_peers()
-                .iter()
-                .for_each(|peer| {
-                    info!(target: "Engine", "reserved peer: {}", peer);
-                });
         }
-
         // we have now connected all additional current validators, kept the connection for those that have already been connected,
         // and we have disconnected all previous validators that are not current validators anymore.
         // so we now can set the information of collected validators.
 
+        if validators_to_connect_count > 0 {
+            info!(target: "Engine", "added {} current validators as reserved peers.", validators_to_connect_count);
+        }
+
         self.connected_current_validators = current_validator_connections;
     }
 
-    // if we drop out as a current validator,
-    // as well a pending validator, we should drop
-    // all reserved connections.
-    // in later addition, we will keep the Partner Node Connections here. (upcomming feature)
+    /// if we drop out as a current validator,
+    /// as well a pending validator, we should drop
+    /// all reserved connections.
+    /// in later addition, we will keep the Partner Node Connections here. (upcomming feature)
     pub fn disconnect_all_validators(&mut self, client_arc: &Arc<dyn EngineClient>) {
         // we safely can disconnect even in situation where we are syncing.
 
@@ -307,6 +313,7 @@ impl HbbftPeersManagement {
     /// because those should be current validators by now.
     /// Make sure to connect to the new current validators,
     /// before disconnecting from the pending validators.
+    #[allow(dead_code)]
     pub fn disconnect_pending_validators(
         &mut self,
         client: &dyn BlockChainClient,
@@ -318,7 +325,7 @@ impl HbbftPeersManagement {
         let mut guard = client
             .reserved_peers_management()
             .try_lock_for(Duration::from_millis(100))
-            .ok_or("Error".to_string())?;
+            .ok_or("Could not acquire reserved peers management within 100ms".to_string())?;
 
         if let Some(reserved_peers_management) = guard.as_deref_mut() {
             let mut kept_peers = Vec::<ValidatorConnectionData>::new();
@@ -365,13 +372,16 @@ impl HbbftPeersManagement {
         mining_address: &Address,
         staking_address: &Address,
     ) -> Result<(), String> {
+        if !self.should_announce_own_internet_address(block_chain_client) {
+            return Ok(());
+        }
         // updates the nodes internet address if the information on the blockchain is outdated.
 
         // check if the stored internet address differs from our.
         // we do not need to do a special handling for 0.0.0.0, because
         // our IP is always different to that.
 
-        warn!(target: "engine", "checking if internet address needs to be updated.");
+        trace!(target: "engine", "checking if internet address needs to be updated.");
 
         let current_endpoint = if let Some(peers_management) = block_chain_client
             .reserved_peers_management()
@@ -390,14 +400,14 @@ impl HbbftPeersManagement {
         };
         //let peers_management =
 
-        warn!(target: "engine", "current Endpoint: {:?}", current_endpoint);
+        trace!(target: "engine", "current Endpoint: {:?}", current_endpoint);
 
         // todo: we can improve performance,
         // by assuming that we are the only one who writes the internet address.
         // so we have to query this data only once, and then we can cache it.
         match get_validator_internet_address(engine_client, &staking_address) {
             Ok(validator_internet_address) => {
-                warn!(target: "engine", "stored validator address{:?}", validator_internet_address);
+                trace!(target: "engine", "stored validator address{:?}", validator_internet_address);
                 if validator_internet_address.eq(&current_endpoint) {
                     // if the current stored endpoint is the same as the current endpoint,
                     // we don't need to do anything.
@@ -536,6 +546,7 @@ fn connect_to_validator_core(
     };
 
     if socket_addr.port() == 0 {
+        error!(target: "engine", "connect_to_validator_core: no port specified for Node ( Public (NodeId): {:?} , staking address: {}, socket_addr: {:?}", node_id, staking_address, socket_addr);
         // we interprate port 0 as NULL.
         return None;
     }
@@ -549,14 +560,15 @@ fn connect_to_validator_core(
         info!(target: "engine", "adding reserved peer: {}", peer_string);
         if let Err(err) = peers_management.add_reserved_peer(&peer_string) {
             warn!(target: "engine", "failed to adding reserved: {} : {}", peer_string, err);
+            return None;
         }
 
         return Some(ValidatorConnectionData {
-            staking_address: staking_address,
+            //staking_address: staking_address,
             //mining_address: *address,
-            socket_addr: socket_addr,
+            //socket_addr: socket_addr,
             peer_string,
-            public_key: node_id.clone(),
+            //public_key: node_id.clone(),
             mining_address: Address::zero(), // all caller of this function will set this value.
         });
     } else {

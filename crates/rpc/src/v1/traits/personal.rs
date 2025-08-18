@@ -15,13 +15,13 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Personal rpc interface.
-use eip_712::EIP712;
-use ethereum_types::{H160, H256, H520, U128};
-use jsonrpc_core::{types::Value, BoxFuture, Result};
-use jsonrpc_derive::rpc;
-use v1::types::{
+use crate::v1::types::{
     Bytes, EIP191Version, RichRawTransaction as RpcRichRawTransaction, TransactionRequest,
 };
+use eip_712::EIP712;
+use ethereum_types::{H160, H256, H520, U128};
+use jsonrpc_core::{BoxFuture, Result, types::Value};
+use jsonrpc_derive::rpc;
 
 /// Personal rpc interface. Safe (read-only) functions.
 #[rpc(server)]

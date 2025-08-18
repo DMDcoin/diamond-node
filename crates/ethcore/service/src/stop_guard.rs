@@ -16,7 +16,7 @@
 
 //! Stop guard mod
 
-use std::sync::{atomic::*, Arc};
+use std::sync::{Arc, atomic::*};
 
 /// Stop guard that will set a stop flag on drop
 pub struct StopGuard {

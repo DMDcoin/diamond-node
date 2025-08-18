@@ -42,7 +42,7 @@ impl<'a> BodyView<'a> {
     /// #[macro_use]
     /// extern crate common_types as types;
     ///
-    /// use types::views::{BodyView};
+    /// use crate::types::views::{BodyView};
     ///
     /// fn main() {
     /// let bytes : &[u8] = &[];

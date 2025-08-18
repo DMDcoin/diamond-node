@@ -1,18 +1,24 @@
+// Temporarily deactivated warnings, remove after implementation is complete.
+#![allow(warnings)]
+
 use bytes::ToPretty;
 //use hbbft::honey_badger::{self, MessageContent};
 use hbbft::honey_badger::{self};
 use parking_lot::RwLock;
 use stats::PrometheusMetrics;
-use std::{collections::VecDeque, time::Duration};
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+};
 
 // use threshold_crypto::{SignatureShare};
-use engines::hbbft::{sealing, NodeId};
+use crate::engines::hbbft::{NodeId, sealing};
 // use hbbft::honey_badger::Message;
 // use serde::{Deserialize, Serialize};
 // use serde_json::{json, Result, Value};
 
 use std::{
-    fs::{self, create_dir_all, File},
+    fs::{self, File, create_dir_all},
     io::Write,
     path::PathBuf,
 };
@@ -43,15 +49,21 @@ pub(crate) enum SealMessageState {
 pub(crate) struct NodeStakingEpochHistory {
     node_id: NodeId,
     last_good_sealing_message: u64,
+    last_good_sealing_message_time: Instant,
     last_late_sealing_message: u64,
+    last_late_sealing_message_time: Instant,
     last_error_sealing_message: u64,
+    last_error_sealing_message_time: Instant,
+    // summed up lateness of all seals, including bad seals.
     cumulative_lateness: u64,
+
     sealing_blocks_good: Vec<u64>,
     sealing_blocks_late: Vec<u64>,
     sealing_blocks_bad: Vec<u64>,
     // messages.
     last_message_faulty: u64,
     last_message_good: u64,
+    last_message_good_time: Instant,
 
     num_faulty_messages: u64,
     num_good_messages: u64, // total_contributions_good: u64,
@@ -60,64 +72,127 @@ pub(crate) struct NodeStakingEpochHistory {
 
 impl NodeStakingEpochHistory {
     pub fn new(node_id: NodeId) -> Self {
+        let now = Instant::now();
         NodeStakingEpochHistory {
             node_id,
             last_good_sealing_message: 0,
+            last_good_sealing_message_time: now,
             last_late_sealing_message: 0,
+            last_late_sealing_message_time: now,
             last_error_sealing_message: 0,
+            last_error_sealing_message_time: now,
             cumulative_lateness: 0,
             sealing_blocks_good: Vec::new(),
             sealing_blocks_late: Vec::new(),
             sealing_blocks_bad: Vec::new(),
             last_message_faulty: 0,
             last_message_good: 0,
+            last_message_good_time: now,
             num_faulty_messages: 0,
             num_good_messages: 0,
         }
     }
 
-    /// mut ADD_...
+    /// calculates the cumulative lateness for that communication partner,
+    /// based on existing data, detecting blocks with missing late or good seals
+    fn calc_cumulative_lateness_gap(
+        &self,
+        block_num: u64,
+        staking_epoch_start_block_num: u64,
+    ) -> u64 {
+        if block_num <= 1 {
+            return 0;
+        }
+
+        // add cumulative lateness, for all blocks between the last tracked block
+        // and the current block.
+        if self.last_late_sealing_message + 1 < block_num
+            || self.last_good_sealing_message + 1 < block_num
+            || self.last_error_sealing_message + 1 < block_num
+        {
+            let latest_message = u64::max(
+                u64::max(
+                    u64::max(
+                        self.last_late_sealing_message,
+                        staking_epoch_start_block_num,
+                    ),
+                    self.last_good_sealing_message,
+                ),
+                self.last_error_sealing_message,
+            );
+
+            if (latest_message + 1) > block_num {
+                return 0;
+            }
+
+            let difference = block_num - 1 - latest_message;
+
+            return (difference * (difference + 1)) / 2;
+        }
+        return 0;
+    }
 
     /// protocols a good seal event.
-    pub fn add_good_seal_event(&mut self, event: &SealEventGood) {
+    pub fn add_good_seal_event(
+        &mut self,
+        event: &SealEventGood,
+        staking_epoch_start_block_num: u64,
+    ) {
         // by definition a "good sealing" is always on the latest block.
         let block_num = event.block_num;
         let last_good_sealing_message = self.last_good_sealing_message;
 
-        if block_num > last_good_sealing_message {
-            self.last_good_sealing_message = event.block_num;
-        } else {
+        if block_num < last_good_sealing_message {
             warn!(target: "hbbft_message_memorium", "add_good_seal_event: event.block_num {block_num} <= self.last_good_sealing_message {last_good_sealing_message}");
+            return;
         }
+
+        self.cumulative_lateness +=
+            self.calc_cumulative_lateness_gap(event.block_num, staking_epoch_start_block_num);
+        self.last_good_sealing_message = event.block_num;
+        self.last_good_sealing_message_time = Instant::now();
         self.sealing_blocks_good.push(event.block_num);
     }
 
     /// protocols a good seal event.
-    pub fn add_seal_event_late(&mut self, event: &SealEventLate) {
+    pub fn add_seal_event_late(&mut self, event: &SealEventLate, staking_epoch_start_block: u64) {
         // by definition a "good sealing" is always on the latest block.
         let block_num = event.block_num;
-        let last_late_sealing_message = self.last_late_sealing_message;
 
-        if block_num > last_late_sealing_message {
-            self.last_late_sealing_message = event.block_num;
-        } else {
-            warn!(target: "hbbft_message_memorium", "add_late_seal_event: event.block_num {block_num} <= self.last_late_sealing_message {last_late_sealing_message}");
+        if block_num < self.last_late_sealing_message {
+            warn!(target: "hbbft_message_memorium", "out of order seal events: add_late_seal_event: event.block_num {block_num} <= self.last_late_sealing_message {}", self.last_late_sealing_message);
+            return;
         }
+
+        self.cumulative_lateness +=
+            self.calc_cumulative_lateness_gap(event.block_num, staking_epoch_start_block);
+
+        self.last_late_sealing_message = event.block_num;
+        self.last_late_sealing_message_time = Instant::now();
         self.cumulative_lateness += event.get_lateness();
         self.sealing_blocks_late.push(event.block_num);
     }
 
-    pub(crate) fn add_bad_seal_event(&mut self, event: &SealEventBad) {
+    pub(crate) fn add_bad_seal_event(
+        &mut self,
+        event: &SealEventBad,
+        staking_epoch_start_block_num: u64,
+    ) {
         // by definition a "good sealing" is always on the latest block.
 
         let block_num = event.block_num;
         let last_bad_sealing_message = self.last_error_sealing_message;
 
-        if block_num > last_bad_sealing_message {
-            self.last_good_sealing_message = event.block_num;
-        } else {
+        if block_num < last_bad_sealing_message {
             warn!(target: "hbbft_message_memorium", "add_bad_seal_event: event.block_num {block_num} <= self.last_bad_sealing_message {last_bad_sealing_message}");
+            return;
         }
+
+        self.cumulative_lateness +=
+            self.calc_cumulative_lateness_gap(block_num, staking_epoch_start_block_num);
+        self.cumulative_lateness += 1;
+        self.last_error_sealing_message = event.block_num;
+        self.last_error_sealing_message_time = Instant::now();
         self.sealing_blocks_good.push(event.block_num);
     }
 
@@ -128,9 +203,10 @@ impl NodeStakingEpochHistory {
 
         if block_num > last_message_faulty {
             self.last_message_faulty = block_num;
-        } else {
-            warn!(target: "hbbft_message_memorium", "add_message_event_faulty: event.block_num {block_num} <= last_message_faulty {last_message_faulty}");
-        }
+        } // else {
+        // this log entry is trigering often, probably there are more than 1 good messages able per block.// this log entry is trigering often, probably there are more than 1 good messages able per block.
+        // warn!(target: "hbbft_message_memorium", "add_message_event_faulty: event.block_num {block_num} <= last_message_faulty {last_message_faulty}");
+        // }
         self.num_faulty_messages += 1;
     }
 
@@ -140,11 +216,13 @@ impl NodeStakingEpochHistory {
         let last_message_good = self.last_message_good;
 
         if block_num > last_message_good {
-            self.last_message_faulty = block_num;
-        } else {
-            warn!(target: "hbbft_message_memorium", "add_message_event_good: event.block_num {block_num} <= last_message_faulty {last_message_good}");
-        }
+            self.last_message_good = block_num;
+        } // else {
+        // this log entry is trigering often, probably there are more than 1 good messages able per block.
+        // warn!(target: "hbbft_message_memorium", "add_message_event_good: ! event.block_num {block_num} > last_message_good {last_message_good}");
+        // }
         self.num_good_messages += 1;
+        self.last_message_good_time = Instant::now();
     }
 
     /// GETTERS
@@ -165,6 +243,28 @@ impl NodeStakingEpochHistory {
         self.get_total_good_sealing_messages()
             + self.get_total_late_sealing_messages()
             + self.get_total_error_sealing_messages()
+    }
+
+    pub fn get_last_sealing_message(&self) -> u64 {
+        u64::max(
+            self.last_late_sealing_message,
+            self.last_good_sealing_message,
+        )
+    }
+
+    pub fn get_last_sealing_message_time(&self) -> Instant {
+        Instant::max(
+            self.last_late_sealing_message_time,
+            self.last_good_sealing_message_time,
+        )
+    }
+
+    pub fn get_last_good_message_time(&self) -> Instant {
+        self.last_message_good_time
+    }
+
+    pub fn get_last_late_sealing_message(&self) -> u64 {
+        self.last_late_sealing_message
     }
 
     pub fn get_last_good_sealing_message(&self) -> u64 {
@@ -198,7 +298,130 @@ impl NodeStakingEpochHistory {
         // faulty messages
         let last_message_faulty = self.last_message_faulty;
 
-        return format!("{staking_epoch},{node_id},{total_sealing_messages},{total_good_sealing_messages},{total_late_sealing_messages},{total_error_sealing_messages},{last_good_sealing_message},{last_late_sealing_message},{last_error_sealing_message},{cumulative_lateness},{total_good_messages},{total_faulty_messages},{last_message_good},{last_message_faulty}\n");
+        return format!(
+            "{staking_epoch},{node_id},{total_sealing_messages},{total_good_sealing_messages},{total_late_sealing_messages},{total_error_sealing_messages},{last_good_sealing_message},{last_late_sealing_message},{last_error_sealing_message},{cumulative_lateness},{total_good_messages},{total_faulty_messages},{last_message_good},{last_message_faulty}\n"
+        );
+    }
+
+    // prometheus metrics
+
+    fn prometheus_metrics(
+        &self,
+        r: &mut stats::PrometheusRegistry,
+        known_highest_block: u64,
+        epoch_start_block: u64,
+    ) {
+        // one problem that occurs here is that we have a dynamic name of the gauges.
+        // that could lead to troubles later in the UI, because we would have to adapt the UI to the dynamic names.
+        // a solution could be to give every node a number from 0 to n (n=25 for DMD), and supply the name as a text value,
+        // so we still can figure out the node id, but the name of the gauge keeps static.
+
+        //let metric: Metric = Metric::new();
+        //r.registry().register(c)
+
+        //let node_id = self.get_node_id().0 .0;
+
+        let other_node = self.get_node_id().as_8_byte_string();
+
+        //r.register_gauge_with_label(name, help, label, value)
+        r.register_gauge_with_other_node_label(
+            "cumulative_lateness_raw",
+            "cumulative lateness, raw value without lateness from missing seals",
+            other_node.as_str(),
+            self.cumulative_lateness as i64,
+        );
+
+        // if the node has not send an sealing message,
+        // it's cumulative lateness is not tracked.
+
+        // we begin counting from the first block of the epoch.
+        let last_good_sealing_message = u64::max(self.last_good_sealing_message, epoch_start_block);
+
+        let non_tracked_cumulative_lateness =
+            self.calc_cumulative_lateness_gap(known_highest_block, epoch_start_block);
+
+        r.register_gauge_with_other_node_label(
+            "cumulative_lateness",
+            "cumulative lateness, including missing seals from that node.",
+            other_node.as_str(),
+            (self.cumulative_lateness + non_tracked_cumulative_lateness) as i64,
+        );
+
+        r.register_gauge_with_other_node_label(
+            "sealing_blocks_good",
+            "good sealed block messages",
+            other_node.as_str(),
+            self.sealing_blocks_good.len() as i64,
+        );
+
+        r.register_gauge_with_other_node_label(
+            "sealing_blocks_late",
+            "late sealed blocks",
+            other_node.as_str(),
+            self.sealing_blocks_late.len() as i64,
+        );
+
+        r.register_gauge_with_other_node_label(
+            "sealing_blocks_bad",
+            "bad block seals",
+            other_node.as_str(),
+            self.sealing_blocks_bad.len() as i64,
+        );
+
+        // last_good_sealing_message: u64,
+        // last_late_sealing_message: u64,
+        // last_error_sealing_message: u64,
+
+        if self.last_good_sealing_message > 0 {
+            r.register_gauge_with_other_node_label(
+                "last_good_sealing_message",
+                "block number",
+                other_node.as_str(),
+                self.last_good_sealing_message as i64,
+            );
+        }
+
+        if self.last_late_sealing_message > 0 {
+            r.register_gauge_with_other_node_label(
+                "last_late_sealing_message",
+                "block number",
+                other_node.as_str(),
+                self.last_late_sealing_message as i64,
+            );
+        }
+
+        if self.last_error_sealing_message > 0 {
+            r.register_gauge_with_other_node_label(
+                "last_error_sealing_message",
+                "block number",
+                other_node.as_str(),
+                self.last_error_sealing_message as i64,
+            );
+        }
+
+        // last_message_faulty: u64,
+        // last_message_good: u64,
+
+        // num_faulty_messages: u64,
+        // num_good_messages: u64,
+
+        if self.last_message_good > 0 {
+            r.register_gauge_with_other_node_label(
+                "last_message_good",
+                "block number",
+                other_node.as_str(),
+                self.last_message_good as i64,
+            );
+        }
+
+        if self.last_message_faulty > 0 {
+            r.register_gauge_with_other_node_label(
+                "last_message_faulty",
+                "block number",
+                other_node.as_str(),
+                self.last_message_faulty as i64,
+            );
+        }
     }
 }
 
@@ -208,6 +431,10 @@ pub(crate) struct StakingEpochHistory {
     staking_epoch: u64,
     staking_epoch_start_block: u64,
     staking_epoch_end_block: u64,
+
+    /// highest block number that was processed for this epoch.
+    /// used to calculate the real lateness of Nodes.
+    highest_block_num: u64,
 
     // stored the node staking epoch history.
     // since 25 is the exected maximum, a Vec has about the same perforamnce than a HashMap.
@@ -226,12 +453,29 @@ impl StakingEpochHistory {
             staking_epoch,
             staking_epoch_start_block,
             staking_epoch_end_block,
+            highest_block_num: staking_epoch_start_block,
             node_staking_epoch_histories: Vec::new(),
             exported: false,
         }
     }
 
-    fn get_history_for_node(&mut self, node_id: &NodeId) -> &mut NodeStakingEpochHistory {
+    pub fn get_history_for_node(&self, node_id: &NodeId) -> Option<&NodeStakingEpochHistory> {
+        let index_result = self
+            .node_staking_epoch_histories
+            .iter()
+            .position(|x| &x.get_node_id() == node_id);
+
+        match index_result {
+            Some(index) => {
+                return Some(&self.node_staking_epoch_histories[index]);
+            }
+            None => {
+                return None;
+            }
+        };
+    }
+
+    pub fn ensure_history_for_node(&mut self, node_id: &NodeId) -> &mut NodeStakingEpochHistory {
         let index_result = self
             .node_staking_epoch_histories
             .iter_mut()
@@ -250,31 +494,37 @@ impl StakingEpochHistory {
     }
 
     pub fn on_seal_good(&mut self, event: &SealEventGood) {
-        let node_staking_epoch_history = self.get_history_for_node(&event.node_id);
-        node_staking_epoch_history.add_good_seal_event(event);
+        let staking_epoch_start_block = self.staking_epoch_start_block;
+        if event.block_num > self.highest_block_num {
+            self.highest_block_num = event.block_num;
+        }
+        let node_staking_epoch_history = self.ensure_history_for_node(&event.node_id);
+        node_staking_epoch_history.add_good_seal_event(event, staking_epoch_start_block);
         self.exported = false;
     }
 
     pub fn on_seal_late(&mut self, event: &SealEventLate) {
-        let node_staking_epoch_history = self.get_history_for_node(&event.node_id);
-        node_staking_epoch_history.add_seal_event_late(event);
+        let staking_epoch_start_block = self.staking_epoch_start_block;
+        let node_staking_epoch_history = self.ensure_history_for_node(&event.node_id);
+        node_staking_epoch_history.add_seal_event_late(event, staking_epoch_start_block);
         self.exported = false;
     }
 
     pub fn on_seal_bad(&mut self, event: &SealEventBad) {
-        let node_staking_epoch_history = self.get_history_for_node(&event.node_id);
-        node_staking_epoch_history.add_bad_seal_event(event);
+        let staking_epoch_start_block = self.staking_epoch_start_block;
+        let node_staking_epoch_history = self.ensure_history_for_node(&event.node_id);
+        node_staking_epoch_history.add_bad_seal_event(event, staking_epoch_start_block);
         self.exported = false;
     }
 
     pub fn on_message_faulty(&mut self, event: &MessageEventFaulty) {
-        let node_staking_epoch_history = self.get_history_for_node(&event.node_id);
+        let node_staking_epoch_history = self.ensure_history_for_node(&event.node_id);
         node_staking_epoch_history.add_message_event_faulty(event);
         self.exported = false;
     }
 
     pub fn on_message_good(&mut self, event: &MessageEventGood) {
-        let node_staking_epoch_history = self.get_history_for_node(&event.node_id);
+        let node_staking_epoch_history = self.ensure_history_for_node(&event.node_id);
         node_staking_epoch_history.add_message_event_good(event);
         self.exported = false;
     }
@@ -320,7 +570,7 @@ pub struct SealEventLate {
 impl SealEventLate {
     // get's the block lateness in blocks.
     pub fn get_lateness(&self) -> u64 {
-        self.received_block_num - self.block_num
+        (self.received_block_num - self.block_num) + 1
     }
 }
 
@@ -395,13 +645,15 @@ impl HbbftMessageDispatcher {
 
             let builder = std::thread::Builder::new().name("MessageMemorial".to_string());
 
-            match builder.spawn(move || loop {
-                // one loop cycle is very fast.
-                // so report_ function have their chance to aquire a write lock soon.
-                // and don't block the work thread for too long.
-                let work_result = arc_clone.write().work_message();
-                if !work_result {
-                    std::thread::sleep(std::time::Duration::from_millis(5000));
+            match builder.spawn(move || {
+                loop {
+                    // one loop cycle is very fast.
+                    // so report_ function have their chance to aquire a write lock soon.
+                    // and don't block the work thread for too long.
+                    let work_result = arc_clone.write().work_message();
+                    if !work_result {
+                        std::thread::sleep(std::time::Duration::from_millis(5000));
+                    }
                 }
             }) {
                 Ok(thread) => {
@@ -493,6 +745,10 @@ impl HbbftMessageDispatcher {
         self.memorial
             .write()
             .report_new_epoch(staking_epoch, staking_epoch_start_block);
+    }
+
+    pub fn get_memorium(&self) -> &std::sync::Arc<RwLock<HbbftMessageMemorium>> {
+        return &self.memorial;
     }
 }
 
@@ -648,7 +904,7 @@ impl HbbftMessageMemorium {
     fn on_seal_good(&mut self, seal: &SealEventGood) -> bool {
         debug!(target: "hbbft_message_memorium", "working on  good seal!: {:?}", seal);
         let block_num = seal.block_num;
-        if let Some(epoch_history) = self.get_staking_epoch_history(block_num) {
+        if let Some(epoch_history) = self.get_staking_epoch_history_mut(block_num) {
             epoch_history.on_seal_good(seal);
             return true;
         } else {
@@ -675,7 +931,7 @@ impl HbbftMessageMemorium {
     fn on_seal_late(&mut self, seal: &SealEventLate) -> bool {
         debug!(target: "hbbft_message_memorium", "working on  good seal!: {:?}", seal);
         let block_num = seal.block_num;
-        if let Some(epoch_history) = self.get_staking_epoch_history(block_num) {
+        if let Some(epoch_history) = self.get_staking_epoch_history_mut(block_num) {
             epoch_history.on_seal_late(seal);
             return true;
         } else {
@@ -686,7 +942,7 @@ impl HbbftMessageMemorium {
     fn on_seal_bad(&mut self, seal: &SealEventBad) -> bool {
         debug!(target: "hbbft_message_memorium", "working on  good seal!: {:?}", seal);
         let block_num = seal.block_num;
-        if let Some(epoch_history) = self.get_staking_epoch_history(block_num) {
+        if let Some(epoch_history) = self.get_staking_epoch_history_mut(block_num) {
             epoch_history.on_seal_bad(seal);
             return true;
         } else {
@@ -697,7 +953,7 @@ impl HbbftMessageMemorium {
     fn on_message_faulty(&mut self, event: &MessageEventFaulty) -> bool {
         debug!(target: "hbbft_message_memorium", "working on faulty message event!: {:?}", event);
         let block_num = event.block_num;
-        if let Some(epoch_history) = self.get_staking_epoch_history(block_num) {
+        if let Some(epoch_history) = self.get_staking_epoch_history_mut(block_num) {
             epoch_history.on_message_faulty(event);
             return true;
         } else {
@@ -707,7 +963,7 @@ impl HbbftMessageMemorium {
 
     fn on_message_good(&mut self, event: &MessageEventGood) -> bool {
         debug!(target: "hbbft_message_memorium", "working on good message event!: {:?}", event);
-        if let Some(epoch_history) = self.get_staking_epoch_history(event.block_num) {
+        if let Some(epoch_history) = self.get_staking_epoch_history_mut(event.block_num) {
             epoch_history.on_message_good(event);
             return true;
         } else {
@@ -715,9 +971,20 @@ impl HbbftMessageMemorium {
         }
     }
 
+    pub fn get_validator_data(
+        &self,
+        block_num: u64,
+        node_id: &NodeId,
+    ) -> Option<&Vec<NodeStakingEpochHistory>> {
+        if let Some(epoch_history) = self.get_staking_epoch_history(block_num) {
+            return Some(&epoch_history.node_staking_epoch_histories);
+        }
+        None
+    }
+
     // report that hbbft has switched to a new staking epoch
     pub fn report_new_epoch(&mut self, staking_epoch: u64, staking_epoch_start_block: u64) {
-        warn!(target: "hbbft_message_memorium", "report new epoch: {}", staking_epoch);
+        debug!(target: "hbbft_message_memorium", "report new epoch: {}", staking_epoch);
         self.latest_epoch = staking_epoch;
         self.latest_epoch_start_block = staking_epoch_start_block;
         if let Ok(epoch_history_index) = self
@@ -752,18 +1019,35 @@ impl HbbftMessageMemorium {
         }
     }
 
-    fn get_staking_epoch_history(&mut self, block_num: u64) -> Option<&mut StakingEpochHistory> {
-        {
-            //let histories = &mut self.staking_epoch_history;
+    pub fn get_staking_epoch_history(&self, block_num: u64) -> Option<&StakingEpochHistory> {
+        //let histories = &mut self.staking_epoch_history;
 
-            // self.staking_epoch_history.get_mut(index)
-            for i in 0..self.staking_epoch_history.len() {
-                let e = &self.staking_epoch_history[i];
-                if block_num >= e.staking_epoch_start_block
-                    && (e.staking_epoch_end_block == 0 || block_num <= e.staking_epoch_end_block)
-                {
-                    return Some(&mut self.staking_epoch_history[i]);
-                }
+        // self.staking_epoch_history.get_mut(index)
+        for i in 0..self.staking_epoch_history.len() {
+            let e = &self.staking_epoch_history[i];
+            if block_num >= e.staking_epoch_start_block
+                && (e.staking_epoch_end_block == 0 || block_num <= e.staking_epoch_end_block)
+            {
+                return Some(&self.staking_epoch_history[i]);
+            }
+        }
+
+        None
+    }
+
+    fn get_staking_epoch_history_mut(
+        &mut self,
+        block_num: u64,
+    ) -> Option<&mut StakingEpochHistory> {
+        //let histories = &mut self.staking_epoch_history;
+
+        // self.staking_epoch_history.get_mut(index)
+        for i in 0..self.staking_epoch_history.len() {
+            let e = &self.staking_epoch_history[i];
+            if block_num >= e.staking_epoch_start_block
+                && (e.staking_epoch_end_block == 0 || block_num <= e.staking_epoch_end_block)
+            {
+                return Some(&mut self.staking_epoch_history[i]);
             }
         }
 
@@ -836,7 +1120,6 @@ impl HbbftMessageMemorium {
         }
 
         // good seals
-
         if let Some(good_seal) = self.dispatched_seal_event_good.front() {
             // rust borrow system forced me into this useless clone...
             debug!(target: "hbbft_message_memorium", "work: good Seal!");
@@ -849,7 +1132,6 @@ impl HbbftMessageMemorium {
         }
 
         // late seals
-
         if let Some(late_seal) = self.dispatched_seal_event_late.front() {
             // rust borrow system forced me into this useless clone...
             if self.on_seal_late(&late_seal.clone()) {
@@ -971,93 +1253,6 @@ impl PrometheusMetrics for HbbftMessageDispatcher {
     }
 }
 
-impl PrometheusMetrics for NodeStakingEpochHistory {
-    fn prometheus_metrics(&self, r: &mut stats::PrometheusRegistry) {
-        // one problem that occurs here is that we have a dynamic name of the gauges.
-        // that could lead to troubles later in the UI, because we would have to adapt the UI to the dynamic names.
-        // a solution could be to give every node a number from 0 to n (n=25 for DMD), and supply the name as a text value,
-        // so we still can figure out the node id, but the name of the gauge keeps static.
-
-        //let metric: Metric = Metric::new();
-        //r.registry().register(c)
-
-        let label = self.get_node_id().0.to_hex();
-        //r.register_gauge_with_label(name, help, label, value)
-        r.register_gauge_with_label(
-            format!("cumulative_lateness").as_str(),
-            format!("cumulative lateness").as_str(),
-            label.as_str(),
-            self.cumulative_lateness as i64,
-        );
-
-        r.register_gauge_with_label(
-            format!("sealing_blocks_good").as_str(),
-            format!("good sealed block messages").as_str(),
-            label.as_str(),
-            self.sealing_blocks_good.len() as i64,
-        );
-
-        r.register_gauge_with_label(
-            format!("sealing_blocks_late").as_str(),
-            format!("late sealed blocks").as_str(),
-            label.as_str(),
-            self.sealing_blocks_late.len() as i64,
-        );
-
-        r.register_gauge_with_label(
-            format!("sealing_blocks_bad").as_str(),
-            format!("bad block seals").as_str(),
-            label.as_str(),
-            self.sealing_blocks_bad.len() as i64,
-        );
-
-        // last_good_sealing_message: u64,
-        // last_late_sealing_message: u64,
-        // last_error_sealing_message: u64,
-
-        r.register_gauge_with_label(
-            format!("last_good_sealing_message").as_str(),
-            format!("block number").as_str(),
-            label.as_str(),
-            self.last_good_sealing_message as i64,
-        );
-
-        r.register_gauge_with_label(
-            format!("last_late_sealing_message").as_str(),
-            format!("block number").as_str(),
-            label.as_str(),
-            self.last_late_sealing_message as i64,
-        );
-
-        r.register_gauge_with_label(
-            format!("last_error_sealing_message").as_str(),
-            format!("block number").as_str(),
-            label.as_str(),
-            self.last_error_sealing_message as i64,
-        );
-
-        // last_message_faulty: u64,
-        // last_message_good: u64,
-
-        // num_faulty_messages: u64,
-        // num_good_messages: u64,
-
-        r.register_gauge_with_label(
-            format!("last_message_faulty").as_str(),
-            format!("block number").as_str(),
-            label.as_str(),
-            self.last_message_faulty as i64,
-        );
-
-        r.register_gauge_with_label(
-            format!("last_message_good").as_str(),
-            format!("block number").as_str(),
-            label.as_str(),
-            self.last_message_faulty as i64,
-        );
-    }
-}
-
 impl PrometheusMetrics for StakingEpochHistory {
     fn prometheus_metrics(&self, r: &mut stats::PrometheusRegistry) {
         r.register_gauge(
@@ -1072,7 +1267,11 @@ impl PrometheusMetrics for StakingEpochHistory {
         );
 
         for epoch_history in self.node_staking_epoch_histories.iter() {
-            epoch_history.prometheus_metrics(r);
+            epoch_history.prometheus_metrics(
+                r,
+                self.highest_block_num,
+                self.staking_epoch_start_block,
+            );
         }
     }
 }
@@ -1081,6 +1280,17 @@ impl PrometheusMetrics for HbbftMessageMemorium {
     fn prometheus_metrics(&self, r: &mut stats::PrometheusRegistry) {
         //let epoch_history_len = self.staking_epoch_history.len() as i64;
 
+        // r.register_gauge(
+        //     "HbbftMessageMemorium_dispatched_message_event_faulty",
+        //     "dispatched_message_event_faulty",
+        //     self.dispatched_message_event_faulty.len() as i64,
+        // );
+        // r.register_gauge(
+        //     "HbbftMessageMemorium_dispatched_message_event_good",
+        //     "dispatched_message_event_good",
+        //     self.dispatched_message_event_good.len() as i64,
+        // );
+
         if let Some(history) = self.staking_epoch_history.iter().last() {
             history.prometheus_metrics(r);
         }
@@ -1088,4 +1298,191 @@ impl PrometheusMetrics for HbbftMessageMemorium {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::engines::hbbft::{NodeId, hbbft_message_memorium::BadSealReason};
+
+    use super::{HbbftMessageMemorium, MessageEventGood, SealEventBad};
+
+    use crypto::publickey::{Generator, Random};
+    use ethereum_types::Public;
+
+    #[test]
+    fn test_message_memorium() {
+        use super::SealEventGood;
+        let mut memorium = HbbftMessageMemorium::new(0, "".to_string(), "".to_string());
+        memorium.report_new_epoch(1, 100);
+
+        let node1 = NodeId(Public::random());
+
+        // we need a second node, that sends good seals every block.
+        let node2 = NodeId(Public::random());
+
+        //memorium.on_seal_good(SealEventGood { });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node1.clone(),
+            block_num: 101,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 101,
+        });
+
+        assert_eq!(
+            memorium.staking_epoch_history[0].node_staking_epoch_histories[0]
+                .last_good_sealing_message,
+            101
+        );
+        assert_eq!(
+            memorium.staking_epoch_history[0].node_staking_epoch_histories[0].cumulative_lateness,
+            0
+        );
+
+        // if we do skip block 101 with node1, and do not send a message at all - a late block should be tracked.
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 102,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 103,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node1.clone(),
+            block_num: 103,
+        });
+
+        assert_eq!(
+            memorium.staking_epoch_history[0].node_staking_epoch_histories[0].cumulative_lateness,
+            1
+        );
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 104,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node1.clone(),
+            block_num: 104,
+        });
+
+        // node was on time, so cumulative_lateness should be still one.
+        assert_eq!(
+            memorium.staking_epoch_history[0].node_staking_epoch_histories[0].cumulative_lateness,
+            1
+        );
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 105,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 106,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 107,
+        });
+
+        // node 1 was missing 3 blocks now.
+        // the cumulative lateness should sum up as follows:
+        // 1 - base value
+        // 1 - block 107
+        // 2 - block 106
+        // 3 - block 105
+        // ------
+        // 7 - total
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 108,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node1.clone(),
+            block_num: 108,
+        });
+
+        // node was on time, so cumulative_lateness should be still one.
+        assert_eq!(
+            memorium.staking_epoch_history[0].node_staking_epoch_histories[0].cumulative_lateness,
+            7
+        );
+
+        // test the bad message seals.
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 109,
+        });
+
+        memorium.on_seal_bad(&SealEventBad {
+            node_id: node1.clone(),
+            block_num: 109,
+            reason: BadSealReason::MismatchedNetworkInfo,
+        });
+
+        assert_eq!(
+            memorium.staking_epoch_history[0].node_staking_epoch_histories[0].cumulative_lateness,
+            8
+        );
+
+        // check if sealing message gaps are calculated the correct way with Bad Sealing Messages as well.
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 110,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 111,
+        });
+
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 112,
+        });
+
+        // we will receive a bad Seal for block 113
+        memorium.on_seal_good(&SealEventGood {
+            node_id: node2.clone(),
+            block_num: 113,
+        });
+
+        memorium.on_seal_bad(&SealEventBad {
+            node_id: node1.clone(),
+            block_num: 113,
+            reason: BadSealReason::MismatchedNetworkInfo,
+        });
+
+        // node 1 was missing 3 blocks now, and has written 1 bad block.
+        // the cumulative lateness should sum up as follows:
+        // 8 - base value
+        // 1 - block 113 (bad)
+        // 1 - block 112 (missed)
+        // 2 - block 111 (missed)
+        // 3 - block 110 (missed)
+        // 0 - block 109 (bad - already counted.)
+        // ------
+        // 15 - total
+
+        assert_eq!(
+            memorium.staking_epoch_history[0].node_staking_epoch_histories[0].cumulative_lateness,
+            15
+        );
+
+        // since node2 was our reference node, that always created blocks, it's cumulative lateness should be 0
+
+        assert_eq!(
+            memorium.staking_epoch_history[0].node_staking_epoch_histories[1].cumulative_lateness,
+            0
+        );
+    }
+}

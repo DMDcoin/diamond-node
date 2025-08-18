@@ -239,8 +239,7 @@ where
 mod tests {
     use super::*;
 
-    use crypto::publickey::{Generator, KeyPair, Random};
-    use pool::{
+    use crate::pool::{
         scoring::*,
         tests::{
             client::TestClient,
@@ -248,12 +247,13 @@ mod tests {
         },
         PrioritizationStrategy, VerifiedTransaction,
     };
+    use crypto::publickey::{Generator, KeyPair, Random};
     use std::sync::Arc;
     use txpool::{scoring::Choice::*, ShouldReplace};
 
     fn local_tx_verified(tx: Tx, keypair: &KeyPair) -> VerifiedTransaction {
         let mut verified_tx = tx.unsigned().sign(keypair.secret(), None).verified();
-        verified_tx.priority = ::pool::Priority::Local;
+        verified_tx.priority = crate::pool::Priority::Local;
         verified_tx
     }
 
@@ -476,7 +476,7 @@ mod tests {
                 ..Default::default()
             };
             let mut verified_tx = tx.signed().verified();
-            verified_tx.priority = ::pool::Priority::Local;
+            verified_tx.priority = crate::pool::Priority::Local;
             verified_tx
         };
         let tx_local_high_gas = {
@@ -486,7 +486,7 @@ mod tests {
                 ..Default::default()
             };
             let mut verified_tx = tx.signed().verified();
-            verified_tx.priority = ::pool::Priority::Local;
+            verified_tx.priority = crate::pool::Priority::Local;
             verified_tx
         };
 

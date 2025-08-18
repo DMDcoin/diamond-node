@@ -21,11 +21,13 @@ use std::sync::Arc;
 use jsonrpc_core::MetaIoHandler;
 use ws;
 
-use tests::{
-    helpers::{GuardedAuthCodes, Server},
-    http_client,
+use crate::{
+    tests::{
+        helpers::{GuardedAuthCodes, Server},
+        http_client,
+    },
+    v1::{extractors, informant},
 };
-use v1::{extractors, informant};
 
 /// Setup a mock signer for tests
 pub fn serve() -> (Server<ws::Server>, usize, GuardedAuthCodes) {

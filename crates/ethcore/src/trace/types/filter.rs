@@ -17,9 +17,9 @@
 //! Trace filters type definitions
 
 use super::trace::{Action, Res};
+use crate::trace::flat::FlatTrace;
 use ethereum_types::{Address, Bloom, BloomInput};
 use std::ops::Range;
-use trace::flat::FlatTrace;
 
 /// Addresses filter.
 ///
@@ -132,13 +132,13 @@ impl Filter {
 
 #[cfg(test)]
 mod tests {
-    use ethereum_types::{Address, Bloom, BloomInput};
-    use evm::CallType;
-    use trace::{
+    use crate::trace::{
+        AddressesFilter, Filter, RewardType, TraceError,
         flat::FlatTrace,
         trace::{Action, Call, Create, CreateResult, Res, Reward, Suicide},
-        AddressesFilter, Filter, RewardType, TraceError,
     };
+    use ethereum_types::{Address, Bloom, BloomInput};
+    use evm::CallType;
 
     #[test]
     fn empty_trace_filter_bloom_possibilities() {

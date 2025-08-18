@@ -1573,7 +1573,7 @@ impl BlockChain {
     }
 
     /// Iterator that lists `first` and then all of `first`'s ancestors, by extended header.
-    pub fn ancestry_with_metadata_iter<'a>(&'a self, first: H256) -> AncestryWithMetadataIter {
+    pub fn ancestry_with_metadata_iter<'a>(&'a self, first: H256) -> AncestryWithMetadataIter<'a> {
         AncestryWithMetadataIter {
             current: if self.is_known(&first) {
                 first

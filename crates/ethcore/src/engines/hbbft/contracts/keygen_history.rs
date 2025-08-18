@@ -1,26 +1,28 @@
-use client::traits::EngineClient;
-use crypto::{self, publickey::Public};
-use engines::{
-    hbbft::{
-        contracts::validator_set::{get_validator_pubkeys, ValidatorType},
-        utils::bound_contract::{BoundContract, CallError},
-        NodeId,
+use crate::{
+    client::traits::EngineClient,
+    engines::{
+        hbbft::{
+            NodeId,
+            contracts::validator_set::{ValidatorType, get_validator_pubkeys},
+            utils::bound_contract::{BoundContract, CallError},
+        },
+        signer::EngineSigner,
     },
-    signer::EngineSigner,
+    types::ids::BlockId,
 };
+use crypto::{self, publickey::Public};
 use ethereum_types::{Address, H512, U256};
 use hbbft::{
+    NetworkInfo,
     crypto::{PublicKeySet, SecretKeyShare},
     sync_key_gen::{
         Ack, AckOutcome, Error, Part, PartOutcome, PubKeyMap, PublicKey, SecretKey, SyncKeyGen,
     },
     util::max_faulty,
-    NetworkInfo,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
-use types::ids::BlockId;
 
 use_contract!(
     key_history_contract,
@@ -46,12 +48,17 @@ pub fn engine_signer_to_synckeygen<'a>(
         inner: signer.clone(),
     };
     let public = match signer.read().as_ref() {
-        Some(signer) => signer
-            .public()
-            .expect("Signer's public key must be available!"),
+        Some(signer) => {
+            if let Some(this_public) = signer.public() {
+                this_public
+            } else {
+                error!(target: "engine", "Signer's public key must be available for address {:?}", signer.address());
+                return Err(hbbft::sync_key_gen::Error::UnknownSender);
+            }
+        }
         None => Public::from(H512::from_low_u64_be(0)),
     };
-    let mut rng = rand_065::thread_rng();
+    let mut rng = rand::thread_rng();
     let num_nodes = pub_keys.len();
     SyncKeyGen::new(public, wrapper, pub_keys, max_faulty(num_nodes), &mut rng)
 }
@@ -100,13 +107,16 @@ pub fn part_of_address(
         return Ok(None);
     }
     let deserialized_part: Part = bincode::deserialize(&serialized_part).unwrap();
-    let mut rng = rand_065::thread_rng();
+    let mut rng = rand::thread_rng();
     let outcome = skg
         .handle_part(vmap.get(&address).unwrap(), deserialized_part, &mut rng)
         .unwrap();
 
     match outcome {
-        PartOutcome::Invalid(_) => Err(CallError::ReturnValueInvalid),
+        PartOutcome::Invalid(e) => {
+            error!(target: "engine", "Part for address {} is invalid: {:?}", address, e);
+            Err(CallError::ReturnValueInvalid)
+        }
         PartOutcome::Valid(ack) => Ok(ack),
     }
 }
@@ -168,10 +178,17 @@ pub struct KeyPairWrapper {
     pub inner: Arc<RwLock<Option<Box<dyn EngineSigner>>>>,
 }
 
+impl PublicWrapper {
+    /// Check if the public key is valid.
+    pub fn is_valid(&self) -> bool {
+        self.encrypt(b"a", &mut rand::thread_rng()).is_ok()
+    }
+}
+
 impl<'a> PublicKey for PublicWrapper {
     type Error = crypto::publickey::Error;
     type SecretKey = KeyPairWrapper;
-    fn encrypt<M: AsRef<[u8]>, R: rand_065::Rng>(
+    fn encrypt<M: AsRef<[u8]>, R: rand::Rng>(
         &self,
         msg: M,
         _rng: &mut R,
@@ -226,6 +243,7 @@ pub fn initialize_synckeygen(
     block_id: BlockId,
     validator_type: ValidatorType,
 ) -> Result<SyncKeyGen<Public, PublicWrapper>, CallError> {
+    debug!(target: "engine", "Initializing SyncKeyGen with block_id: {:?}", block_id);
     let vmap = get_validator_pubkeys(&*client, block_id, validator_type)?;
     let pub_keys: BTreeMap<_, _> = vmap
         .values()
@@ -250,8 +268,8 @@ pub fn initialize_synckeygen(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engines::signer::{EngineSigner, from_keypair};
     use crypto::publickey::{KeyPair, Secret};
-    use engines::signer::{from_keypair, EngineSigner};
     use std::{collections::BTreeMap, sync::Arc};
 
     #[test]

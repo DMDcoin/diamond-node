@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{IoError, IoHandler};
 use deque;
 use fnv::FnvHashMap;
-use num_cpus;
 use parking_lot::{Mutex, RwLock};
 use slab::Slab;
 use std::{
@@ -26,8 +26,6 @@ use std::{
 };
 use time::Duration as TimeDuration;
 use timer::{Guard as TimerGuard, Timer};
-use IoError;
-use IoHandler;
 
 /// Timer ID
 pub type TimerToken = usize;
@@ -267,10 +265,14 @@ where
     Message: Send + Sync + 'static,
 {
     /// Starts IO event loop
-    pub fn start(_symbolic_name: &'static str) -> Result<IoService<Message>, IoError> {
+    pub fn start(
+        _symbolic_name: &'static str,
+        num_threads: i32,
+    ) -> Result<IoService<Message>, IoError> {
         // This minimal implementation of IoService does have named Workers
         // like the mio-dependent one does, so _symbolic_name is ignored.
-        let (tx, rx) = deque::fifo();
+        let tx = deque::Worker::new_fifo();
+        let rx = tx.stealer();
 
         let shared = Arc::new(Shared {
             handlers: RwLock::new(Slab::with_capacity(MAX_HANDLERS)),
@@ -280,7 +282,7 @@ where
             channel: Mutex::new(Some(tx)),
         });
 
-        let thread_joins = (0..num_cpus::get())
+        let thread_joins = (0..num_threads)
             .map(|_| {
                 let rx = rx.clone();
                 let shared = shared.clone();
@@ -370,8 +372,8 @@ where
         match rx.steal() {
             deque::Steal::Retry => continue,
             deque::Steal::Empty => thread::park(),
-            deque::Steal::Data(WorkTask::Shutdown) => break,
-            deque::Steal::Data(WorkTask::UserMessage(message)) => {
+            deque::Steal::Success(WorkTask::Shutdown) => break,
+            deque::Steal::Success(WorkTask::UserMessage(message)) => {
                 for id in 0..MAX_HANDLERS {
                     if let Some(handler) = shared.handlers.read().get(id) {
                         let ctxt = IoContext {
@@ -382,7 +384,7 @@ where
                     }
                 }
             }
-            deque::Steal::Data(WorkTask::TimerTrigger { handler_id, token }) => {
+            deque::Steal::Success(WorkTask::TimerTrigger { handler_id, token }) => {
                 if let Some(handler) = shared.handlers.read().get(handler_id) {
                     let ctxt = IoContext {
                         handler: handler_id,

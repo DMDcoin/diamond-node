@@ -23,8 +23,8 @@ use self::ansi_term::{
 
 use std::{
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering},
         Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering},
     },
     time::{Duration, Instant},
 };
@@ -34,15 +34,14 @@ use crate::{
     sync::{ManageNetwork, SyncProvider},
     types::BlockNumber,
 };
-use atty;
 use ethcore::{
     client::{
         BlockChainClient, BlockChainInfo, BlockId, BlockInfo, BlockQueueInfo, ChainInfo,
         ChainNotify, Client, ClientIoMessage, ClientReport, NewBlocks,
     },
-    snapshot::{service::Service as SnapshotService, RestorationStatus, SnapshotService as SS},
+    snapshot::{RestorationStatus, SnapshotService as SS, service::Service as SnapshotService},
 };
-use number_prefix::{binary_prefix, Prefixed, Standalone};
+use number_prefix::{Prefixed, Standalone, binary_prefix};
 use parity_rpc::{informant::RpcStats, is_major_importing_or_waiting};
 use parking_lot::{Mutex, RwLock};
 
@@ -206,10 +205,10 @@ impl<T: InformantData> Informant<T> {
     ) -> Self {
         Informant {
             last_tick: RwLock::new(Instant::now()),
-            with_color: with_color,
-            target: target,
-            snapshot: snapshot,
-            rpc_stats: rpc_stats,
+            with_color,
+            target,
+            snapshot,
+            rpc_stats,
             last_import: Mutex::new(Instant::now()),
             skipped: AtomicUsize::new(0),
             skipped_txs: AtomicUsize::new(0),
@@ -252,11 +251,11 @@ impl<T: InformantData> Informant<T> {
         } = full_report;
 
         let rpc_stats = self.rpc_stats.as_ref();
-        let snapshot_sync = sync_info.as_ref().map_or(false, |s| s.snapshot_sync)
+        let snapshot_sync = sync_info.as_ref().is_some_and(|s| s.snapshot_sync)
             && self
                 .snapshot
                 .as_ref()
-                .map_or(false, |s| match s.restoration_status() {
+                .is_some_and(|s| match s.restoration_status() {
                     RestorationStatus::Ongoing { .. } | RestorationStatus::Initializing { .. } => {
                         true
                     }
@@ -315,15 +314,13 @@ impl<T: InformantData> Informant<T> {
                 None => String::new(),
             },
             match sync_info.as_ref() {
-                Some(ref sync_info) => format!("{}{}/{} peers",
+                Some(sync_info) => format!("{}{}/{} peers",
                     match importing {
-                        true => format!("{}",
-                            if self.target.executes_transactions() {
+                        true => (if self.target.executes_transactions() {
                                 paint(Green.bold(), format!("{:>8}   ", format!("LI:#{}", sync_info.last_imported_block_number)))
                             } else {
                                 String::new()
-                            }
-                        ),
+                            }).to_string(),
                         false => match sync_info.last_imported_ancient_number {
                             Some(number) => format!("{}   ", paint(Yellow.bold(), format!("{:>8}", format!("AB:#{}", number)))),
                             None => String::new(),
@@ -334,9 +331,9 @@ impl<T: InformantData> Informant<T> {
                 ),
                 _ => String::new(),
             },
-            cache_sizes.display(Blue.bold(), &paint),
+            cache_sizes.display(Blue.bold(), paint),
             match rpc_stats {
-                Some(ref rpc_stats) => format!(
+                Some(rpc_stats) => format!(
                     "RPC: {} conn, {} req/s, {} µs",
                     paint(Blue.bold(), format!("{:2}", rpc_stats.sessions())),
                     paint(Blue.bold(), format!("{:4}", rpc_stats.requests_rate())),

@@ -19,8 +19,8 @@ use std::{
     fmt::{Debug, Error as FmtError, Formatter},
     io::{BufRead, BufReader},
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
     thread, time,
 };
@@ -30,7 +30,7 @@ use parking_lot::Mutex;
 use std::{fs::File, path::PathBuf};
 use url::Url;
 
-use ws::ws::{
+use crate::ws::ws::{
     self, Error as WsError, ErrorKind as WsErrorKind, Handler, Handshake, Message, Request,
     Result as WsResult, Sender,
 };
@@ -38,15 +38,15 @@ use ws::ws::{
 use serde::de::DeserializeOwned;
 use serde_json::{self as json, Error as JsonError, Value as JsonValue};
 
-use futures::{done, oneshot, Canceled, Complete, Future};
+use futures::{Canceled, Complete, Future, done, oneshot};
 
 use jsonrpc_core::{
+    Error as JsonRpcError, Id, Params, Version,
     request::MethodCall,
     response::{Failure, Output, Success},
-    Error as JsonRpcError, Id, Params, Version,
 };
 
-use BoxFuture;
+use crate::BoxFuture;
 
 /// The actual websocket connection handler, passed into the
 /// event loop of ws-rs

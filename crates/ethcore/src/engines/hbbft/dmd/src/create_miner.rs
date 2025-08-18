@@ -1,6 +1,7 @@
 use ethstore::{KeyFile, SafeAccount};
 use parity_crypto::publickey::{Generator, KeyPair, Random, Secret};
-use std::{fs, num::NonZeroU32, path::Path};
+use serde_json::Value;
+use std::{fs, num::NonZeroU32, path::Path, str::FromStr};
 
 fn write_json_for_secret(secret: Secret, filename: &str) {
     let json_key: KeyFile = SafeAccount::create(
@@ -21,6 +22,37 @@ fn write_json_for_secret(secret: Secret, filename: &str) {
 
 pub fn create_miner() {
     println!("Creating dmd v4 miner...");
+    let mut name: String = "DPoSChain".to_string();
+    match fs::read_to_string("spec.json") {
+        Ok(s) => match serde_json::from_str(s.as_str()) {
+            Ok(Value::Object(map)) => {
+                if map.contains_key("name") {
+                    let x = &map["name"];
+
+                    match x.as_str() {
+                        Some(n) => {
+                            name = String::from_str(n)
+                                .expect("could not parse chain name from spec.json");
+                            println!("chain: {}", name);
+                        }
+                        None => {
+                            println!("could not read chain name from spec.json");
+                        }
+                    }
+                }
+            }
+            _ => {
+                println!("unable to parse spec.json");
+            }
+        },
+        Err(e) => {
+            println!("unable to to open spec.json: {:?}", e);
+        }
+    }
+
+    //let serialized_json_key =
+    //serde_json::to_string(&json_key).expect("json key object serialization should succeed");
+
     let acc = Random.generate();
 
     // Create "data" and "network" subfolders.
@@ -31,8 +63,8 @@ pub fn create_miner() {
         .expect("Unable to write the network key file");
 
     // Create "keys" and "DPoSChain" subfolders.
-    let accounts_dir = Path::new("./data/keys/DPoSChain");
-    fs::create_dir_all(accounts_dir).expect("Could not create accounts directory");
+    let accounts_dir = Path::new("./data/keys/").join(name);
+    fs::create_dir_all(accounts_dir.clone()).expect("Could not create accounts directory");
 
     // Write JSON account.
     write_json_for_secret(

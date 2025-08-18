@@ -19,11 +19,13 @@
 
 // TODO: fix endianess for big endian
 
-use cache::{NodeCache, NodeCacheBuilder};
-use keccak::{keccak_256, keccak_512, H256};
-use progpow::{generate_cdag, keccak_f800_long, keccak_f800_short, progpow, CDag};
-use seed_compute::SeedHashCompute;
-use shared::*;
+use crate::{
+    cache::{NodeCache, NodeCacheBuilder},
+    keccak::{H256, keccak_256, keccak_512},
+    progpow::{CDag, generate_cdag, keccak_f800_long, keccak_f800_short, progpow},
+    seed_compute::SeedHashCompute,
+    shared::*,
+};
 use std::io;
 
 use std::{mem, path::Path};
@@ -180,7 +182,7 @@ fn hash_compute(light: &Light, full_size: usize, header_hash: &H256, nonce: u64)
                 use std::mem;
 
                 debug_assert_eq!(val.len() * mem::size_of::<T>(), $n * mem::size_of::<U>());
-                &mut *(val.as_mut_ptr() as *mut [U; $n])
+                unsafe { &mut *(val.as_mut_ptr() as *mut [U; $n]) }
             }
 
             make_const_array($value)

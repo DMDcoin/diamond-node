@@ -17,14 +17,14 @@
 use std::sync::Arc;
 
 use jsonrpc_core::{
-    futures::{self, Future, Stream},
     MetaIoHandler,
+    futures::{self, Future, Stream},
 };
 use jsonrpc_pubsub::Session;
 
 use std::time::Duration;
 
-use v1::{EthPubSub, EthPubSubClient, Metadata};
+use crate::v1::{EthPubSub, EthPubSubClient, Metadata};
 
 use ethcore::client::{
     ChainNotify, ChainRoute, ChainRouteType, EachBlockWith, NewBlocks, TestBlockChainClient,
@@ -115,11 +115,11 @@ fn should_subscribe_to_new_heads() {
 
 #[test]
 fn should_subscribe_to_logs() {
-    use ethcore::client::BlockInfo;
-    use types::{
+    use crate::types::{
         ids::BlockId,
         log_entry::{LocalizedLogEntry, LogEntry},
     };
+    use ethcore::client::BlockInfo;
 
     // given
     let el = Runtime::with_thread_count(1);

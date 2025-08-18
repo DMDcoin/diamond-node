@@ -16,13 +16,15 @@
 
 //! State of all accounts in the system expressed in Plain Old Data.
 
+use crate::{
+    pod_account::{self, PodAccount},
+    types::state_diff::StateDiff,
+};
 use ethereum_types::{Address, H256};
 use ethjson;
 use itertools::Itertools;
-use pod_account::{self, PodAccount};
 use std::{collections::BTreeMap, fmt};
 use triehash::sec_trie_root;
-use types::state_diff::StateDiff;
 
 /// State of all accounts in the system expressed in Plain Old Data.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -103,10 +105,12 @@ pub fn diff_pod(pre: &PodState, post: &PodState) -> StateDiff {
 #[cfg(test)]
 mod test {
     use super::PodState;
+    use crate::{
+        pod_account::PodAccount,
+        types::{account_diff::*, state_diff::*},
+    };
     use ethereum_types::H160;
-    use pod_account::PodAccount;
     use std::collections::BTreeMap;
-    use types::{account_diff::*, state_diff::*};
 
     #[test]
     fn create_delete() {

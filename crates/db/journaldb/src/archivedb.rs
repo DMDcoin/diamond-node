@@ -17,22 +17,21 @@
 //! Disk-backed `HashDB` implementation.
 
 use std::{
-    collections::{hash_map::Entry, BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, hash_map::Entry},
     io,
     sync::Arc,
 };
 
 use super::{
-    error_key_already_exists, error_negatively_reference_hash, memory_db::*, LATEST_ERA_KEY,
+    LATEST_ERA_KEY, error_key_already_exists, error_negatively_reference_hash, memory_db::*,
 };
+use crate::{DB_PREFIX_LEN, traits::JournalDB};
 use bytes::Bytes;
 use ethcore_db::{DBTransaction, DBValue, KeyValueDB};
 use ethereum_types::H256;
 use hash_db::HashDB;
 use keccak_hasher::KeccakHasher;
 use rlp::{decode, encode};
-use traits::JournalDB;
-use DB_PREFIX_LEN;
 
 /// Implementation of the `HashDB` trait for a disk-backed database with a memory overlay
 /// and latent-removal semantics.
@@ -56,7 +55,7 @@ impl ArchiveDB {
             .expect("Low-level database error.")
             .map(|val| decode::<u64>(&val).expect("decoding db value failed"));
         ArchiveDB {
-            overlay: ::new_memory_db(),
+            overlay: crate::new_memory_db(),
             backing,
             latest_era,
             column,
@@ -97,7 +96,7 @@ impl HashDB<KeccakHasher, DBValue> for ArchiveDB {
     }
 }
 
-impl ::traits::KeyedHashDB for ArchiveDB {
+impl crate::traits::KeyedHashDB for ArchiveDB {
     fn keys(&self) -> HashMap<H256, i32> {
         let mut ret: HashMap<H256, i32> = self
             .backing
@@ -228,10 +227,10 @@ impl JournalDB for ArchiveDB {
 mod tests {
 
     use super::*;
+    use JournalDB;
     use ethcore_db::InMemoryWithMetrics;
     use hash_db::HashDB;
     use keccak::keccak;
-    use JournalDB;
 
     #[test]
     fn insert_same_in_fork() {

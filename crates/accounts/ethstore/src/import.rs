@@ -16,9 +16,11 @@
 
 use std::{collections::HashSet, fs, path::Path};
 
-use accounts_dir::{DiskKeyFileManager, KeyDirectory, KeyFileManager};
+use crate::{
+    accounts_dir::{DiskKeyFileManager, KeyDirectory, KeyFileManager},
+    Error,
+};
 use crypto::publickey::Address;
-use Error;
 
 /// Import an account from a file.
 pub fn import_account(path: &Path, dst: &dyn KeyDirectory) -> Result<Address, Error> {

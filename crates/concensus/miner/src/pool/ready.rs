@@ -40,9 +40,9 @@
 
 use std::{cmp, collections::HashMap};
 
+use crate::types::transaction;
 use ethereum_types::{H160 as Address, U256};
 use txpool::{self, VerifiedTransaction as PoolVerifiedTransaction};
-use types::transaction;
 
 use super::{client::NonceClient, VerifiedTransaction};
 
@@ -165,7 +165,7 @@ impl<C: Fn(&Address) -> Option<U256>> txpool::Ready<VerifiedTransaction> for Opt
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pool::tests::{
+    use crate::pool::tests::{
         client::TestClient,
         tx::{Tx, TxExt},
     };

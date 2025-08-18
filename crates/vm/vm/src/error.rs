@@ -16,12 +16,10 @@
 
 //! VM errors module
 
-use action_params::ActionParams;
+use crate::{ResumeCall, ResumeCreate, action_params::ActionParams};
 use ethereum_types::Address;
 use ethtrie;
 use std::fmt;
-use ResumeCall;
-use ResumeCreate;
 
 #[derive(Debug)]
 pub enum TrapKind {

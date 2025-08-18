@@ -19,7 +19,7 @@ extern crate toml;
 extern crate vergen;
 
 use std::{env, fs::File, io::Write, path::Path};
-use vergen::{vergen, OutputFns};
+use vergen::{OutputFns, vergen};
 
 const ERROR_MSG: &'static str = "Failed to generate metadata files";
 

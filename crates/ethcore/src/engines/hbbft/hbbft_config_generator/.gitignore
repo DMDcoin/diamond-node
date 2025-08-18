@@ -13,3 +13,4 @@ password.txt
 reserved-peers
 rpc_node.toml
 nodes_info.json
+fork_example.json

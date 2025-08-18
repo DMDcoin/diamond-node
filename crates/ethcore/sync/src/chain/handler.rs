@@ -14,8 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use api::{ETH_PROTOCOL, PAR_PROTOCOL};
-use block_sync::{BlockDownloaderImportError as DownloaderImportError, DownloadAction};
+use crate::{
+    api::{ETH_PROTOCOL, PAR_PROTOCOL},
+    block_sync::{BlockDownloaderImportError as DownloaderImportError, DownloadAction},
+    snapshot::ChunkType,
+    sync_io::SyncIo,
+    types::{BlockNumber, block_status::BlockStatus, ids::BlockId},
+};
 use bytes::Bytes;
 use enum_primitive::FromPrimitive;
 use ethcore::{
@@ -25,12 +30,13 @@ use ethcore::{
 };
 use ethereum_types::{H256, H512, U256};
 use hash::keccak;
-use network::{client_version::ClientVersion, PeerId};
+use network::{PeerId, client_version::ClientVersion};
 use rlp::Rlp;
-use snapshot::ChunkType;
-use std::{cmp, mem, time::Instant};
-use sync_io::SyncIo;
-use types::{block_status::BlockStatus, ids::BlockId, BlockNumber};
+use std::{
+    cmp, mem,
+    time::{Duration, Instant},
+};
+use time_utils::DeadlineStopwatch;
 
 use super::{
     request_id::strip_request_id,
@@ -41,9 +47,9 @@ use super::{
 };
 
 use super::{
-    BlockSet, ChainSync, ForkConfirmation, PacketProcessError, PeerAsking, PeerInfo, SyncRequester,
-    SyncState, ETH_PROTOCOL_VERSION_63, ETH_PROTOCOL_VERSION_64, ETH_PROTOCOL_VERSION_66,
-    MAX_NEW_BLOCK_AGE, MAX_NEW_HASHES, PAR_PROTOCOL_VERSION_1, PAR_PROTOCOL_VERSION_2,
+    BlockSet, ChainSync, ETH_PROTOCOL_VERSION_63, ETH_PROTOCOL_VERSION_64, ETH_PROTOCOL_VERSION_66,
+    ForkConfirmation, MAX_NEW_BLOCK_AGE, MAX_NEW_HASHES, PAR_PROTOCOL_VERSION_1,
+    PAR_PROTOCOL_VERSION_2, PacketProcessError, PeerAsking, PeerInfo, SyncRequester, SyncState,
 };
 use network::client_version::ClientCapabilities;
 
@@ -81,7 +87,7 @@ impl SyncHandler {
                     }
                     SnapshotDataPacket => SyncHandler::on_snapshot_data(sync, io, peer, &rlp),
                     _ => {
-                        debug!(target: "sync", "{}: Unknown packet {}", peer, packet_id.id());
+                        warn!(target: "sync", "{}: Unknown packet {}", peer, packet_id.id());
                         Ok(())
                     }
                 },
@@ -155,11 +161,10 @@ impl SyncHandler {
     /// Called when a new peer is connected
     pub fn on_peer_connected(sync: &mut ChainSync, io: &mut dyn SyncIo, peer: PeerId) {
         let peer_version = io.peer_version(peer);
-        trace!(target: "sync", "== Connected {}: {}", peer, peer_version);
+
+        trace!(target: "sync", "== Connected {}: {} protocol: {}", peer, peer_version, io.peer_session_info(peer).map_or(String::new(), |f| f.peer_capabilities().iter().map(|c| format!("{}-{}", c.protocol, c.version)).collect::<Vec<String>>().join(" | ")));
 
         let whitelisted = peer_version.is_hbbft();
-        // peer_version_string.contains("hbbft")
-        // && peer_version_string.contains("OpenEthereum");
 
         if !whitelisted {
             let mut ip_addr = String::new();
@@ -167,10 +172,10 @@ impl SyncHandler {
                 Some(session) => ip_addr = session.remote_address.to_string(),
                 None => {}
             }
-            trace!(target:"sync", "Disabling Peer (this Software Version not whitelisted) {} ip:{} ", peer_version, ip_addr);
+            debug!(target:"sync", "Disabling Peer (this Software Version not whitelisted) {} ip:{} ", peer_version, ip_addr);
             io.disable_peer(peer);
         } else if let Err(e) = sync.send_status(io, peer) {
-            debug!(target:"sync", "Error sending status request: {:?}", e);
+            debug!(target:"sync", "Error sending status request: {:?} {:?}", e, io.peer_session_info(peer).as_ref().map_or(" (no Session)", |f| f.remote_address.as_str()));
             io.disconnect_peer(peer);
         } else {
             sync.handshaking_peers.insert(peer, Instant::now());
@@ -857,12 +862,33 @@ impl SyncHandler {
         peer_id: PeerId,
         tx_rlp: &Rlp,
     ) -> Result<(), DownloaderImportError> {
+        // those P2P operations must not take forever, a better , configurable but balanced timeout managment would be nice to have.
+        let max_duration = Duration::from_millis(500);
+
+        let deadline = DeadlineStopwatch::new(max_duration);
+
         for item in tx_rlp {
             let hash = item
                 .as_val::<H256>()
                 .map_err(|_| DownloaderImportError::Invalid)?;
 
-            if io.chain().queued_transaction(hash).is_none() {
+            // todo: what if the Transaction is not new, and already in the chain?
+            // see: https://github.com/DMDcoin/diamond-node/issues/196
+
+            // if we cant read the pool here, we are asuming we dont know the transaction yet.
+            // in the worst case we are refetching a transaction that we already have.
+
+            if deadline.is_expired() {
+                debug!(target: "sync", "{}: deadline reached while processing pooled transactions", peer_id);
+                // we did run out of time to finish this opation, but thats Ok.
+                return Ok(());
+            }
+
+            if io
+                .chain()
+                .transaction_if_readable(&hash, &deadline.time_left())
+                .is_none()
+            {
                 sync.peers
                     .get_mut(&peer_id)
                     .map(|peer| peer.unfetched_pooled_transactions.insert(hash));
@@ -874,7 +900,7 @@ impl SyncHandler {
 
     /// Called when peer sends us a list of pooled transactions
     pub fn on_peer_pooled_transactions(
-        sync: &ChainSync,
+        sync: &mut ChainSync,
         io: &mut dyn SyncIo,
         peer_id: PeerId,
         tx_rlp: &Rlp,
@@ -892,7 +918,7 @@ impl SyncHandler {
             trace!(target: "sync", "{} Peer sent us more transactions than was supposed to", peer_id);
             return Err(DownloaderImportError::Invalid);
         }
-        trace!(target: "sync", "{:02} -> PooledTransactions ({} entries)", peer_id, item_count);
+        debug!(target: "sync", "{:02} -> PooledTransactions ({} entries)", peer_id, item_count);
         let mut transactions = Vec::with_capacity(item_count);
         for i in 0..item_count {
             let rlp = tx_rlp.at(i)?;
@@ -905,6 +931,9 @@ impl SyncHandler {
             transactions.push(tx);
         }
         io.chain().queue_transactions(transactions, peer_id);
+
+        sync.reset_peer_asking(peer_id, PeerAsking::PooledTransactions);
+
         Ok(())
     }
 
@@ -945,11 +974,11 @@ impl SyncHandler {
 
 #[cfg(test)]
 mod tests {
+    use crate::tests::{helpers::TestIo, snapshot::TestSnapshotService};
     use ethcore::client::{ChainInfo, EachBlockWith, TestBlockChainClient};
     use parking_lot::RwLock;
     use rlp::Rlp;
     use std::collections::VecDeque;
-    use tests::{helpers::TestIo, snapshot::TestSnapshotService};
 
     use super::{
         super::tests::{dummy_sync_with_peer, get_dummy_block, get_dummy_blocks, get_dummy_hashes},

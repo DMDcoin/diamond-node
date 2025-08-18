@@ -14,19 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-extern crate ethereum_types;
+use ethereum_types;
 extern crate futures;
 extern crate rpassword;
 
 extern crate parity_rpc as rpc;
 extern crate parity_rpc_client as client;
 
-use client::signer_client::SignerRpc;
+use crate::client::signer_client::SignerRpc;
 use ethereum_types::U256;
 use rpc::signer::ConfirmationRequest;
 use std::{
     fs::File,
-    io::{stdin, stdout, BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Write, stdin, stdout},
     path::PathBuf,
 };
 

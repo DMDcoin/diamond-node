@@ -18,7 +18,7 @@
 
 use jsonrpc_core::{Params, Result, Value};
 use jsonrpc_derive::rpc;
-use jsonrpc_pubsub::{typed::Subscriber, SubscriptionId};
+use jsonrpc_pubsub::{SubscriptionId, typed::Subscriber};
 
 /// Parity-specific PUB-SUB rpc interface.
 #[rpc(server)]

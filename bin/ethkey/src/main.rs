@@ -30,10 +30,10 @@ extern crate serde_derive;
 use std::{env, fmt, io, num::ParseIntError, process, sync};
 
 use crypto::publickey::{
-    sign, verify_address, verify_public, Error as EthkeyError, Generator, KeyPair, Random,
+    Error as EthkeyError, Generator, KeyPair, Random, sign, verify_address, verify_public,
 };
 use docopt::Docopt;
-use ethkey::{brain_recover, Brain, BrainPrefix, Prefix};
+use ethkey::{Brain, BrainPrefix, Prefix, brain_recover};
 use rustc_hex::{FromHex, FromHexError};
 
 const USAGE: &'static str = r#"

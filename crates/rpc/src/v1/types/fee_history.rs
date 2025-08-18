@@ -16,8 +16,8 @@
 
 //! Return types for RPC calls
 
+use crate::v1::types::BlockNumber;
 use ethereum_types::U256;
-use v1::types::BlockNumber;
 
 /// Account information.
 #[derive(Debug, Default, Clone, PartialEq, Serialize)]

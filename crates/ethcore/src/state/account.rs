@@ -16,24 +16,22 @@
 
 //! Single account in the system.
 
+use crate::{error::Error, pod_account::*, types::basic_account::BasicAccount};
 use bytes::{Bytes, ToPretty};
-use error::Error;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use ethtrie::{Result as TrieResult, SecTrieDB, TrieDB, TrieFactory};
-use hash::{keccak, KECCAK_EMPTY, KECCAK_NULL_RLP};
+use hash::{KECCAK_EMPTY, KECCAK_NULL_RLP, keccak};
 use hash_db::HashDB;
 use keccak_hasher::KeccakHasher;
 use kvdb::DBValue;
 use lru_cache::LruCache;
-use pod_account::*;
-use rlp::{encode, RlpStream};
+use rlp::{RlpStream, encode};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt,
     sync::Arc,
 };
 use trie::{Recorder, Trie};
-use types::basic_account::BasicAccount;
 
 use std::cell::{Cell, RefCell};
 
@@ -252,14 +250,12 @@ impl Account {
             return Ok(value);
         }
         match &self.original_storage_cache {
-            Some((ref original_storage_root, ref original_storage_cache)) => {
-                Self::get_and_cache_storage(
-                    original_storage_root,
-                    &mut original_storage_cache.borrow_mut(),
-                    db,
-                    key,
-                )
-            }
+            Some((original_storage_root, original_storage_cache)) => Self::get_and_cache_storage(
+                original_storage_root,
+                &mut original_storage_cache.borrow_mut(),
+                db,
+                key,
+            ),
             None => Self::get_and_cache_storage(
                 &self.storage_root,
                 &mut self.storage_cache.borrow_mut(),
@@ -298,7 +294,7 @@ impl Account {
     /// Get cached original storage value after last state commitment. Returns `None` if the key is not in the cache.
     pub fn cached_original_storage_at(&self, key: &H256) -> Option<H256> {
         match &self.original_storage_cache {
-            Some((_, ref original_storage_cache)) => original_storage_cache
+            Some((_, original_storage_cache)) => original_storage_cache
                 .borrow_mut()
                 .get_mut(key)
                 .map(|value| value.clone()),
@@ -689,7 +685,7 @@ impl fmt::Debug for Account {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use account_db::*;
+    use crate::account_db::*;
     use bytes::Bytes;
     use ethereum_types::{Address, H256};
     use journaldb::new_memory_db;
@@ -844,7 +840,10 @@ mod tests {
     #[test]
     fn new_account() {
         let a = Account::new(69u8.into(), 0u8.into(), HashMap::new(), Bytes::new());
-        assert_eq!(a.rlp().to_hex(), "f8448045a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
+        assert_eq!(
+            a.rlp().to_hex(),
+            "f8448045a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+        );
         assert_eq!(*a.balance(), 69u8.into());
         assert_eq!(*a.nonce(), 0u8.into());
         assert_eq!(a.code_hash(), KECCAK_EMPTY);

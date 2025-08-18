@@ -70,7 +70,7 @@ pub trait JournalDB: KeyedHashDB {
 
     /// Mark a given block as canonical, indicating that competing blocks' states may be pruned out.
     fn mark_canonical(&mut self, batch: &mut DBTransaction, era: u64, id: &H256)
-        -> io::Result<u32>;
+    -> io::Result<u32>;
 
     /// Commit all queued insert and delete operations without affecting any journalling -- this requires that all insertions
     /// and deletions are indeed canonical and will likely lead to an invalid database if that assumption is violated.

@@ -19,14 +19,15 @@ use std::{
     str::FromStr,
 };
 
+use crate::{
+    snapshot::SnapshotConfiguration,
+    verification::{QueueConfig, VerifierType},
+};
 use journaldb;
-use snapshot::SnapshotConfiguration;
-use verification::{QueueConfig, VerifierType};
 
-pub use blockchain::Config as BlockChainConfig;
+pub use crate::{blockchain::Config as BlockChainConfig, trace::Config as TraceConfig};
 pub use evm::VMType;
 pub use std::time::Duration;
-pub use trace::Config as TraceConfig;
 
 /// Client state db compaction profile
 #[derive(Debug, PartialEq, Clone)]
@@ -125,6 +126,10 @@ pub struct ClientConfig {
     pub transaction_verification_queue_size: usize,
     /// Maximal number of blocks to import at each round.
     pub max_round_blocks_to_import: usize,
+
+    /// Shutdown client if block has not happed for n seconds.
+    pub shutdown_on_missing_block_import: Option<u64>,
+
     /// Snapshot configuration
     pub snapshot: SnapshotConfiguration,
 }
@@ -152,6 +157,7 @@ impl Default for ClientConfig {
             check_seal: true,
             transaction_verification_queue_size: 8192,
             max_round_blocks_to_import: 1,
+            shutdown_on_missing_block_import: Some(1800),
             snapshot: Default::default(),
         }
     }

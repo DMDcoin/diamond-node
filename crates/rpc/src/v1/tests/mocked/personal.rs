@@ -16,6 +16,7 @@
 
 use std::{str::FromStr, sync::Arc};
 
+use crate::types::transaction::{Action, Transaction, TypedTransaction};
 use accounts::AccountProvider;
 use bytes::ToPretty;
 use crypto::publickey::Secret;
@@ -25,18 +26,17 @@ use hash::keccak;
 use jsonrpc_core::IoHandler;
 use parity_runtime::Runtime;
 use parking_lot::Mutex;
-use types::transaction::{Action, Transaction, TypedTransaction};
 
-use serde_json::to_value;
-use v1::{
+use crate::v1::{
+    Metadata, Personal, PersonalClient,
     helpers::{
-        dispatch::{eth_data_hash, FullDispatcher},
+        dispatch::{FullDispatcher, eth_data_hash},
         eip191, nonce,
     },
     tests::helpers::TestMinerService,
     types::{EIP191Version, PresignedTransaction},
-    Metadata, Personal, PersonalClient,
 };
+use serde_json::to_value;
 
 struct PersonalTester {
     _runtime: Runtime,

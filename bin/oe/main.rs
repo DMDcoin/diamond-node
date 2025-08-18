@@ -33,30 +33,24 @@ extern crate ethcore_logger;
 #[cfg(windows)]
 extern crate winapi;
 
+extern crate ethcore;
+
 use std::{
     io::Write,
-    process,
+    process::{self},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
 use ansi_term::Colour;
-use diamond_node::{start, ExecutionAction};
+use diamond_node::{ExecutionAction, ShutdownManager, start};
+use ethcore::exit::ExitStatus;
 use ethcore_logger::setup_log;
 use fdlimit::raise_fd_limit;
 use parity_daemonize::AsHandle;
 use parking_lot::{Condvar, Mutex};
-
-#[derive(Debug)]
-/// Status used to exit or restart the program.
-struct ExitStatus {
-    /// Whether the program panicked.
-    panicking: bool,
-    /// Whether the program should exit.
-    should_exit: bool,
-}
 
 fn main() -> Result<(), i32> {
     let conf = {
@@ -92,20 +86,17 @@ fn main() -> Result<(), i32> {
     // increase max number of open files
     raise_fd_limit();
 
-    let exit = Arc::new((
-        Mutex::new(ExitStatus {
-            panicking: false,
-            should_exit: false,
-        }),
-        Condvar::new(),
-    ));
+    //let lockMutex =
+
+    let exit = Arc::new((Mutex::new(ExitStatus::new()), Condvar::new()));
 
     // Double panic can happen. So when we lock `ExitStatus` after the main thread is notified, it cannot be locked
     // again.
     let exiting = Arc::new(AtomicBool::new(false));
 
     trace!(target: "mode", "Not hypervised: not setting exit handlers.");
-    let exec = start(conf, logger);
+    let shutdown = ShutdownManager::new(&exit);
+    let exec = start(conf, logger, shutdown);
 
     match exec {
         Ok(result) => match result {
@@ -119,13 +110,10 @@ fn main() -> Result<(), i32> {
                     let e = exit.clone();
                     let exiting = exiting.clone();
                     move |panic_msg| {
-                        warn!("Panic occured, see stderr for details");
+                        warn!("Panic occured! {}", panic_msg);
                         eprintln!("{}", panic_msg);
                         if !exiting.swap(true, Ordering::SeqCst) {
-                            *e.0.lock() = ExitStatus {
-                                panicking: true,
-                                should_exit: true,
-                            };
+                            *e.0.lock() = ExitStatus::new_panicking();
                             e.1.notify_all();
                         }
                     }
@@ -136,20 +124,14 @@ fn main() -> Result<(), i32> {
                     let exiting = exiting.clone();
                     move || {
                         if !exiting.swap(true, Ordering::SeqCst) {
-                            *e.0.lock() = ExitStatus {
-                                panicking: false,
-                                should_exit: true,
-                            };
+                            *e.0.lock() = ExitStatus::new_should_exit();
                             e.1.notify_all();
                         }
                     }
                 });
 
-                match res_set_handler {
-                    Err(err) => {
-                        warn!("could not setup ctrl+c handler: {:?}", err)
-                    }
-                    _ => {}
+                if let Err(err) = res_set_handler {
+                    warn!("could not setup ctrl+c handler: {:?}", err)
                 }
 
                 // so the client has started successfully
@@ -160,13 +142,13 @@ fn main() -> Result<(), i32> {
 
                 // Wait for signal
                 let mut lock = exit.0.lock();
-                if !lock.should_exit {
-                    let _ = exit.1.wait(&mut lock);
+                if !lock.should_exit() {
+                    exit.1.wait(&mut lock);
                 }
 
                 client.shutdown();
 
-                if lock.panicking {
+                if lock.is_panicking() {
                     return Err(1);
                 }
             }

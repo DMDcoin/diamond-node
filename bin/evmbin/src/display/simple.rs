@@ -20,8 +20,7 @@ use super::config::Config;
 use bytes::ToPretty;
 use ethcore::trace;
 
-use display;
-use info as vm;
+use crate::{display, info as vm};
 
 /// Simple formatting informant.
 #[derive(Default)]

@@ -41,7 +41,7 @@ impl Prefix {
 
 #[cfg(test)]
 mod tests {
-    use Prefix;
+    use crate::Prefix;
 
     #[test]
     fn prefix_generator() {

@@ -22,7 +22,6 @@ use self::{
     ethcore_blockchain::{BlockChainDB, BlockChainDBHandler},
     kvdb_rocksdb::{Database, DatabaseConfig},
 };
-use blooms_db;
 use ethcore::client::ClientConfig;
 use ethcore_db::KeyValueDB;
 use stats::PrometheusMetrics;
@@ -55,7 +54,9 @@ impl BlockChainDB for AppDB {
 }
 
 impl PrometheusMetrics for AppDB {
-    fn prometheus_metrics(&self, _: &mut stats::PrometheusRegistry) {}
+    fn prometheus_metrics(&self, r: &mut stats::PrometheusRegistry) {
+        self.key_value.prometheus_metrics(r);
+    }
 }
 
 /// Open a secret store DB using the given secret store data path. The DB path is one level beneath the data path.
@@ -106,7 +107,7 @@ pub fn open_database(
     fs::create_dir_all(&blooms_path)?;
     fs::create_dir_all(&trace_blooms_path)?;
 
-    let db = Database::open(&config, client_path)?;
+    let db = Database::open(config, client_path)?;
     let db_with_metrics = ethcore_db::DatabaseWithMetrics::new(db);
 
     let db = AppDB {

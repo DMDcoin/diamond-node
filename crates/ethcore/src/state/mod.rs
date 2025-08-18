@@ -22,25 +22,27 @@
 use hash::{KECCAK_EMPTY, KECCAK_NULL_RLP};
 use std::{
     cell::{RefCell, RefMut},
-    collections::{hash_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, hash_map::Entry},
     fmt,
     sync::Arc,
 };
 
-use error::Error;
-use executed::{Executed, ExecutionError};
-use executive::{Executive, TransactOptions};
-use factory::{Factories, VmFactory};
-use machine::EthereumMachine as Machine;
-use pod_account::*;
-use pod_state::{self, PodState};
-use state_db::StateDB;
-use trace::{self, FlatTrace, VMTrace};
-use types::{
-    basic_account::BasicAccount,
-    receipt::{LegacyReceipt, TransactionOutcome, TypedReceipt},
-    state_diff::StateDiff,
-    transaction::SignedTransaction,
+use crate::{
+    error::Error,
+    executed::{Executed, ExecutionError},
+    executive::{Executive, TransactOptions},
+    factory::{Factories, VmFactory},
+    machine::EthereumMachine as Machine,
+    pod_account::*,
+    pod_state::{self, PodState},
+    state_db::StateDB,
+    trace::{self, FlatTrace, VMTrace},
+    types::{
+        basic_account::BasicAccount,
+        receipt::{LegacyReceipt, TransactionOutcome, TypedReceipt},
+        state_diff::StateDiff,
+        transaction::SignedTransaction,
+    },
 };
 
 use vm::EnvInfo;
@@ -203,7 +205,7 @@ pub fn check_proof(
 ) -> ProvedExecution {
     let backend = self::backend::ProofCheck::new(proof);
     let mut factories = Factories::default();
-    factories.accountdb = ::account_db::Factory::Plain;
+    factories.accountdb = crate::account_db::Factory::Plain;
 
     let res = State::from_existing(
         backend,
@@ -640,7 +642,7 @@ impl<B: Backend> State<B> {
                 match checkpoint.get(address) {
                     // The account exists at this checkpoint.
                     Some(Some(AccountEntry {
-                        account: Some(ref account),
+                        account: Some(account),
                         ..
                     })) => {
                         if let Some(value) = account.cached_storage_at(key) {
@@ -664,7 +666,7 @@ impl<B: Backend> State<B> {
                     }
                     // The account didn't exist at that point. Return empty value.
                     Some(Some(AccountEntry { account: None, .. })) => {
-                        return Ok(Some(H256::default()))
+                        return Ok(Some(H256::default()));
                     }
                     // The value was not cached at that checkpoint, meaning it was not modified at all.
                     Some(None) => {
@@ -1574,17 +1576,19 @@ impl Clone for State<StateDB> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        machine::EthereumMachine,
+        spec::*,
+        test_helpers::{get_temp_state, get_temp_state_db},
+        trace::{FlatTrace, TraceError, trace},
+        types::transaction::*,
+    };
     use crypto::publickey::Secret;
     use ethereum_types::{Address, BigEndianHash, H256, U256};
     use evm::CallType;
-    use hash::{keccak, KECCAK_NULL_RLP};
-    use machine::EthereumMachine;
+    use hash::{KECCAK_NULL_RLP, keccak};
     use rustc_hex::FromHex;
-    use spec::*;
     use std::{str::FromStr, sync::Arc};
-    use test_helpers::{get_temp_state, get_temp_state_db};
-    use trace::{trace, FlatTrace, TraceError};
-    use types::transaction::*;
     use vm::EnvInfo;
 
     fn secret() -> Secret {
@@ -1592,7 +1596,7 @@ mod tests {
     }
 
     fn make_frontier_machine(max_depth: usize) -> EthereumMachine {
-        let mut machine = ::ethereum::new_frontier_test_machine();
+        let mut machine = crate::ethereum::new_frontier_test_machine();
         machine.set_schedule_creation_rules(Box::new(move |s, _| s.max_depth = max_depth));
         machine
     }
@@ -3357,7 +3361,7 @@ mod tests {
 
     #[test]
     fn should_trace_diff_suicided_accounts() {
-        use pod_account;
+        use crate::pod_account;
 
         let a = Address::from_low_u64_be(10);
         let db = get_temp_state_db();
@@ -3396,7 +3400,7 @@ mod tests {
 
     #[test]
     fn should_trace_diff_unmodified_storage() {
-        use pod_account;
+        use crate::pod_account;
 
         let a = Address::from_low_u64_be(10);
         let db = get_temp_state_db();

@@ -30,5 +30,5 @@ pub mod runner;
 
 pub use self::{
     executive::json_executive_test,
-    test_common::{debug_include_test, find_json_files_recursive, HookType},
+    test_common::{HookType, debug_include_test, find_json_files_recursive},
 };

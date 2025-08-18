@@ -2,10 +2,10 @@
 //! to support Ethereum network protocol, version 64 and above.
 
 // Re-export ethereum-forkid crate contents here.
-pub use ethereum_forkid::{BlockNumber, ForkId, RejectReason};
+pub use crate::ethereum_forkid::{BlockNumber, ForkId, RejectReason};
 
+use crate::ethereum_forkid::ForkFilter;
 use ethcore::client::ChainInfo;
-use ethereum_forkid::ForkFilter;
 
 /// Wrapper around fork filter that provides integration with `ForkFilter`.
 pub struct ForkFilterApi {

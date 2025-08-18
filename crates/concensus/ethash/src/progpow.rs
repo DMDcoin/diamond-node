@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use compute::{calculate_dag_item, FNV_PRIME};
-use keccak::H256;
-use shared::{get_data_size, Node, ETHASH_ACCESSES, ETHASH_MIX_BYTES};
+use crate::{
+    compute::{FNV_PRIME, calculate_dag_item},
+    keccak::H256,
+    shared::{ETHASH_ACCESSES, ETHASH_MIX_BYTES, Node, get_data_size},
+};
 
 const PROGPOW_CACHE_BYTES: usize = 16 * 1024;
 const PROGPOW_CACHE_WORDS: usize = PROGPOW_CACHE_BYTES / 4;
@@ -394,8 +396,10 @@ mod test {
     use tempdir::TempDir;
 
     use super::*;
-    use cache::{NodeCacheBuilder, OptimizeFor};
-    use keccak::H256;
+    use crate::{
+        cache::{NodeCacheBuilder, OptimizeFor},
+        keccak::H256,
+    };
     use rustc_hex::FromHex;
     use serde_json::{self, Value};
     use std::collections::VecDeque;

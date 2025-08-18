@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::v1::{Web3, Web3Client};
 use jsonrpc_core::IoHandler;
-use v1::{Web3, Web3Client};
 use version::version;
 
 #[test]

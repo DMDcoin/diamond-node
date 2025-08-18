@@ -1,10 +1,11 @@
-OpenEthereum Client.
+diamond-node
   version {}
 Copyright 2015-2020 Parity Technologies (UK) Ltd.
+Copyright 2020-2025 DMD diamond.
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.
 This is free software: you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law.
 
-By Wood/Paronyan/Kotewicz/Drwięga/Volf/Greeff
+By Haller/Forstenlechner/Wood/Paronyan/Kotewicz/Drwięga/Volf/Greeff
    Habermeier/Czaban/Gotchac/Redman/Nikolsky
    Schoedon/Tang/Adolfsson/Silva/Palm/Hirsz et al.

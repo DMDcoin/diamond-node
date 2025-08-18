@@ -15,8 +15,8 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::interpreter::MAX_SUB_STACK_SIZE;
+use crate::{factory::Factory, vmtype::VMType};
 use ethereum_types::{Address, H256, U256};
-use factory::Factory;
 use hex_literal::hex;
 use rustc_hex::FromHex;
 use std::{
@@ -31,7 +31,6 @@ use vm::{
     tests::{test_finalize, FakeCall, FakeCallType, FakeExt},
     ActionParams, ActionValue, Ext,
 };
-use vmtype::VMType;
 
 evm_test! {test_add: test_add_int}
 fn test_add(factory: super::Factory) {

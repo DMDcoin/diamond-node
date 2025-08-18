@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::v1::{
+    Net, NetClient,
+    tests::helpers::{Config, TestSyncProvider},
+};
 use jsonrpc_core::IoHandler;
 use std::sync::Arc;
-use v1::{
-    tests::helpers::{Config, TestSyncProvider},
-    Net, NetClient,
-};
 
 fn sync_provider() -> Arc<TestSyncProvider> {
     Arc::new(TestSyncProvider::new(Config {

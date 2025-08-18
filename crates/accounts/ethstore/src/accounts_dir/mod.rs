@@ -16,10 +16,9 @@
 
 //! Accounts Directory
 
+use crate::{Error, SafeAccount};
 use ethkey::Password;
 use std::{num::NonZeroU32, path::PathBuf};
-use Error;
-use SafeAccount;
 
 mod disk;
 mod memory;

@@ -14,14 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use client::{Rpc, RpcError};
+use crate::{
+    BoxFuture,
+    client::{Rpc, RpcError},
+};
 use ethereum_types::U256;
 use futures::Canceled;
 use rpc::signer::{ConfirmationRequest, TransactionCondition, TransactionModification};
 use serde;
-use serde_json::{to_value, Value as JsonValue};
+use serde_json::{Value as JsonValue, to_value};
 use std::path::PathBuf;
-use BoxFuture;
 
 pub struct SignerRpc {
     rpc: Rpc,

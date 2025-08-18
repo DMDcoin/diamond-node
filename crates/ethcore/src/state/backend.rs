@@ -26,6 +26,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::state::Account;
 use ethereum_types::{Address, H256};
 use hash_db::{AsHashDB, HashDB};
 use journaldb::AsKeyedHashDB;
@@ -33,7 +34,6 @@ use keccak_hasher::KeccakHasher;
 use kvdb::DBValue;
 use memory_db::MemoryDB;
 use parking_lot::Mutex;
-use state::Account;
 
 /// State backend. See module docs for more details.
 pub trait Backend: Send {

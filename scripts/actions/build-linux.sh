@@ -16,7 +16,7 @@ echo "_____ Post-processing binaries _____"
 rm -rf artifacts/*
 mkdir -p artifacts/
 
-cp -v target/release/openethereum artifacts/openethereum
+cp -v target/release/diamond-node artifacts/diamond-node
 cp -v target/release/openethereum-evm artifacts/openethereum-evm
 cp -v target/release/ethstore artifacts/ethstore
 cp -v target/release/ethkey artifacts/ethkey

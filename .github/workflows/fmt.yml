@@ -5,13 +5,13 @@ name: rustfmt
 jobs:
   fmt:
     name: Rustfmt
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.59
+          toolchain: 1.85
           override: true
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1

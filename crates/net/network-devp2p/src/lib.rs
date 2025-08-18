@@ -21,12 +21,12 @@
 //! ```rust
 //! extern crate ethcore_network as net;
 //! extern crate ethcore_network_devp2p as devp2p;
-//! extern crate ethereum_types as types;
+//! use ethereum_types as types;
 //! use net::*;
 //! use devp2p::NetworkService;
 //! use std::sync::Arc;
 //! use std::time::Duration;
-//! use types::U64;
+//! use crate::types::U64;
 //!
 //! struct MyHandler;
 //!
@@ -64,10 +64,8 @@
 
 extern crate ansi_term; //TODO: remove this
 extern crate bytes;
-extern crate crypto as rcrypto;
 extern crate ethcore_io as io;
 extern crate ethcore_network as network;
-extern crate ethereum_types;
 extern crate ethkey;
 extern crate igd;
 extern crate ipnetwork;
@@ -86,6 +84,7 @@ extern crate rustc_hex;
 extern crate serde;
 extern crate serde_json;
 extern crate slab;
+extern crate stats;
 extern crate tiny_keccak;
 
 #[macro_use]
@@ -111,13 +110,14 @@ mod ip_utils;
 mod node_table;
 mod service;
 mod session;
+mod session_container;
 
 pub use host::NetworkContext;
 pub use service::NetworkService;
 
 pub use connection::PAYLOAD_SOFT_LIMIT;
 
-pub use io::TimerToken;
-pub use node_table::{validate_node_url, NodeId};
+pub use crate::io::TimerToken;
+pub use node_table::{NodeId, validate_node_url};
 
 const PROTOCOL_VERSION: u32 = 5;

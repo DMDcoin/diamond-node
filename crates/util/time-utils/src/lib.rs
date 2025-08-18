@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Temporary trait for `checked operations` on SystemTime until these are available in the standard library
 pub trait CheckedSystemTime {
@@ -46,6 +46,53 @@ impl CheckedSystemTime for SystemTime {
         } else {
             None
         }
+    }
+}
+
+/// a DeadlineStopwatch helps to handle deadlines in a more convenient way.
+pub struct DeadlineStopwatch {
+    started: Instant,
+    max_duration: Duration,
+}
+
+impl DeadlineStopwatch {
+    pub fn new(max_duration: Duration) -> Self {
+        Self {
+            started: Instant::now(),
+            max_duration,
+        }
+    }
+
+    pub fn elapsed(&self) -> Duration {
+        self.started.elapsed()
+    }
+
+    pub fn started(&self) -> &Instant {
+        &self.started
+    }
+
+    pub fn end_time(&self) -> Instant {
+        self.started + self.max_duration
+    }
+
+    pub fn should_continue(&self) -> bool {
+        self.elapsed() < self.max_duration
+    }
+
+    pub fn time_left(&self) -> Duration {
+        let elapsed = self.elapsed();
+
+        if elapsed >= self.max_duration {
+            Duration::from_secs(0)
+        } else if let Some(time_left) = self.max_duration.checked_sub(elapsed) {
+            time_left
+        } else {
+            Duration::from_secs(0)
+        }
+    }
+
+    pub fn is_expired(&self) -> bool {
+        self.elapsed() >= self.max_duration
     }
 }
 

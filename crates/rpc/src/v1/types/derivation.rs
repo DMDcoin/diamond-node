@@ -15,8 +15,8 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use serde::{
-    de::{Error, Visitor},
     Deserialize, Deserializer,
+    de::{Error, Visitor},
 };
 use std::fmt;
 
@@ -75,6 +75,7 @@ impl From<DeriveHash> for Derive {
 #[cfg(any(test, feature = "accounts"))]
 #[derive(Debug)]
 pub enum ConvertError {
+    #[allow(dead_code)]
     IndexOverlfow(u64),
 }
 

@@ -14,15 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    chain::sync_packet::{PacketInfo, SyncPacket},
+    types::BlockNumber,
+};
 use bytes::Bytes;
-use chain::sync_packet::{PacketInfo, SyncPacket};
 use ethcore::{client::BlockChainClient, snapshot::SnapshotService};
+use ethereum_types::H512;
 use network::{
-    client_version::ClientVersion, Error, NetworkContext, PacketId, PeerId, ProtocolId, SessionInfo,
+    Error, NetworkContext, PacketId, PeerId, ProtocolId, SessionInfo, client_version::ClientVersion,
 };
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use types::BlockNumber;
 
 /// IO interface for the syncing handler.
 /// Provides peer connection management and an interface to the blockchain client.
@@ -56,6 +59,9 @@ pub trait SyncIo {
     fn is_expired(&self) -> bool;
     /// Return sync overlay
     fn chain_overlay(&self) -> &RwLock<HashMap<BlockNumber, Bytes>>;
+
+    /// Returns the peer ID for a given node id, if a corresponding peer exists.
+    fn node_id_to_peer_id(&self, node_id: &H512) -> Option<PeerId>;
 }
 
 /// Wraps `NetworkContext` and the blockchain client
@@ -129,5 +135,9 @@ impl<'s> SyncIo for NetSyncIo<'s> {
 
     fn peer_version(&self, peer_id: PeerId) -> ClientVersion {
         self.network.peer_client_version(peer_id)
+    }
+
+    fn node_id_to_peer_id(&self, node_id: &H512) -> Option<PeerId> {
+        self.network.node_id_to_peer_id(node_id)
     }
 }

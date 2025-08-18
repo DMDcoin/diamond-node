@@ -1,10 +1,11 @@
 [package]
 description = "Atomically cached len(), for use with collections contained in parking_lot Mutex and RwLock"
-homepage = "https://github.com/openethereum/openethereum"
+homepage = "https://github.com/dmdcoin/diamond-node"
 license = "GPL-3.0"
 name = "len-caching-lock"
 version = "0.1.1"
 authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2024"
 
 [dependencies]
-parking_lot = "0.11.1"
+parking_lot = "0.12"

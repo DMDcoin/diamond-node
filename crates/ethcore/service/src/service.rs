@@ -18,23 +18,26 @@
 
 use std::{path::Path, sync::Arc, time::Duration};
 
+use crate::{
+    io::{IoContext, IoError, IoHandler, IoService, TimerToken},
+    stop_guard::StopGuard,
+};
 use ansi_term::Colour;
-use io::{IoContext, IoError, IoHandler, IoService, TimerToken};
-use stop_guard::StopGuard;
 
-use blockchain::{BlockChainDB, BlockChainDBHandler};
+use crate::blockchain::{BlockChainDB, BlockChainDBHandler};
 use ethcore::{
     client::{ChainNotify, Client, ClientConfig, ClientIoMessage},
     error::{Error as EthcoreError, ErrorKind},
+    exit::ShutdownManager,
     miner::Miner,
     snapshot::{
-        service::{Service as SnapshotService, ServiceParams as SnapServiceParams},
         Error as SnapshotError, RestorationStatus, SnapshotService as _SnapshotService,
+        service::{Service as SnapshotService, ServiceParams as SnapServiceParams},
     },
     spec::Spec,
 };
 
-use Error;
+use crate::Error;
 
 /// Client service setup. Creates and registers client and network services with the IO subsystem.
 pub struct ClientService {
@@ -55,8 +58,9 @@ impl ClientService {
         restoration_db_handler: Box<dyn BlockChainDBHandler>,
         _ipc_path: &Path,
         miner: Arc<Miner>,
+        shutdown: Arc<ShutdownManager>,
     ) -> Result<ClientService, Error> {
-        let io_service = IoService::<ClientIoMessage>::start("Client")?;
+        let io_service = IoService::<ClientIoMessage>::start("Client", 4)?;
 
         info!(
             "Configured for {} using {} engine",
@@ -71,6 +75,7 @@ impl ClientService {
             blockchain_db.clone(),
             miner.clone(),
             io_service.channel(),
+            shutdown,
         )?;
         miner.set_io_channel(io_service.channel());
         miner.set_in_chain_checker(&client.clone());
@@ -269,6 +274,7 @@ mod tests {
             restoration_db_handler,
             tempdir.path(),
             Arc::new(Miner::new_for_tests(&spec, None)),
+            Arc::new(ShutdownManager::null()),
         );
         assert!(service.is_ok());
         drop(service.unwrap());

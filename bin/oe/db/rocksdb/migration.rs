@@ -55,7 +55,7 @@ const BLOOMS_DB_VERSION: u32 = 13;
 /// Defines how many items are migrated to the new version of database at once.
 const BATCH_SIZE: usize = 1024;
 /// Version file name.
-const VERSION_FILE_NAME: &'static str = "db_version";
+const VERSION_FILE_NAME: &str = "db_version";
 
 /// Migration related erorrs.
 #[derive(Debug)]
@@ -175,12 +175,12 @@ fn migrate_database(
         return Ok(());
     }
 
-    let backup_path = backup_database_path(&db_path);
+    let backup_path = backup_database_path(db_path);
     // remove the backup dir if it exists
     let _ = fs::remove_dir_all(&backup_path);
 
     // migrate old database to the new one
-    let temp_path = migrations.execute(&db_path, version)?;
+    let temp_path = migrations.execute(db_path, version)?;
 
     // completely in-place migration leads to the paths being equal.
     // in that case, no need to shuffle directories.
@@ -189,12 +189,12 @@ fn migrate_database(
     }
 
     // create backup
-    fs::rename(&db_path, &backup_path)?;
+    fs::rename(db_path, &backup_path)?;
 
     // replace the old database with the new one
-    if let Err(err) = fs::rename(&temp_path, &db_path) {
+    if let Err(err) = fs::rename(&temp_path, db_path) {
         // if something went wrong, bring back backup
-        fs::rename(&backup_path, &db_path)?;
+        fs::rename(&backup_path, db_path)?;
         return Err(err.into());
     }
 
@@ -208,7 +208,7 @@ fn exists(path: &Path) -> bool {
 
 /// Migrates the database.
 pub fn migrate(path: &Path, compaction_profile: &DatabaseCompactionProfile) -> Result<(), Error> {
-    let compaction_profile = helpers::compaction_profile(&compaction_profile, path);
+    let compaction_profile = helpers::compaction_profile(compaction_profile, path);
 
     // read version file.
     let version = current_version(path)?;

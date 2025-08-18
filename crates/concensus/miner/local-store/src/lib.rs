@@ -18,12 +18,14 @@
 
 use std::{fmt, sync::Arc, time::Duration};
 
-use ethcore_db::KeyValueDB;
-use io::IoHandler;
-use types::transaction::{
-    Condition as TransactionCondition, PendingTransaction, SignedTransaction, TypedTransaction,
-    UnverifiedTransaction,
+use crate::{
+    io::IoHandler,
+    types::transaction::{
+        Condition as TransactionCondition, PendingTransaction, SignedTransaction, TypedTransaction,
+        UnverifiedTransaction,
+    },
 };
+use ethcore_db::KeyValueDB;
 
 extern crate common_types as types;
 extern crate ethcore_db;
@@ -239,9 +241,9 @@ impl<T: NodeInfo> Drop for LocalDataStore<T> {
 mod tests {
     use super::NodeInfo;
 
+    use crate::types::transaction::{Condition, PendingTransaction, Transaction, TypedTransaction};
     use ethkey::Brain;
     use std::sync::Arc;
-    use types::transaction::{Condition, PendingTransaction, Transaction, TypedTransaction};
 
     // we want to test: round-trip of good transactions.
     // failure to roundtrip bad transactions (but that it doesn't panic)

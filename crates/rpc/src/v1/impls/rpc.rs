@@ -15,9 +15,9 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! RPC generic methods implementation.
+use crate::v1::traits::Rpc;
 use jsonrpc_core::Result;
 use std::collections::BTreeMap;
-use v1::traits::Rpc;
 
 /// RPC generic methods implementation.
 pub struct RpcClient {

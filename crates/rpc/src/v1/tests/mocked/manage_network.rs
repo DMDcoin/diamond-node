@@ -21,7 +21,7 @@ use std::{
 };
 use sync::ManageNetwork;
 
-extern crate ethcore_network;
+use ethcore_network;
 
 pub struct TestManageNetwork;
 

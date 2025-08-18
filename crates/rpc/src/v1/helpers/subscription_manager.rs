@@ -18,22 +18,21 @@
 
 use parking_lot::Mutex;
 use std::sync::{
-    atomic::{self, AtomicBool},
     Arc,
+    atomic::{self, AtomicBool},
 };
 
 use jsonrpc_core::{
-    self as core,
+    self as core, MetaIoHandler,
     futures::{
+        Future, Sink,
         future::{self, Either},
         sync::mpsc,
-        Future, Sink,
     },
-    MetaIoHandler,
 };
 use jsonrpc_pubsub::SubscriptionId;
 
-use v1::{helpers::Subscribers, metadata::Metadata};
+use crate::v1::{helpers::Subscribers, metadata::Metadata};
 
 #[derive(Debug)]
 struct Subscription {
@@ -160,8 +159,8 @@ mod tests {
 
     use http::tokio::runtime::Runtime;
     use jsonrpc_core::{
-        futures::{Future, Stream},
         MetaIoHandler, NoopMiddleware, Params, Value,
+        futures::{Future, Stream},
     };
     use jsonrpc_pubsub::SubscriptionId;
 

@@ -20,8 +20,8 @@ pub use rpc_common::Bytes;
 
 pub use self::{
     account_info::{AccountInfo, EthAccount, ExtAccountInfo, RecoveredAccount, StorageProof},
-    block::{Block, BlockTransactions, Header, Rich, RichBlock, RichHeader},
-    block_number::{block_number_to_id, BlockNumber},
+    block::{Block, BlockTransactions, Header, RichBlock, RichHeader},
+    block_number::{BlockNumber, block_number_to_id},
     call_request::CallRequest,
     confirmations::{
         ConfirmationPayload, ConfirmationRequest, ConfirmationResponse,
@@ -40,14 +40,11 @@ pub use self::{
     receipt::Receipt,
     rpc_settings::RpcSettings,
     secretstore::EncryptedDocumentKey,
-    sync::{
-        ChainStatus, EthProtocolInfo, PeerInfo, PeerNetworkInfo, PeerProtocolsInfo, Peers,
-        SyncInfo, SyncStatus, TransactionStats,
-    },
+    sync::{ChainStatus, Peers, SyncInfo, SyncStatus, TransactionStats},
     trace::{LocalizedTrace, TraceResults, TraceResultsWithTransactionHash},
     trace_filter::TraceFilter,
     transaction::{LocalTransactionStatus, RichRawTransaction, Transaction},
-    transaction_access_list::{AccessList, AccessListItem},
+    transaction_access_list::AccessList,
     transaction_condition::TransactionCondition,
     transaction_request::TransactionRequest,
     work::Work,
