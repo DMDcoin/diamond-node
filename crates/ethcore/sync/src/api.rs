@@ -592,6 +592,11 @@ impl NetworkProtocolHandler for SyncProtocolHandler {
     }
 
     fn read(&self, io: &dyn NetworkContext, peer: &PeerId, packet_id: u8, data: &[u8]) {
+        let session_info = io.session_info(*peer);
+        if session_info.is_none() {
+            debug!(target: "sync", "Received packet from peer, where no Session info is available anymore (was just disconnected ??): {peer}");
+            return;
+        }
         let node_id = io.session_info(*peer).unwrap().id;
         self.sync.dispatch_packet(
             &mut NetSyncIo::new(io, &*self.chain, &*self.snapshot_service, &self.overlay),
