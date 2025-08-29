@@ -463,10 +463,10 @@ impl Miner {
         let params = self.params.read().clone();
 
         let block = match chain.prepare_open_block(
-            if self.engine.use_block_author() {
-                params.author
-            } else {
-                Address::zero()
+            match self.engine.use_block_author() {
+                crate::engines::BlockAuthorOption::ZeroBlockAuthor => Address::zero(),
+                crate::engines::BlockAuthorOption::ConfiguredBlockAuthor => params.author,
+                crate::engines::BlockAuthorOption::EngineBlockAuthor(address) => address,
             },
             params.gas_range_target,
             params.extra_data,

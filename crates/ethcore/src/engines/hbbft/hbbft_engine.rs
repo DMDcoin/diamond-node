@@ -11,7 +11,8 @@ use crate::{
         traits::{EngineClient, ForceUpdateSealing},
     },
     engines::{
-        Engine, EngineError, ForkChoice, Seal, SealingState, default_system_or_code_call,
+        BlockAuthorOption, Engine, EngineError, ForkChoice, Seal, SealingState,
+        default_system_or_code_call,
         hbbft::{
             contracts::random_hbbft::set_current_seed_tx_raw, hbbft_message_memorium::BadSealReason,
         },
@@ -595,14 +596,9 @@ impl HoneyBadgerBFT {
             .write()
             .insert(batch.epoch, random_number);
 
-        if let Some(mut header) = client.create_pending_block_at(batch_txns, timestamp, batch.epoch) {
+        if let Some(header) = client.create_pending_block_at(batch_txns, timestamp, batch.epoch) {
             let block_num = header.number();
             let hash = header.bare_hash();
-            if let Some(reward_contract_address) = self.params.block_reward_contract_address  {
-                header.set_author(reward_contract_address);    
-            } else {
-                warn!("Creating block with no blockRewardContractAddress {}", block_num);
-            }
             // TODO: trace is missleading here: we already got the signature shares, we can already
             trace!(target: "consensus", "Sending signature share of {} for block {}", hash, block_num);
             let step = match self
@@ -795,7 +791,7 @@ impl HoneyBadgerBFT {
             .map(|msg| msg.map(|m| Message::Sealing(block_num, m)));
         self.dispatch_messages(&client, messages, network_info);
         if let Some(sig) = step.output.into_iter().next() {
-            trace!(target: "consensus", "Signature for block {} is ready", block_num);
+            trace!(target: "consensus", "Signature for block {} is ready.", block_num);
             let state = Sealing::Complete(sig);
             self.sealing.write().insert(block_num, state);
 
@@ -1473,8 +1469,11 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
         false
     }
 
-    fn use_block_author(&self) -> bool {
-        true
+    fn use_block_author(&self) -> BlockAuthorOption {
+        if let Some(address) = self.params.block_reward_contract_address {
+            return BlockAuthorOption::EngineBlockAuthor(address);
+        }
+        return BlockAuthorOption::ConfiguredBlockAuthor;
     }
 
     fn on_before_transactions(&self, block: &mut ExecutedBlock) -> Result<(), Error> {
@@ -1542,7 +1541,7 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
 
     /// Allow mutating the header during seal generation.
     fn on_seal_block(&self, block: &mut ExecutedBlock) -> Result<(), Error> {
-       let random_numbers = self.random_numbers.read();
+        let random_numbers = self.random_numbers.read();
         match random_numbers.get(&block.header.number()) {
             None => {
                 warn!("No rng value available for header.");
@@ -1563,7 +1562,6 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
         if let Some(address) = self.params.block_reward_contract_address {
             // only if no block reward skips are defined for this block.
             let header_number = block.header.number();
-            block.header.set_author(address);
 
             if self
                 .params
