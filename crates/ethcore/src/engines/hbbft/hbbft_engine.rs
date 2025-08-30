@@ -11,7 +11,8 @@ use crate::{
         traits::{EngineClient, ForceUpdateSealing},
     },
     engines::{
-        Engine, EngineError, ForkChoice, Seal, SealingState, default_system_or_code_call,
+        BlockAuthorOption, Engine, EngineError, ForkChoice, Seal, SealingState,
+        default_system_or_code_call,
         hbbft::{
             contracts::random_hbbft::set_current_seed_tx_raw, hbbft_message_memorium::BadSealReason,
         },
@@ -790,7 +791,7 @@ impl HoneyBadgerBFT {
             .map(|msg| msg.map(|m| Message::Sealing(block_num, m)));
         self.dispatch_messages(&client, messages, network_info);
         if let Some(sig) = step.output.into_iter().next() {
-            trace!(target: "consensus", "Signature for block {} is ready", block_num);
+            trace!(target: "consensus", "Signature for block {} is ready.", block_num);
             let state = Sealing::Complete(sig);
             self.sealing.write().insert(block_num, state);
 
@@ -923,7 +924,7 @@ impl HoneyBadgerBFT {
         let steps = match self.hbbft_state.try_write_for(Duration::from_millis(10)) {
             Some(mut hbbft_state_lock) => hbbft_state_lock.replay_cached_messages(client.clone()),
             None => {
-                trace!(target: "engine", "could not acquire write lock for replaying cached messages, stepping back..",);
+                debug!(target: "engine", "could not acquire write lock for replaying cached messages, stepping back..",);
                 return None;
             }
         };
@@ -1468,8 +1469,11 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
         false
     }
 
-    fn use_block_author(&self) -> bool {
-        false
+    fn use_block_author(&self) -> BlockAuthorOption {
+        if let Some(address) = self.params.block_reward_contract_address {
+            return BlockAuthorOption::EngineBlockAuthor(address);
+        }
+        return BlockAuthorOption::ConfiguredBlockAuthor;
     }
 
     fn on_before_transactions(&self, block: &mut ExecutedBlock) -> Result<(), Error> {
