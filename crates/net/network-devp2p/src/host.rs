@@ -57,7 +57,7 @@ use parking_lot::{Mutex, RwLock};
 use stats::{PrometheusMetrics, PrometheusRegistry};
 
 const MAX_SESSIONS: usize = 2048;
-const MAX_HANDSHAKES: usize = 99;
+const MAX_HANDSHAKES: usize = 1999;
 
 const DEFAULT_PORT: u16 = 30303;
 
