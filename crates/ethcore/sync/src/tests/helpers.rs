@@ -181,6 +181,10 @@ where
     fn chain_overlay(&self) -> &RwLock<HashMap<BlockNumber, Bytes>> {
         &self.overlay
     }
+
+    fn node_id_to_peer_id(&self, node_id: &ethereum_types::H512) -> Option<PeerId> {
+        return Some(node_id.to_low_u64_le() as PeerId);
+    }
 }
 
 /// Mock for emulution of async run of new blocks
@@ -272,7 +276,7 @@ where
     fn process_io_message(&self, message: ChainMessageType) {
         let mut io = TestIo::new(&*self.chain, &self.snapshot_service, &self.queue, None);
         match message {
-            ChainMessageType::Consensus(data) => {
+            ChainMessageType::Consensus(_block, data) => {
                 self.sync.write().propagate_consensus_packet(&mut io, data)
             }
         }

@@ -36,6 +36,7 @@ serde_derive = "1.0"
 error-chain = { version = "0.12", default-features = false }
 lru-cache = "0.1"
 stats = { path = "../../util/stats" }
+time-utils = { path = "../../util/time-utils" }
 
 [dev-dependencies]
 env_logger = "0.5"

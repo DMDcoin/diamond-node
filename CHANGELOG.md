@@ -1,3 +1,23 @@
+## Diamond Node Software 3.3.5-hbbft-0.11.8
+-  [deregister_session_stream can cause deadlocks](https://github.com/DMDcoin/diamond-node/issues/267)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.7
+- [Handshake and Session Management improvements](https://github.com/DMDcoin/diamond-node/issues/262)
+- [Reliable Message Broadcast Protocol: message_cache of SyncProtocolHandler does not get cleaned up](https://github.com/DMDcoin/diamond-node/issues/261)
+- reduced log outputs for RMBP cached messages
+- Fix possible deadlock in deregister_session_stream in combination with session_readable
+- reduce timings for shutdown from 90 seconds to 5 seconds, so auto restart of nodes in deadlock cases is faster
+
+## Diamond Node Software 3.3.5-hbbft-0.11.6
+- [session double kill problem.](https://github.com/DMDcoin/diamond-node/issues/252)
+- [Network Host logic: peer_id to NodeID consistency](https://github.com/DMDcoin/diamond-node/issues/251)
+- [sealing messages probably not received](https://github.com/DMDcoin/diamond-node/issues/248)
+- [disconnected from reservered peers](https://github.com/DMDcoin/diamond-node/issues/247)
+- [separate handshakes and encrypted connections](https://github.com/DMDcoin/diamond-node/issues/254)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.5
+- [Improved reliability of Hbbft targeted message delivery](https://github.com/DMDcoin/diamond-node/issues/248)
+
 ## Diamond Node Software 3.3.5-hbbft-0.11.4
 - [Balanced lock approach for solving the lock problems in devp2p](https://github.com/DMDcoin/diamond-node/issues/236)
 

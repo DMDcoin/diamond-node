@@ -22,7 +22,7 @@ use std::{collections::HashMap, time::Duration};
 /// Messages to broadcast via chain
 pub enum ChainMessageType {
     /// Consensus message
-    Consensus(Vec<u8>),
+    Consensus(u64, Vec<u8>),
 }
 
 /// Route type to indicate whether it is enacted or retracted.
@@ -184,7 +184,7 @@ pub trait ChainNotify: Send + Sync {
     }
 
     /// fires when chain sends a message to a specific peer
-    fn send(&self, _message_type: ChainMessageType, _node_id: Option<H512>) {
+    fn send(&self, _message_type: ChainMessageType, _node_id: &H512) {
         // does nothing by default
     }
 

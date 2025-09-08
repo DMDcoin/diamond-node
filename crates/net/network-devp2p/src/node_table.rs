@@ -374,6 +374,26 @@ impl NodeTable {
             .collect()
     }
 
+    /// Returns node ids sorted by failure percentage, for nodes with the same failure percentage the absolute number of
+    /// failures is considered.
+    pub fn nodes_filtered<F>(
+        &self,
+        max_count: usize,
+        ip_filter: &IpFilter,
+        filter: F,
+    ) -> Vec<NodeId>
+    where
+        F: Fn(&Node) -> bool,
+    {
+        self.ordered_entries()
+            .iter()
+            .filter(|n| n.endpoint.is_allowed(&ip_filter))
+            .filter(|n| filter(n))
+            .take(max_count)
+            .map(|n| n.id)
+            .collect()
+    }
+
     /// Ordered list of all entries by failure percentage, for nodes with the same failure percentage the absolute
     /// number of failures is considered.
     pub fn entries(&self) -> Vec<NodeEntry> {

@@ -716,15 +716,13 @@ impl RunningClient {
                 std::thread::Builder::new()
                     .name("diamond-node-force-quit".to_string())
                     .spawn(move || {
+
+                        let duration_soft = 5;
                         // we make a force quit if after 90 seconds, if this shutdown routine 
-                        std::thread::sleep(Duration::from_secs(30));
-                        warn!(target: "shutdown", "shutdown not happened within 30 seconds, waiting for 60 seconds before force exiting the process.");
-                        std::thread::sleep(Duration::from_secs(50));
-                        warn!(target: "shutdown", "force exit in 10 seconds.");
-                        std::thread::sleep(Duration::from_secs(10));
-                        warn!(target: "shutdown", "force exiting now.");
+                        std::thread::sleep(Duration::from_secs(duration_soft));
+                        warn!(target: "shutdown", "shutdown not happened within {duration_soft} seconds, starting force exiting the process.");
+                        std::thread::sleep(Duration::from_secs(1));
                         std::process::exit(1);
-                        // Wait for the shutdown manager to finish
                     })
                     .expect("Failed to spawn Force shutdown thread");
 

@@ -110,6 +110,7 @@ mod ip_utils;
 mod node_table;
 mod service;
 mod session;
+mod session_container;
 
 pub use host::NetworkContext;
 pub use service::NetworkService;
