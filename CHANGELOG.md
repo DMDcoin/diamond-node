@@ -1,3 +1,11 @@
+## Diamond Node Software 0.12.0
+
+- New Versioning Scheme: Since Open Ethereum did not get a new update, diamond-node will not mention 3.3.5 anymore
+- [race condition: Incoming data from peer that gets disconnected leads to crash](https://github.com/DMDcoin/diamond-node/issues/275)
+- [not joining hbbft epoch after sync has finished](https://github.com/DMDcoin/diamond-node/issues/270)
+- [diamond front running resistance](https://github.com/DMDcoin/diamond-node/issues/89)
+- [Transaction fees distribution](https://github.com/DMDcoin/diamond-node/issues/40)
+
 ## Diamond Node Software 3.3.5-hbbft-0.11.8
 -  [deregister_session_stream can cause deadlocks](https://github.com/DMDcoin/diamond-node/issues/267)
 

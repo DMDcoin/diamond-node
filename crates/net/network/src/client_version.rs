@@ -16,8 +16,9 @@
 
 //! Parse ethereum client ID strings and provide querying functionality
 
-use semver::{Identifier, Version};
+use semver::{Version};
 use std::fmt;
+
 
 /// Parity client string prefix
 const LEGACY_CLIENT_ID_PREFIX: &str = "Parity-Ethereum";
@@ -155,20 +156,10 @@ impl ClientCapabilities for ClientVersion {
     fn is_hbbft(&self) -> bool {
         match self {
             ClientVersion::ParityClient(client) => {
-                for id in client.semver.pre.iter() {
-                    match id {
-                        Identifier::AlphaNumeric(alpha) => {
-                            if alpha.contains("hbbft") {
-                                return true;
-                            }
-                        }
-                        Identifier::Numeric(_) => {}
-                    }
-                }
-                return false;
+                return client.name() == parity_version::NODE_SOFTWARE_NAME;
             }
-            ClientVersion::ParityUnknownFormat(_) => false,
-            ClientVersion::Other(_) => false,
+            ClientVersion::ParityUnknownFormat(_) => { false },
+            ClientVersion::Other(_) => { false },
         };
         return false;
     }
