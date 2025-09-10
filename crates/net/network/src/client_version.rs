@@ -23,12 +23,6 @@ use std::fmt;
 const LEGACY_CLIENT_ID_PREFIX: &str = "Parity-Ethereum";
 const CURRENT_CLIENT_ID_PREFIX: &str = "OpenEthereum";
 
-lazy_static! {
-/// Parity versions starting from this will accept block bodies requests
-/// of 256 bodies
-    static ref PARITY_CLIENT_LARGE_REQUESTS_VERSION: Version = Version::parse("2.4.0").unwrap();
-}
-
 /// Description of the software version running in a peer
 /// according to https://github.com/ethereum/wiki/wiki/Client-Version-Strings
 /// This structure as it is represents the format used by Parity clients. Other
@@ -55,9 +49,6 @@ impl ParityClientData {
         os: String,
         compiler: String,
     ) -> Self {
-        // Flags logic
-        let can_handle_large_requests = &semver >= &PARITY_CLIENT_LARGE_REQUESTS_VERSION;
-
         // Instantiate and return
         ParityClientData {
             name: name,
@@ -65,8 +56,7 @@ impl ParityClientData {
             semver: semver,
             os: os,
             compiler: compiler,
-
-            can_handle_large_requests: can_handle_large_requests,
+            can_handle_large_requests: true, // all diamond-nodes can handle large requests
         }
     }
 
@@ -120,7 +110,7 @@ impl Default for ClientVersion {
 /// Provide information about what a particular version of a
 /// peer software can do
 pub trait ClientCapabilities {
-    /// Parity versions before PARITY_CLIENT_LARGE_REQUESTS_VERSION would not
+    /// Old Parity versions would not
     /// check the accumulated size of a packet when building a response to a
     /// GET_BLOCK_BODIES request. If the packet was larger than a given limit,
     /// instead of sending fewer blocks no packet would get sent at all. Query
