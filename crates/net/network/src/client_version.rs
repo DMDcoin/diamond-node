@@ -16,9 +16,8 @@
 
 //! Parse ethereum client ID strings and provide querying functionality
 
-use semver::{Version};
+use semver::Version;
 use std::fmt;
-
 
 /// Parity client string prefix
 const LEGACY_CLIENT_ID_PREFIX: &str = "Parity-Ethereum";
@@ -158,8 +157,8 @@ impl ClientCapabilities for ClientVersion {
             ClientVersion::ParityClient(client) => {
                 return client.name() == parity_version::NODE_SOFTWARE_NAME;
             }
-            ClientVersion::ParityUnknownFormat(_) => { false },
-            ClientVersion::Other(_) => { false },
+            ClientVersion::ParityUnknownFormat(_) => false,
+            ClientVersion::Other(_) => false,
         };
         return false;
     }
