@@ -144,7 +144,13 @@ impl Handshake {
         while let Some(data) = self.connection.readable()? {
             match self.state {
                 HandshakeState::New => {}
-                HandshakeState::StartSession => {}
+                HandshakeState::StartSession => {
+                    error!(target: "network", "starting session, clearing timer for {}", self.connection.token);
+                    if let Err(e) = io.clear_timer(self.connection.token) {
+                        debug!(target: "network", "failed to clear timer for session: {} {e:?}", self.connection.token);
+                    }
+                    break;
+                }
                 HandshakeState::ReadingAuth => {
                     self.read_auth(io, host.secret(), &data)?;
                 }
@@ -157,10 +163,6 @@ impl Handshake {
                 HandshakeState::ReadingAckEip8 => {
                     self.read_ack_eip8(host.secret(), &data)?;
                 }
-            }
-            if self.state == HandshakeState::StartSession {
-                io.clear_timer(self.connection.token).ok();
-                break;
             }
         }
         Ok(())
