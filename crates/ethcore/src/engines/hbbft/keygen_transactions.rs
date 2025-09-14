@@ -57,7 +57,7 @@ impl From<CallError> for KeyGenError {
     }
 }
 
-static KEYGEN_TRANSACTION_SEND_DELAY: u64 = 3;
+static KEYGEN_TRANSACTION_SEND_DELAY: u64 = 0;
 static KEYGEN_TRANSACTION_RESEND_DELAY: u64 = 10;
 
 impl KeygenTransactionSender {

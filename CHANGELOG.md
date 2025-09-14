@@ -1,3 +1,13 @@
+## Diamond Node Software 0.12.2
+
+- [Hotfix: Nodes not fast enough to write parts (keygen)](https://github.com/DMDcoin/diamond-node/issues/280)
+
+## Diamond Node Software 0.12.1
+
+- Logging improvements
+- Fixed a bug, where handshakes, that get upgraded to sessions, deregister there stream.  
+
+
 ## Diamond Node Software 0.12.0
 
 - New Versioning Scheme: Since Open Ethereum did not get a new update, diamond-node will not mention 3.3.5 anymore
