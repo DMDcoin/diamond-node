@@ -273,7 +273,8 @@ impl<T: InformantData> Informant<T> {
             false => t,
         };
 
-        info!(target: "import", "{}{} {}  {}  {}",
+        info!(target: "import", "#{} {} {} {} {} {}",
+            chain_info.best_block_number /* Block */,
             match importing {
                 true => match snapshot_sync {
                     false => format!("Syncing {} {}  {}  {}+{} Qed",

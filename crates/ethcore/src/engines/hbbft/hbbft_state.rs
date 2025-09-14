@@ -122,6 +122,7 @@ impl HbbftState {
         // can be found.
 
         if let Some(last_block_number) = client.block_number(block_id) {
+            debug!(target: "engine", "Current Block: {}", last_block_number);
             if let Some(network_info) = self.fork_manager.should_fork(
                 last_block_number,
                 self.current_posdao_epoch,

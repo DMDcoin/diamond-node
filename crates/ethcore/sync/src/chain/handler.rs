@@ -175,7 +175,7 @@ impl SyncHandler {
             debug!(target:"sync", "Disabling Peer (this Software Version not whitelisted) {} ip:{} ", peer_version, ip_addr);
             io.disable_peer(peer);
         } else if let Err(e) = sync.send_status(io, peer) {
-            debug!(target:"sync", "Error sending status request: {:?} {:?}", e, io.peer_session_info(peer).as_ref().map_or(" (no Session)", |f| f.remote_address.as_str()));
+            debug!(target:"sync", "Error sending status request: {peer} {:?} {e:?}", io.peer_session_info(peer).as_ref().map_or(" (no Session)", |f| f.remote_address.as_str()));
             io.disconnect_peer(peer);
         } else {
             sync.handshaking_peers.insert(peer, Instant::now());
