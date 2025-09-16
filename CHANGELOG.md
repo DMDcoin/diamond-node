@@ -1,3 +1,7 @@
+## Diamond Node Software 0.12.4
+
+- [Key Gen Transaction do not require block triggers anymore, there is now also a time trigger](https://github.com/DMDcoin/diamond-node/issues/160)
+
 ## Diamond Node Software 0.12.3
 
 - Refactored KeyGenTransactions.
