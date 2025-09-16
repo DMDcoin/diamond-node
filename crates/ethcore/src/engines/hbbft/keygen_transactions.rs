@@ -130,10 +130,18 @@ impl KeygenTransactionSender {
 
                             let current_block = client.block_number(BlockId::Latest).unwrap_or(0);
 
-                            // this check also prevents the resending of Transaction in a manner.
+                            // this check also prevents the resending of Transactions if no block got mined. (e.g. because of stalled network)
                             if last_sent.block_sent + KEYGEN_TRANSACTION_RESEND_DELAY_BLOCKS
-                                < current_block
+                                > current_block
                             {
+                                // example:
+                                // send on block 10 (last_sent.block_sent = 10)
+                                // KEYGEN_TRANSACTION_RESEND_DELAY_BLOCKS = 2
+                                // resent after Block 12.
+                                // current block is 11: waiting
+                                // current block is 12: waiting
+                                // current block is 13: not entering => YES
+
                                 // we sent a transaction recently, so we should wait a bit.
                                 return Ok(ShouldSendKeyAnswer::NoWaiting);
                             }
