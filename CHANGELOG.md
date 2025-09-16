@@ -1,3 +1,8 @@
+## Diamond Node Software 0.12.3
+
+- Refactored KeyGenTransactions.
+- Nonces from the Queue are now respected for Key Gen Transactions.
+
 ## Diamond Node Software 0.12.2
 
 - [Hotfix: Nodes not fast enough to write parts (keygen)](https://github.com/DMDcoin/diamond-node/issues/280)

@@ -82,10 +82,10 @@ impl HbbftFork {
 /// It allows cheap queries to see if a Fork is pending,
 /// and stores information about a fork that is finished.
 pub struct HbbftNetworkForkManager {
-    /// a ordered list with upcomming forks.
+    /// a ordered list with upcoming forks.
     finished_forks: VecDeque<HbbftFork>,
 
-    /// a ordered list with upcomming forks, including a fork that is in progress.
+    /// a ordered list with upcoming forks, including a fork that is in progress.
     /// see @is_currently_forking for more information.
     pending_forks: VecDeque<HbbftFork>,
 
@@ -271,12 +271,12 @@ impl HbbftNetworkForkManager {
                 }
 
                 let fork = HbbftFork::from_definition(fork_def);
-                debug!(target: "engine", "hbbft-hardfork: added upcomming fork - add block {:?}", fork.start_block);
+                debug!(target: "engine", "hbbft-hardfork: added upcoming fork - add block {:?}", fork.start_block);
 
                 self.pending_forks.push_back(fork);
             } else if fork_def.block_number_start >= startup_block_number {
                 let fork = HbbftFork::from_definition(fork_def);
-                debug!(target: "engine", "hbbft-hardfork: added upcomming fork - add block {:?}", fork.start_block);
+                debug!(target: "engine", "hbbft-hardfork: added upcoming fork - add block {:?}", fork.start_block);
 
                 self.pending_forks.push_back(fork);
             }
