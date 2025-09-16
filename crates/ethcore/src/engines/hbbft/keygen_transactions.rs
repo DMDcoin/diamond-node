@@ -45,7 +45,7 @@ pub struct ServiceTransactionMemory {
     /// Nonce of the transaction it was send with.
     //pub nonce: U256,
 
-    /// Block number, at wich this transaction was "sent",
+    /// Block number, at which this transaction was "sent",
     /// in the meaning of prepared to be propagated.
     pub block_sent: u64,
     // It would be good to know if the Service Transaction got included.
@@ -96,7 +96,7 @@ impl KeygenTransactionSender {
         client: &dyn EngineClient,
         mining_address: &Address,
         mode_to_check: KeyGenMode,
-        upcomming_epoch: &U256,
+        upcoming_epoch: &U256,
         current_round: &U256,
     ) -> Result<ShouldSendKeyAnswer, CallError> {
         let keygen_mode = get_pending_validator_key_generation_mode(client, mining_address)?;
@@ -105,12 +105,12 @@ impl KeygenTransactionSender {
                 Some(last_sent) => {
                     match &last_sent.transaction_type {
                         ServiceTransactionType::KeyGenTransaction(
-                            historic_upcomming_epoch,
+                            historic_upcoming_epoch,
                             historic_round,
                             historic_key_gen_mode,
                         ) => {
                             if *historic_key_gen_mode != keygen_mode
-                                || *historic_upcomming_epoch != upcomming_epoch.as_u64()
+                                || *historic_upcoming_epoch != upcoming_epoch.as_u64()
                                 || *historic_round != current_round.as_u64()
                             {
                                 // other key gen mode, we need to send.
@@ -163,14 +163,14 @@ impl KeygenTransactionSender {
         &mut self,
         client: &dyn EngineClient,
         mining_address: &Address,
-        upcomming_epoch: &U256,
+        upcoming_epoch: &U256,
         current_round: &U256,
     ) -> Result<ShouldSendKeyAnswer, CallError> {
         self.should_send(
             client,
             mining_address,
             KeyGenMode::WritePart,
-            upcomming_epoch,
+            upcoming_epoch,
             current_round,
         )
     }
@@ -179,14 +179,14 @@ impl KeygenTransactionSender {
         &mut self,
         client: &dyn EngineClient,
         mining_address: &Address,
-        upcomming_epoch: &U256,
+        upcoming_epoch: &U256,
         current_round: &U256,
     ) -> Result<ShouldSendKeyAnswer, CallError> {
         self.should_send(
             client,
             mining_address,
             KeyGenMode::WriteAck,
-            upcomming_epoch,
+            upcoming_epoch,
             current_round,
         )
     }
