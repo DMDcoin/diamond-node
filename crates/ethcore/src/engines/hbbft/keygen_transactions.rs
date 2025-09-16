@@ -191,8 +191,7 @@ impl KeygenTransactionSender {
         )
     }
 
-    /// Returns a collection of transactions the pending validator has to submit in order to
-    /// complete the keygen history contract data necessary to generate the next key and switch to the new validator set.
+    /// sends key gen transaction if there are any to send.
     pub fn send_keygen_transactions(
         &mut self,
         client: &dyn EngineClient,
