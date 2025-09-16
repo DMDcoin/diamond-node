@@ -371,9 +371,9 @@ impl HbbftPeersManagement {
         engine_client: &dyn EngineClient,
         mining_address: &Address,
         staking_address: &Address,
-    ) -> Result<(), String> {
+    ) -> Result<bool, String> {
         if !self.should_announce_own_internet_address(block_chain_client) {
-            return Ok(());
+            return Ok(false);
         }
         // updates the nodes internet address if the information on the blockchain is outdated.
 
@@ -392,7 +392,7 @@ impl HbbftPeersManagement {
                 endpoint
             } else {
                 warn!(target: "engine", "devp2p endpoint not available.");
-                return Ok(());
+                return Ok(false);
             }
         } else {
             error!(target: "engine", "Unable to lock reserved_peers_management");
@@ -413,7 +413,7 @@ impl HbbftPeersManagement {
                     // we don't need to do anything.
                     // but we cache the current endpoint, so we don't have to query the db again.
                     self.last_written_internet_address = Some(current_endpoint);
-                    return Ok(());
+                    return Ok(false);
                 }
 
                 match set_validator_internet_address(
@@ -423,7 +423,7 @@ impl HbbftPeersManagement {
                 ) {
                     Ok(()) => {
                         self.last_written_internet_address = Some(current_endpoint);
-                        return Ok(());
+                        return Ok(true);
                     }
                     Err(err) => {
                         error!(target: "engine", "unable to set validator internet address: {:?}", err);
