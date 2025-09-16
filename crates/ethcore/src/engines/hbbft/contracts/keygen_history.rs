@@ -213,7 +213,6 @@ pub fn all_parts_acks_available(
     client: &dyn EngineClient,
     num_validators: usize,
 ) -> Result<bool, CallError> {
-
     let c = BoundContract::bind(client, BlockId::Latest, *KEYGEN_HISTORY_ADDRESS);
     let (num_parts, num_acks) = call_const_key_history!(c, get_number_of_key_fragments_written)?;
     Ok(num_parts.low_u64() == (num_validators as u64)

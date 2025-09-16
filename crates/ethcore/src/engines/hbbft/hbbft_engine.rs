@@ -899,10 +899,8 @@ impl HoneyBadgerBFT {
     }
 
     fn start_hbbft_epoch_if_next_phase(&self) {
-
         // experimental deactivation of empty blocks.
         // see: https://github.com/DMDcoin/diamond-node/issues/160
-
 
         match self.client_arc() {
             None => return,
@@ -1156,9 +1154,7 @@ impl HoneyBadgerBFT {
                 // Check if a new key is ready to be generated, return true to switch to the new epoch in that case.
                 // The execution needs to be *identical* on all nodes, which means it should *not* use the local signer
                 // when attempting to initialize the synckeygen.
-                if let Ok(all_available) =
-                    all_parts_acks_available(&*client, validators.len())
-                {
+                if let Ok(all_available) = all_parts_acks_available(&*client, validators.len()) {
                     if all_available {
                         let null_signer = Arc::new(RwLock::new(None));
                         match initialize_synckeygen(
