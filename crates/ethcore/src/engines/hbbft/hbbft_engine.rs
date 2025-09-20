@@ -1101,10 +1101,8 @@ impl HoneyBadgerBFT {
                     .channel()
                     .send(HbbftConnectToPeersMessage::AnnounceAvailability)?;
 
-
                 self.hbbft_peers_service
                     .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
-
 
                 if should_connect_to_validator_set {
                     self.hbbft_peers_service.send_message(
