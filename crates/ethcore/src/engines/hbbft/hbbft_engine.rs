@@ -1092,9 +1092,6 @@ impl HoneyBadgerBFT {
                     };
                 } // drop lock for hbbft_state
 
-                self.hbbft_peers_service
-                    .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
-
                 // if we do not have to do anything, we can return early.
                 if !(should_connect_to_validator_set || should_handle_early_epoch_end) {
                     return Ok(());
@@ -1103,6 +1100,9 @@ impl HoneyBadgerBFT {
                 self.hbbft_peers_service
                     .channel()
                     .send(HbbftConnectToPeersMessage::AnnounceAvailability)?;
+
+                self.hbbft_peers_service
+                    .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
 
                 if should_connect_to_validator_set {
                     self.hbbft_peers_service.send_message(
