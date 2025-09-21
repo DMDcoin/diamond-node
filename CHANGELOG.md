@@ -1,3 +1,10 @@
+
+## Diamond Node Software 0.12.6
+
+- reduced Trace Log output for tracing devp2p propagation
+- removed tests for supporting for outdated clients that do not support large requests
+
+
 ## Diamond Node Software 0.12.5
 
 - now announcing availability before announcing IP address 
