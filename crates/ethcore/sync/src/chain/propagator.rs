@@ -196,8 +196,13 @@ impl ChainSync {
         }
 
         debug!(target: "sync", "Propagating {} transactions to {} peers", transactions.len(), peers.len());
-        trace!(target: "sync", "Propagating {:?}", if all_transactions_hashes.len() > MAX_TRACE_PROPAGATED_TXS { all_transactions_hashes.iter().choose_multiple(&mut rand::thread_rng(), MAX_TRACE_PROPAGATED_TXS).iter().collect() } else { all_transactions_hashes });
-
+        if all_transactions_hashes.len() > MAX_TRACE_PROPAGATED_TXS {
+            trace!(target: "sync", "Propagating {:?}",  all_transactions_hashes .iter().choose_multiple(&mut rand::thread_rng(), MAX_TRACE_PROPAGATED_TXS));
+        }
+        else { 
+            trace!(target: "sync", "Propagating {:?}",  all_transactions_hashes);
+        };
+        
         let send_packet = |io: &mut dyn SyncIo,
                            stats: &mut SyncPropagatorStatistics,
                            peer_id: PeerId,
