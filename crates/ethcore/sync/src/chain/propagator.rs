@@ -28,7 +28,7 @@ use bytes::Bytes;
 use ethereum_types::{H256, H512};
 use fastmap::H256FastSet;
 use network::{Error, ErrorKind, PeerId, client_version::ClientCapabilities};
-use rand::{seq::IteratorRandom, RngCore};
+use rand::{RngCore, seq::IteratorRandom};
 use rlp::RlpStream;
 
 use crate::chain::propagator_statistics::SyncPropagatorStatistics;
@@ -195,8 +195,7 @@ impl ChainSync {
                 .retain_pending(&all_transactions_hashes);
         }
 
-       
-        debug!(target: "sync", "Propagating {} transactions to {} peers", transactions.len(), peers.len());        
+        debug!(target: "sync", "Propagating {} transactions to {} peers", transactions.len(), peers.len());
         trace!(target: "sync", "Propagating {:?}", if all_transactions_hashes.len() > MAX_TRACE_PROPAGATED_TXS { all_transactions_hashes.iter().choose_multiple(&mut rand::thread_rng(), MAX_TRACE_PROPAGATED_TXS).iter().collect() } else { all_transactions_hashes });
 
         let send_packet = |io: &mut dyn SyncIo,
