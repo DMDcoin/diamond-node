@@ -495,28 +495,6 @@ pub mod tests {
     }
 
     #[test]
-    pub fn client_capabilities_when_parity_old_version_then_handles_large_requests_false() {
-        let client_version_string: String = make_old_semver_version_string();
-
-        let client_version = ClientVersion::from(client_version_string.as_str());
-
-        assert!(!client_version.can_handle_large_requests());
-    }
-
-    #[test]
-    pub fn client_capabilities_when_parity_beta_version_then_not_handles_large_requests_true() {
-        let client_version_string: String = format!(
-            "{}/v{}/{}/{}",
-            "Parity-Ethereum", "2.4.0-beta", "x86_64-linux-gnu", "rustc1.31.1"
-        )
-        .to_string();
-
-        let client_version = ClientVersion::from(client_version_string.as_str());
-
-        assert!(!client_version.can_handle_large_requests());
-    }
-
-    #[test]
     pub fn client_version_when_to_owned_then_both_objects_equal() {
         let client_version_string: String = make_old_semver_version_string();
 

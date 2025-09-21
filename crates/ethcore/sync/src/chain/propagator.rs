@@ -28,7 +28,7 @@ use bytes::Bytes;
 use ethereum_types::{H256, H512};
 use fastmap::H256FastSet;
 use network::{Error, ErrorKind, PeerId, client_version::ClientCapabilities};
-use rand::RngCore;
+use rand::{RngCore, seq::IteratorRandom};
 use rlp::RlpStream;
 
 use crate::chain::propagator_statistics::SyncPropagatorStatistics;
@@ -43,6 +43,8 @@ use ethcore_miner::pool::VerifiedTransaction;
 use std::sync::Arc;
 
 const NEW_POOLED_HASHES_LIMIT: usize = 4096;
+
+const MAX_TRACE_PROPAGATED_TXS: usize = 20;
 
 /// The Chain Sync Propagator: propagates data to peers
 // pub struct SyncPropagator<'a> {
@@ -193,8 +195,12 @@ impl ChainSync {
                 .retain_pending(&all_transactions_hashes);
         }
 
-        debug!(target: "sync", "Propagating {:?}", all_transactions_hashes);
-        trace!(target: "sync", "Propagating {} transactions to {} peers", transactions.len(), peers.len());
+        debug!(target: "sync", "Propagating {} transactions to {} peers", transactions.len(), peers.len());
+        if all_transactions_hashes.len() > MAX_TRACE_PROPAGATED_TXS {
+            trace!(target: "sync", "Propagating {:?}",  all_transactions_hashes .iter().choose_multiple(&mut rand::thread_rng(), MAX_TRACE_PROPAGATED_TXS));
+        } else {
+            trace!(target: "sync", "Propagating {:?}",  all_transactions_hashes);
+        };
 
         let send_packet = |io: &mut dyn SyncIo,
                            stats: &mut SyncPropagatorStatistics,
