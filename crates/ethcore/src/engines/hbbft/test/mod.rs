@@ -98,7 +98,9 @@ fn test_staking_account_creation() {
         .client
         .block(BlockId::Number(3))
         .expect("Block must exist");
-    assert_eq!(block.transactions_count(), 1);
+
+    // block could already include KeyGenTransaction.
+    assert!(block.transactions_count() >= 1);
 
     assert_ne!(
         mining_by_staking_address(moc.client.as_ref(), &staker_1.address())
