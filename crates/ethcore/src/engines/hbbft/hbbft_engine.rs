@@ -705,7 +705,7 @@ impl HoneyBadgerBFT {
         ) {
             Some(n) => n,
             None => {
-                error!(target: "consensus", "Sealing message for block #{} could not be processed due to missing/mismatching network info.", block_num);
+                error!(target: "consensus", "Sealing message for block #{} could not be processed due to missing network info for signer {}", block_num, sender_id);
                 self.hbbft_message_dispatcher.report_seal_bad(
                     &sender_id,
                     block_num,
@@ -755,12 +755,9 @@ impl HoneyBadgerBFT {
                 Target::Nodes(set) => {
                     trace!(target: "consensus", "Dispatching message {:?} to {:?}", m.message, set);
                     for node_id in set.into_iter().filter(|p| p != net_info.our_id()) {
-                        trace!(target: "consensus", "Sending message to {}", node_id.0);
-                        client.send_consensus_message(
-                            m.message.block_number(),
-                            ser.clone(),
-                            Some(node_id.0),
-                        );
+                        let block_num = m.message.block_number();
+                        trace!(target: "consensus", "Sending message to {} for block #{} ", node_id.0, block_num);
+                        client.send_consensus_message(block_num, ser.clone(), Some(node_id.0));
                     }
                 }
                 Target::AllExcept(set) => {
@@ -769,12 +766,9 @@ impl HoneyBadgerBFT {
                         .all_ids()
                         .filter(|p| (p != &net_info.our_id() && !set.contains(p)))
                     {
-                        trace!(target: "consensus", "Sending exclusive message to {}", node_id.0);
-                        client.send_consensus_message(
-                            m.message.block_number(),
-                            ser.clone(),
-                            Some(node_id.0),
-                        );
+                        let block_num = m.message.block_number();
+                        trace!(target: "consensus", "Sending exclusive message to {} for block #{}", node_id.0, block_num);
+                        client.send_consensus_message(block_num, ser.clone(), Some(node_id.0));
                     }
                 }
             }
@@ -1430,6 +1424,8 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
 
     fn handle_message(&self, message: &[u8], node_id: Option<H512>) -> Result<(), EngineError> {
         let node_id = NodeId(node_id.ok_or(EngineError::UnexpectedMessage)?);
+        // todo: handling here old message as well.
+
         match rmp_serde::from_slice(message) {
             Ok(Message::HoneyBadger(msg_idx, hb_msg)) => {
                 self.process_hb_message(msg_idx, hb_msg, node_id)

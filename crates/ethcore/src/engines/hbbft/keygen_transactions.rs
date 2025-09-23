@@ -28,6 +28,8 @@ use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 use crate::client::BlockChainClient;
 
+static MAX_BLOCKCHAIN_AGE_FOR_KEYGEN: u64 = 10; // seconds
+
 pub enum ServiceTransactionType {
     /// KeyGenTransaction: (u64: epoch, u64: round, KeyGenMode)
     KeyGenTransaction(u64, u64, KeyGenMode),
@@ -210,8 +212,21 @@ impl KeygenTransactionSender {
 
         // If the chain is still syncing, do not send Parts or Acks.
         if full_client.is_major_syncing() {
-            debug!(target:"engine", "skipping sending key gen transaction, because we are syncing");
-            return Ok(());
+            if let Some(lastes_block) = client.block_header(BlockId::Latest) {
+                let now = std::time::UNIX_EPOCH
+                    .elapsed()
+                    .expect("Time not available")
+                    .as_secs();
+                if now > lastes_block.timestamp() + MAX_BLOCKCHAIN_AGE_FOR_KEYGEN {
+                    debug!(target:"engine", "skipping sending key gen transaction, because we are syncing.");
+                    return Ok(());
+                } else {
+                    trace!(target:"engine", "We are syncing, but the latest block is recent. continuing sending key gen transactions");
+                }
+            } else {
+                debug!(target:"engine", "skipping sending key gen transaction, because we are syncing and could not retrieve latest block.");
+                return Ok(());
+            }
         }
 
         trace!(target:"engine", " get_validator_pubkeys...");
