@@ -179,6 +179,7 @@ impl SnapshotService for TestSnapshotService {
 }
 
 #[test]
+#[cfg(feature = "devP2PTests")]
 fn snapshot_sync() {
     ::env_logger::try_init().ok();
     let mut config = SyncConfig::default();

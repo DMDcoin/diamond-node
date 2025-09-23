@@ -11,7 +11,8 @@ use crate::{
         traits::{EngineClient, ForceUpdateSealing},
     },
     engines::{
-        Engine, EngineError, ForkChoice, Seal, SealingState, default_system_or_code_call,
+        BlockAuthorOption, Engine, EngineError, ForkChoice, Seal, SealingState,
+        default_system_or_code_call,
         hbbft::{
             contracts::random_hbbft::set_current_seed_tx_raw, hbbft_message_memorium::BadSealReason,
         },
@@ -102,6 +103,7 @@ pub struct HoneyBadgerBFT {
     current_minimum_gas_price: Mutex<Option<U256>>,
     early_epoch_manager: Mutex<Option<HbbftEarlyEpochEndManager>>,
     hbbft_engine_cache: Mutex<HbbftEngineCache>,
+    delayed_hbbft_join: AtomicBool,
 }
 
 struct TransitionHandler {
@@ -292,6 +294,17 @@ impl TransitionHandler {
         // Periodically allow messages received for future epochs to be processed.
         self.engine.replay_cached_messages();
 
+        // rejoin Hbbft Epoch after sync was completed.
+        if self
+            .engine
+            .delayed_hbbft_join
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            if let Err(e) = self.engine.join_hbbft_epoch() {
+                error!(target: "engine", "Error trying to join epoch after synced: {}", e);
+            }
+        }
+
         self.handle_shutdown_on_missing_block_import(shutdown_on_missing_block_import_config);
 
         let mut timer_duration = self.min_block_time_remaining(client.clone());
@@ -469,7 +482,7 @@ impl HoneyBadgerBFT {
             ),
             sealing: RwLock::new(BTreeMap::new()),
             params,
-            message_counter: Mutex::new(0),
+            message_counter: Mutex::new(0), // restore message counter from memory here for RBC ?  */
             random_numbers: RwLock::new(BTreeMap::new()),
             keygen_transaction_sender: RwLock::new(KeygenTransactionSender::new()),
 
@@ -477,6 +490,7 @@ impl HoneyBadgerBFT {
             current_minimum_gas_price: Mutex::new(None),
             early_epoch_manager: Mutex::new(None),
             hbbft_engine_cache: Mutex::new(HbbftEngineCache::new()),
+            delayed_hbbft_join: AtomicBool::new(false),
         });
 
         if !engine.params.is_unit_test.unwrap_or(false) {
@@ -496,6 +510,8 @@ impl HoneyBadgerBFT {
             .hbbft_peers_service
             .register_handler(Arc::new(peers_handler))?;
 
+        // todo:
+        // setup rev
         Ok(engine)
     }
 
@@ -519,7 +535,7 @@ impl HoneyBadgerBFT {
         trace!(target: "consensus", "Batch received for epoch {}, creating new Block.", batch.epoch);
 
         // Decode and de-duplicate transactions
-        let batch_txns: Vec<_> = batch
+        let mut batch_txns: Vec<_> = batch
             .contributions
             .iter()
             .flat_map(|(_, c)| &c.transactions)
@@ -579,6 +595,9 @@ impl HoneyBadgerBFT {
         self.random_numbers
             .write()
             .insert(batch.epoch, random_number);
+
+        // Shuffelin transactions deterministically based on the random number.
+        batch_txns = crate::engines::hbbft::utils::transactions_shuffling::deterministic_transactions_shuffling(batch_txns, random_number);
 
         if let Some(header) = client.create_pending_block_at(batch_txns, timestamp, batch.epoch) {
             let block_num = header.number();
@@ -686,7 +705,7 @@ impl HoneyBadgerBFT {
         ) {
             Some(n) => n,
             None => {
-                error!(target: "consensus", "Sealing message for block #{} could not be processed due to missing/mismatching network info.", block_num);
+                error!(target: "consensus", "Sealing message for block #{} could not be processed due to missing network info for signer {}", block_num, sender_id);
                 self.hbbft_message_dispatcher.report_seal_bad(
                     &sender_id,
                     block_num,
@@ -736,12 +755,9 @@ impl HoneyBadgerBFT {
                 Target::Nodes(set) => {
                     trace!(target: "consensus", "Dispatching message {:?} to {:?}", m.message, set);
                     for node_id in set.into_iter().filter(|p| p != net_info.our_id()) {
-                        trace!(target: "consensus", "Sending message to {}", node_id.0);
-                        client.send_consensus_message(
-                            m.message.block_number(),
-                            ser.clone(),
-                            Some(node_id.0),
-                        );
+                        let block_num = m.message.block_number();
+                        trace!(target: "consensus", "Sending message to {} for block #{} ", node_id.0, block_num);
+                        client.send_consensus_message(block_num, ser.clone(), Some(node_id.0));
                     }
                 }
                 Target::AllExcept(set) => {
@@ -750,12 +766,9 @@ impl HoneyBadgerBFT {
                         .all_ids()
                         .filter(|p| (p != &net_info.our_id() && !set.contains(p)))
                     {
-                        trace!(target: "consensus", "Sending exclusive message to {}", node_id.0);
-                        client.send_consensus_message(
-                            m.message.block_number(),
-                            ser.clone(),
-                            Some(node_id.0),
-                        );
+                        let block_num = m.message.block_number();
+                        trace!(target: "consensus", "Sending exclusive message to {} for block #{}", node_id.0, block_num);
+                        client.send_consensus_message(block_num, ser.clone(), Some(node_id.0));
                     }
                 }
             }
@@ -775,7 +788,7 @@ impl HoneyBadgerBFT {
             .map(|msg| msg.map(|m| Message::Sealing(block_num, m)));
         self.dispatch_messages(&client, messages, network_info);
         if let Some(sig) = step.output.into_iter().next() {
-            trace!(target: "consensus", "Signature for block {} is ready", block_num);
+            trace!(target: "consensus", "Signature for block {} is ready.", block_num);
             let state = Sealing::Complete(sig);
             self.sealing.write().insert(block_num, state);
 
@@ -810,7 +823,16 @@ impl HoneyBadgerBFT {
         let client = self.client_arc().ok_or(EngineError::RequiresClient)?;
         if self.is_syncing(&client) {
             trace!(target: "consensus", "tried to join HBBFT Epoch, but still syncing.");
+            self.delayed_hbbft_join
+                .store(true, std::sync::atomic::Ordering::SeqCst);
             return Ok(());
+        }
+
+        if self
+            .delayed_hbbft_join
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            trace!(target: "consensus", "continued join_hbbft_epoch after sync was completed.");
         }
 
         let step = self
@@ -871,6 +893,9 @@ impl HoneyBadgerBFT {
     }
 
     fn start_hbbft_epoch_if_next_phase(&self) {
+        // experimental deactivation of empty blocks.
+        // see: https://github.com/DMDcoin/diamond-node/issues/160
+
         match self.client_arc() {
             None => return,
             Some(client) => {
@@ -899,7 +924,7 @@ impl HoneyBadgerBFT {
         let steps = match self.hbbft_state.try_write_for(Duration::from_millis(10)) {
             Some(mut hbbft_state_lock) => hbbft_state_lock.replay_cached_messages(client.clone()),
             None => {
-                trace!(target: "engine", "could not acquire write lock for replaying cached messages, stepping back..",);
+                debug!(target: "engine", "could not acquire write lock for replaying cached messages, stepping back..",);
                 return None;
             }
         };
@@ -1061,9 +1086,6 @@ impl HoneyBadgerBFT {
                     };
                 } // drop lock for hbbft_state
 
-                self.hbbft_peers_service
-                    .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
-
                 // if we do not have to do anything, we can return early.
                 if !(should_connect_to_validator_set || should_handle_early_epoch_end) {
                     return Ok(());
@@ -1072,6 +1094,9 @@ impl HoneyBadgerBFT {
                 self.hbbft_peers_service
                     .channel()
                     .send(HbbftConnectToPeersMessage::AnnounceAvailability)?;
+
+                self.hbbft_peers_service
+                    .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
 
                 if should_connect_to_validator_set {
                     self.hbbft_peers_service.send_message(
@@ -1090,6 +1115,8 @@ impl HoneyBadgerBFT {
                     );
                 }
 
+                self.do_keygen();
+
                 return Ok(());
             }
 
@@ -1102,7 +1129,7 @@ impl HoneyBadgerBFT {
     }
 
     /// Returns true if we are in the keygen phase and a new key has been generated.
-    fn do_keygen(&self, block_timestamp: u64) -> bool {
+    fn do_keygen(&self) -> bool {
         match self.client_arc() {
             None => false,
             Some(client) => {
@@ -1121,9 +1148,7 @@ impl HoneyBadgerBFT {
                 // Check if a new key is ready to be generated, return true to switch to the new epoch in that case.
                 // The execution needs to be *identical* on all nodes, which means it should *not* use the local signer
                 // when attempting to initialize the synckeygen.
-                if let Ok(all_available) =
-                    all_parts_acks_available(&*client, block_timestamp, validators.len())
-                {
+                if let Ok(all_available) = all_parts_acks_available(&*client, validators.len()) {
                     if all_available {
                         let null_signer = Arc::new(RwLock::new(None));
                         match initialize_synckeygen(
@@ -1295,6 +1320,9 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
                 error!(target: "engine", "hbbft-hardfork : could not initialialize hardfork manager, no latest block found.");
             }
 
+            // RBC: we need to replay disk cached messages here.
+            // state.replay_cached_messages(client)
+
             match state.update_honeybadger(
                 client,
                 &self.signer,
@@ -1396,6 +1424,8 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
 
     fn handle_message(&self, message: &[u8], node_id: Option<H512>) -> Result<(), EngineError> {
         let node_id = NodeId(node_id.ok_or(EngineError::UnexpectedMessage)?);
+        // todo: handling here old message as well.
+
         match rmp_serde::from_slice(message) {
             Ok(Message::HoneyBadger(msg_idx, hb_msg)) => {
                 self.process_hb_message(msg_idx, hb_msg, node_id)
@@ -1441,8 +1471,11 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
         false
     }
 
-    fn use_block_author(&self) -> bool {
-        false
+    fn use_block_author(&self) -> BlockAuthorOption {
+        if let Some(address) = self.params.block_reward_contract_address {
+            return BlockAuthorOption::EngineBlockAuthor(address);
+        }
+        return BlockAuthorOption::ConfiguredBlockAuthor;
     }
 
     fn on_before_transactions(&self, block: &mut ExecutedBlock) -> Result<(), Error> {
@@ -1538,16 +1571,14 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
             {
                 let mut call = default_system_or_code_call(&self.machine, block);
                 let mut latest_block_number: BlockNumber = 0;
-                let mut latest_block_timestamp: u64 = 0;
                 if let Some(client) = self.client_arc() {
                     if let Some(header) = client.block_header(BlockId::Latest) {
                         latest_block_number = header.number();
-                        latest_block_timestamp = header.timestamp()
                     }
                 }
 
                 // only do the key gen
-                let is_epoch_end = self.do_keygen(latest_block_timestamp);
+                let is_epoch_end = self.do_keygen();
 
                 trace!(target: "consensus", "calling reward function for block {} isEpochEnd? {} on address: {} (latest block: {}", header_number,  is_epoch_end, address, latest_block_number);
                 let contract = BlockRewardContract::new_from_address(address);
@@ -1664,6 +1695,7 @@ mod tests {
 
         let mut builder: HoneyBadgerBuilder<Contribution, _> =
             HoneyBadger::builder(Arc::new(net_info.clone()));
+        builder.max_future_epochs(0);
 
         let mut honey_badger = builder.build();
 

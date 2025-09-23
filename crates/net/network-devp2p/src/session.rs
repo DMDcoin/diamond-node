@@ -324,7 +324,7 @@ impl Session {
             bail!(ErrorKind::BadProtocol);
         }
         if self.expired() {
-            debug!(target: "network", "Unable to send to expired session");
+            debug!(target: "network", "Unable to send to expired session {}", self.token());
             return Err(ErrorKind::Expired.into());
         }
         let mut i = 0usize;

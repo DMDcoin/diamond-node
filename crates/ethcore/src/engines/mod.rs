@@ -305,6 +305,18 @@ pub enum EpochChange<M: Machine> {
     Yes(Proof<M>),
 }
 
+/// who shall author a new Block ?
+pub enum BlockAuthorOption {
+    /// use the Zero address as block author.
+    ZeroBlockAuthor,
+
+    /// use the block author from the config.
+    ConfiguredBlockAuthor,
+
+    /// use the block author provivided by the EngineClient.
+    EngineBlockAuthor(Address),
+}
+
 /// A consensus mechanism for the chain. Generally either proof-of-work or proof-of-stake-based.
 /// Provides hooks into each of the major parts of block import.
 pub trait Engine<M: Machine>: Sync + Send {
@@ -581,8 +593,8 @@ pub trait Engine<M: Machine>: Sync + Send {
     }
 
     /// Use the author as signer as well as block author.
-    fn use_block_author(&self) -> bool {
-        true
+    fn use_block_author(&self) -> BlockAuthorOption {
+        BlockAuthorOption::ConfiguredBlockAuthor
     }
 
     /// allows engines to define a block that should not get pruned in the DB.

@@ -177,8 +177,6 @@ impl HbbftPeersHandler {
             error!(target: "engine", "Error trying to announce own internet address: {:?}", error);
         }
 
-        trace!(target: "engine", "Success: trying to announce own internet address for mining address: {:?}", mining_address);
-
         return Ok(());
     }
 
