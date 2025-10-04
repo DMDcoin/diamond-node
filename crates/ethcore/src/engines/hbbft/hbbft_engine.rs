@@ -481,12 +481,14 @@ impl HoneyBadgerBFT {
     // Start deferring and reset HoneyBadger after this many seconds without a new block.
     const PHOENIX_DEFER_AFTER_SECS: i64 = 60;
     // Resume sending and deliver deferred messages after this many seconds.
-    const PHOENIX_RESUME_AFTER_SECS: i64 = 80;
+    const PHOENIX_RESUME_AFTER_SECS: i64 = 20;
     // Timeout for trying to acquire the hbbft_state lock to reset HoneyBadger, in milliseconds.
     const PHOENIX_LOCK_TIMEOUT_MS: u64 = 100;
 
     /// Phoenix recovery protocol
     /// Called periodically to detect stalls and perform a controlled recovery.
+    /// Retry recovery every n*PHOENIX_DEFER_AFTER_SECS by deferring and resetting,
+    /// and resume sending messages every n*PHOENIX_DEFER_AFTER_SECS + PHOENIX_RESUME_AFTER_SECS.
     fn handle_phoenix_recovery_protocol(&self) {
         if let Some(client) = self.client_arc() {
             // Skip if still syncing.
@@ -500,33 +502,51 @@ impl HoneyBadgerBFT {
                     let now_ts = unix_now_secs() as i64;
                     let diff_secs = now_ts - ts;
 
-                    if diff_secs > Self::PHOENIX_DEFER_AFTER_SECS && diff_secs <= Self::PHOENIX_RESUME_AFTER_SECS {
-                        // Enter deferring mode
-                        self.set_defer_outgoing_messages(true);
+                    let defer_after = Self::PHOENIX_DEFER_AFTER_SECS;
+                    let resume_after = Self::PHOENIX_RESUME_AFTER_SECS;
 
-                        // Ensure we reset the HoneyBadger instance only once during the deferring window.
-                        if !self.phoenix_reset_performed.load(Ordering::SeqCst) {
-                            match self.hbbft_state.try_write_for(Duration::from_millis(Self::PHOENIX_LOCK_TIMEOUT_MS)) {
-                                Some(mut state) => {
-                                    if state.reset_honeybadger().is_some() {
-                                        self.phoenix_reset_performed.store(true, Ordering::SeqCst);
-                                        warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages and reset HoneyBadger ({}s since last block)", diff_secs);
-                                    } else {
-                                        warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages but failed to reset HoneyBadger ({}s since last block)", diff_secs);
+                    if diff_secs >= defer_after {
+                        // Determine the current recovery cycle index n and its boundaries.
+                        let n = diff_secs / defer_after; // floor division
+                        let cycle_start = n * defer_after; // n * DEFER
+                        let cycle_resume = cycle_start + resume_after; // n * DEFER + RESUME
+                        let next_cycle_start = (n + 1) * defer_after; // (n+1) * DEFER
+
+                        if diff_secs < cycle_resume {
+                            // We are within the deferring window of the current cycle.
+                            self.set_defer_outgoing_messages(true);
+
+                            // Ensure we reset the HoneyBadger instance only once during a deferring window.
+                            if !self.phoenix_reset_performed.load(Ordering::SeqCst) {
+                                match self.hbbft_state.try_write_for(Duration::from_millis(
+                                    Self::PHOENIX_LOCK_TIMEOUT_MS,
+                                )) {
+                                    Some(mut state) => {
+                                        if state.reset_honeybadger().is_some() {
+                                            self.phoenix_reset_performed
+                                                .store(true, Ordering::SeqCst);
+                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages and reset HoneyBadger ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
+                                        } else {
+                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages but failed to reset HoneyBadger ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
+                                        }
+                                    }
+                                    None => {
+                                        warn!(target: "consensus", "Phoenix Protocol: Could not acquire hbbft_state lock to reset HoneyBadger while deferring messages ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
                                     }
                                 }
-                                None => {
-                                    warn!(target: "consensus", "Phoenix Protocol: Could not acquire hbbft_state lock to reset HoneyBadger while deferring messages ({}s since last block)", diff_secs);
-                                }
+                            }
+                        } else if diff_secs < next_cycle_start {
+                            // We are in the resume window of the current cycle.
+                            if self.phoenix_reset_performed.load(Ordering::SeqCst) {
+                                self.set_defer_outgoing_messages(false);
+                                self.deliver_stored_outgoing_messages();
+                                // Allow the next cycle to perform a reset again if needed.
+                                self.phoenix_reset_performed.store(false, Ordering::SeqCst);
+                                warn!(target: "consensus", "Phoenix Protocol: Resumed sending and delivered deferred messages ({}s since last block; cycle n={}, resume @ {}, next_cycle @ {})", diff_secs, n, cycle_resume, next_cycle_start);
+                            } else {
+                                warn!(target: "consensus", "Phoenix Protocol: Expecting block to be generated ({}s since last block; cycle n={}, resume @ {}, next_cycle @ {})", diff_secs, n, cycle_resume, next_cycle_start);
                             }
                         }
-                    } else if diff_secs > Self::PHOENIX_RESUME_AFTER_SECS {
-                        // Resume and flush stored messages
-                        self.set_defer_outgoing_messages(false);
-                        self.deliver_stored_outgoing_messages();
-                        // Allow the next cycle to perform a reset again if needed
-                        self.phoenix_reset_performed.store(false, Ordering::SeqCst);
-                        warn!(target: "consensus", "Phoenix Protocol: Resumed sending and delivered deferred messages ({}s since last block)", diff_secs);
                     }
 
                     // Always log the latest timestamp and diff for visibility.
