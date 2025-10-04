@@ -189,6 +189,8 @@ const ENGINE_DELAYED_UNITL_SYNCED_TOKEN: TimerToken = 3;
 // Some Operations have no urge on the timing, but are rather expensive.
 // those are handeled by this slow ticking timer.
 const ENGINE_VALIDATOR_CANDIDATE_ACTIONS: TimerToken = 4;
+// Check for current Phoenix Protocol phase
+const ENGINE_PHOENIX_CHECK: TimerToken = 5;
 
 impl TransitionHandler {
     fn handle_shutdown_on_missing_block_import(
@@ -374,6 +376,11 @@ impl IoHandler<()> for TransitionHandler {
 
         // io.channel()
         //     io.register_stream()
+
+        io.register_timer(ENGINE_PHOENIX_CHECK, Duration::from_secs(10))
+            .unwrap_or_else(
+                |e| warn!(target: "consensus", "ENGINE_PHOENIX_CHECK Timer failed: {}.", e),
+            );
     }
 
     fn timeout(&self, io: &IoContext<()>, timer: TimerToken) {
@@ -460,6 +467,55 @@ impl IoHandler<()> for TransitionHandler {
         } else if timer == ENGINE_VALIDATOR_CANDIDATE_ACTIONS {
             if let Err(err) = self.engine.do_validator_engine_actions() {
                 error!(target: "consensus", "do_validator_engine_actions failed: {:?}", err);
+            }
+        } else if timer == ENGINE_PHOENIX_CHECK {
+            // Phoenix Protocol liveness check: log error if no last block, otherwise warn with its timestamp and human-readable time.
+            if let Some(ref weak) = *self.client.read() {
+                if let Some(c) = weak.upgrade() {
+                    // No point in checking the last block's timestamp if we are still syncing
+                    if self.engine.is_syncing(&c) {
+                        return;
+                    }
+                    match c.block_header(BlockId::Latest) {
+                        Some(h) => {
+                            let ts = h.timestamp() as i64; // seconds since Unix epoch
+                            // Compute difference in seconds between now and the block timestamp (signed i64)
+                            let now_ts = unix_now_secs() as i64;
+                            let diff_secs = now_ts - ts;
+                            // If more than 60 seconds have passed since the last block, defer outgoing
+                            // consensus messages and reset the underlying HoneyBadger instance.
+                            if diff_secs > 60 && diff_secs <= 80 {
+                                self.engine.set_defer_outgoing_messages(true);
+                                match self
+                                    .engine
+                                    .hbbft_state
+                                    .try_write_for(Duration::from_millis(100))
+                                {
+                                    Some(mut state) => {
+                                        if state.reset_honeybadger().is_some() {
+                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages and reset HoneyBadger ({}s since last block)", diff_secs);
+                                        } else {
+                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages but failed to reset HoneyBadger ({}s since last block)", diff_secs);
+                                        }
+                                    }
+                                    None => {
+                                        warn!(target: "consensus", "Phoenix Protocol: Could not acquire hbbft_state lock to reset HoneyBadger while deferring messages ({}s since last block)", diff_secs);
+                                    }
+                                }
+                            } else if diff_secs > 80 {
+                                // More than 80 seconds since the last block: stop deferring and flush stored messages
+                                self.engine.set_defer_outgoing_messages(false);
+                                self.engine.deliver_stored_outgoing_messages();
+                                warn!(target: "consensus", "Phoenix Protocol: Resumed sending and delivered deferred messages ({}s since last block)", diff_secs);
+                            }
+
+                            warn!(target: "consensus", "Phoenix Protocol: latest block timestamp: {} (diff_secs: {})", h.timestamp(), diff_secs);
+                        }
+                        None => {
+                            error!(target: "consensus", "Phoenix Protocol: No latest block header available.");
+                        }
+                    }
+                }
             }
         }
     }
