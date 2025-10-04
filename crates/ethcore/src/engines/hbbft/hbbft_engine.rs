@@ -865,13 +865,11 @@ impl HoneyBadgerBFT {
             let mut recipients: Vec<H512> = Vec::new();
             match m.target {
                 Target::Nodes(set) => {
-                    trace!(target: "consensus", "Dispatching message {:?} to {:?}", m.message, set);
                     for node_id in set.into_iter().filter(|p| p != net_info.our_id()) {
                         recipients.push(node_id.0);
                     }
                 }
                 Target::AllExcept(set) => {
-                    trace!(target: "consensus", "Dispatching exclusive message {:?} to all except {:?}", m.message, set);
                     for node_id in net_info
                         .all_ids()
                         .filter(|p| (p != &net_info.our_id() && !set.contains(p)))
@@ -885,6 +883,7 @@ impl HoneyBadgerBFT {
 
             if self.defer_outgoing_messages.load(Ordering::SeqCst) {
                 // Store for deferred delivery
+                warn!(target: "consensus", "Phoenix Protocol: Storing message for deferred sending for block #{} ", block_number);
                 self.stored_outgoing_messages
                     .lock()
                     .push(StoredOutgoingMessage {
@@ -895,7 +894,7 @@ impl HoneyBadgerBFT {
             } else {
                 // Send immediately
                 for node in recipients {
-                    trace!(target: "consensus", "Sending message to {}", node);
+                    trace!(target: "consensus", "Sending message to {} for block #{} ", node, block_number);
                     client.send_consensus_message(block_number, ser.clone(), Some(node));
                 }
             }
