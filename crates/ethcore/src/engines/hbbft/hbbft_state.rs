@@ -76,6 +76,16 @@ impl HbbftState {
         return Some(builder.build());
     }
 
+    /// Resets only the underlying HoneyBadger instance, leaving all other state intact.
+    /// Returns Some(()) if the instance was recreated, or None if there is no network_info
+    /// or HoneyBadger creation failed.
+    pub fn reset_honeybadger(&mut self) -> Option<()> {
+        let network_info = self.network_info.as_ref()?.clone();
+        let honey_badger = self.new_honey_badger(network_info)?;
+        self.honey_badger = Some(honey_badger);
+        Some(())
+    }
+
     pub fn init_fork_manager(
         &mut self,
         own_id: NodeId,
