@@ -116,6 +116,8 @@ pub struct HoneyBadgerBFT {
     defer_outgoing_messages: AtomicBool,
     // Storage for deferred outgoing messages ready to be delivered later.
     stored_outgoing_messages: Mutex<Vec<StoredOutgoingMessage>>,
+    // Phoenix recovery protocol: ensure we reset HoneyBadger only once before resuming sending.
+    phoenix_reset_performed: AtomicBool,
 }
 
 struct TransitionHandler {
@@ -469,59 +471,74 @@ impl IoHandler<()> for TransitionHandler {
                 error!(target: "consensus", "do_validator_engine_actions failed: {:?}", err);
             }
         } else if timer == ENGINE_PHOENIX_CHECK {
-            // Phoenix Protocol liveness check: log error if no last block, otherwise warn with its timestamp and human-readable time.
-            if let Some(ref weak) = *self.client.read() {
-                if let Some(c) = weak.upgrade() {
-                    // No point in checking the last block's timestamp if we are still syncing
-                    if self.engine.is_syncing(&c) {
-                        return;
-                    }
-                    match c.block_header(BlockId::Latest) {
-                        Some(h) => {
-                            let ts = h.timestamp() as i64; // seconds since Unix epoch
-                            // Compute difference in seconds between now and the block timestamp (signed i64)
-                            let now_ts = unix_now_secs() as i64;
-                            let diff_secs = now_ts - ts;
-                            // If more than 60 seconds have passed since the last block, defer outgoing
-                            // consensus messages and reset the underlying HoneyBadger instance.
-                            if diff_secs > 60 && diff_secs <= 80 {
-                                self.engine.set_defer_outgoing_messages(true);
-                                match self
-                                    .engine
-                                    .hbbft_state
-                                    .try_write_for(Duration::from_millis(100))
-                                {
-                                    Some(mut state) => {
-                                        if state.reset_honeybadger().is_some() {
-                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages and reset HoneyBadger ({}s since last block)", diff_secs);
-                                        } else {
-                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages but failed to reset HoneyBadger ({}s since last block)", diff_secs);
-                                        }
-                                    }
-                                    None => {
-                                        warn!(target: "consensus", "Phoenix Protocol: Could not acquire hbbft_state lock to reset HoneyBadger while deferring messages ({}s since last block)", diff_secs);
-                                    }
-                                }
-                            } else if diff_secs > 80 {
-                                // More than 80 seconds since the last block: stop deferring and flush stored messages
-                                self.engine.set_defer_outgoing_messages(false);
-                                self.engine.deliver_stored_outgoing_messages();
-                                warn!(target: "consensus", "Phoenix Protocol: Resumed sending and delivered deferred messages ({}s since last block)", diff_secs);
-                            }
-
-                            warn!(target: "consensus", "Phoenix Protocol: latest block timestamp: {} (diff_secs: {})", h.timestamp(), diff_secs);
-                        }
-                        None => {
-                            error!(target: "consensus", "Phoenix Protocol: No latest block header available.");
-                        }
-                    }
-                }
-            }
+            self.engine.handle_phoenix_recovery_protocol();
         }
     }
 }
 
 impl HoneyBadgerBFT {
+    // Phoenix recovery protocol parameters
+    // Start deferring and reset HoneyBadger after this many seconds without a new block.
+    const PHOENIX_DEFER_AFTER_SECS: i64 = 60;
+    // Resume sending and deliver deferred messages after this many seconds.
+    const PHOENIX_RESUME_AFTER_SECS: i64 = 80;
+    // Timeout for trying to acquire the hbbft_state lock to reset HoneyBadger, in milliseconds.
+    const PHOENIX_LOCK_TIMEOUT_MS: u64 = 100;
+
+    /// Phoenix recovery protocol
+    /// Called periodically to detect stalls and perform a controlled recovery.
+    fn handle_phoenix_recovery_protocol(&self) {
+        if let Some(client) = self.client_arc() {
+            // Skip if still syncing.
+            if self.is_syncing(&client) {
+                return;
+            }
+
+            match client.block_header(BlockId::Latest) {
+                Some(h) => {
+                    let ts = h.timestamp() as i64;
+                    let now_ts = unix_now_secs() as i64;
+                    let diff_secs = now_ts - ts;
+
+                    if diff_secs > Self::PHOENIX_DEFER_AFTER_SECS && diff_secs <= Self::PHOENIX_RESUME_AFTER_SECS {
+                        // Enter deferring mode
+                        self.set_defer_outgoing_messages(true);
+
+                        // Ensure we reset the HoneyBadger instance only once during the deferring window.
+                        if !self.phoenix_reset_performed.load(Ordering::SeqCst) {
+                            match self.hbbft_state.try_write_for(Duration::from_millis(Self::PHOENIX_LOCK_TIMEOUT_MS)) {
+                                Some(mut state) => {
+                                    if state.reset_honeybadger().is_some() {
+                                        self.phoenix_reset_performed.store(true, Ordering::SeqCst);
+                                        warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages and reset HoneyBadger ({}s since last block)", diff_secs);
+                                    } else {
+                                        warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages but failed to reset HoneyBadger ({}s since last block)", diff_secs);
+                                    }
+                                }
+                                None => {
+                                    warn!(target: "consensus", "Phoenix Protocol: Could not acquire hbbft_state lock to reset HoneyBadger while deferring messages ({}s since last block)", diff_secs);
+                                }
+                            }
+                        }
+                    } else if diff_secs > Self::PHOENIX_RESUME_AFTER_SECS {
+                        // Resume and flush stored messages
+                        self.set_defer_outgoing_messages(false);
+                        self.deliver_stored_outgoing_messages();
+                        // Allow the next cycle to perform a reset again if needed
+                        self.phoenix_reset_performed.store(false, Ordering::SeqCst);
+                        warn!(target: "consensus", "Phoenix Protocol: Resumed sending and delivered deferred messages ({}s since last block)", diff_secs);
+                    }
+
+                    // Always log the latest timestamp and diff for visibility.
+                    warn!(target: "consensus", "Phoenix Protocol: latest block timestamp: {} (diff_secs: {})", h.timestamp(), diff_secs);
+                }
+                None => {
+                    error!(target: "consensus", "Phoenix Protocol: No latest block header available.");
+                }
+            }
+        }
+    }
+
     /// Creates an instance of the Honey Badger BFT Engine.
     pub fn new(params: HbbftParams, machine: EthereumMachine) -> Result<Arc<Self>, Error> {
         let is_unit_test = params.is_unit_test.unwrap_or(false);
@@ -562,6 +579,7 @@ impl HoneyBadgerBFT {
 
             defer_outgoing_messages: AtomicBool::new(false),
             stored_outgoing_messages: Mutex::new(Vec::new()),
+            phoenix_reset_performed: AtomicBool::new(false),
         });
 
         if !engine.params.is_unit_test.unwrap_or(false) {
