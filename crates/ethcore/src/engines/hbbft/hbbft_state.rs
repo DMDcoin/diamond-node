@@ -132,6 +132,7 @@ impl HbbftState {
         // can be found.
 
         if let Some(last_block_number) = client.block_number(block_id) {
+            debug!(target: "engine", "Current Block: {}", last_block_number);
             if let Some(network_info) = self.fork_manager.should_fork(
                 last_block_number,
                 self.current_posdao_epoch,
@@ -599,9 +600,14 @@ impl HbbftState {
     ) -> Option<NetworkInfo<NodeId>> {
         self.skip_to_current_epoch(client.clone(), signer);
 
-        let posdao_epoch = get_posdao_epoch(&*client, BlockId::Number(block_nr - 1))
-            .ok()?
-            .low_u64();
+        // Performance: we can use cache here, since this contract calls return deterministic results.
+        let posdao_epoch = match get_posdao_epoch(&*client, BlockId::Number(block_nr - 1)) {
+            Ok(number) => number.low_u64(),
+            Err(e) => {
+                error!(target: "consensus", "Failed to get network info - reading POSDAO epoch from contract failed! Error: {:?}", e);
+                return None;
+            }
+        };
 
         if self.current_posdao_epoch != posdao_epoch {
             error!(target: "consensus", "Trying to get the network info from a different epoch. Current epoch: {}, Requested epoch: {}",

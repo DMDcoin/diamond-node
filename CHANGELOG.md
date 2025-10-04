@@ -1,3 +1,41 @@
+
+## Diamond Node Software 0.12.6
+
+- reduced Trace Log output for tracing devp2p propagation
+- removed tests for supporting for outdated clients that do not support large requests
+
+
+## Diamond Node Software 0.12.5
+
+- now announcing availability before announcing IP address 
+
+## Diamond Node Software 0.12.4
+
+- [Key Gen Transaction do not require block triggers anymore, there is now also a time trigger](https://github.com/DMDcoin/diamond-node/issues/160)
+
+## Diamond Node Software 0.12.3
+
+- Refactored KeyGenTransactions.
+- Nonces from the Queue are now respected for Key Gen Transactions.
+
+## Diamond Node Software 0.12.2
+
+- [Hotfix: Nodes not fast enough to write parts (keygen)](https://github.com/DMDcoin/diamond-node/issues/280)
+
+## Diamond Node Software 0.12.1
+
+- Logging improvements
+- Fixed a bug, where handshakes, that get upgraded to sessions, deregister there stream.  
+
+
+## Diamond Node Software 0.12.0
+
+- New Versioning Scheme: Since Open Ethereum did not get a new update, diamond-node will not mention 3.3.5 anymore
+- [race condition: Incoming data from peer that gets disconnected leads to crash](https://github.com/DMDcoin/diamond-node/issues/275)
+- [not joining hbbft epoch after sync has finished](https://github.com/DMDcoin/diamond-node/issues/270)
+- [diamond front running resistance](https://github.com/DMDcoin/diamond-node/issues/89)
+- [Transaction fees distribution](https://github.com/DMDcoin/diamond-node/issues/40)
+
 ## Diamond Node Software 3.3.5-hbbft-0.11.8
 -  [deregister_session_stream can cause deadlocks](https://github.com/DMDcoin/diamond-node/issues/267)
 

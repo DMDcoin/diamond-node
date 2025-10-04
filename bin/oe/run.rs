@@ -154,10 +154,16 @@ impl ChainSyncing for SyncProviderWrapper {
                 Some(client_arc) => {
                     is_major_importing(Some(sync_arc.status().state), client_arc.queue_info())
                 }
-                None => true,
+                None => {
+                    debug!(target: "sync", "is_major_syncing: Client has been destroyed.");
+                    true
+                }
             },
             // We also indicate the "syncing" state when the SyncProvider has already been destroyed.
-            None => true,
+            None => {
+                debug!(target: "sync", "is_major_syncing: sync_provider has been destroyed.");
+                true
+            }
         }
     }
 

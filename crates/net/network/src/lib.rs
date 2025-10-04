@@ -37,7 +37,6 @@ extern crate assert_matches;
 #[macro_use]
 extern crate error_chain;
 
-#[macro_use]
 extern crate lazy_static;
 
 pub mod client_version;

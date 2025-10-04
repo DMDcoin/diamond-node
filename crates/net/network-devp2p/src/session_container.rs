@@ -335,8 +335,6 @@ impl SessionContainer {
                 return Err(ErrorKind::TooManyConnections.into());
             }
 
-            io.deregister_stream(token)?;
-
             // either we reuse an old token, or we create a new token.
             let upgraded_token = match node_ids_lock.get_mut(&node_id) {
                 Some(t) => t.clone(),

@@ -644,7 +644,7 @@ impl HoneyBadgerBFT {
         trace!(target: "consensus", "Batch received for epoch {}, creating new Block.", batch.epoch);
 
         // Decode and de-duplicate transactions
-        let batch_txns: Vec<_> = batch
+        let mut batch_txns: Vec<_> = batch
             .contributions
             .iter()
             .flat_map(|(_, c)| &c.transactions)
@@ -704,6 +704,9 @@ impl HoneyBadgerBFT {
         self.random_numbers
             .write()
             .insert(batch.epoch, random_number);
+
+        // Shuffelin transactions deterministically based on the random number.
+        batch_txns = crate::engines::hbbft::utils::transactions_shuffling::deterministic_transactions_shuffling(batch_txns, random_number);
 
         if let Some(header) = client.create_pending_block_at(batch_txns, timestamp, batch.epoch) {
             let block_num = header.number();
@@ -811,7 +814,7 @@ impl HoneyBadgerBFT {
         ) {
             Some(n) => n,
             None => {
-                error!(target: "consensus", "Sealing message for block #{} could not be processed due to missing/mismatching network info.", block_num);
+                error!(target: "consensus", "Sealing message for block #{} could not be processed due to missing network info for signer {}", block_num, sender_id);
                 self.hbbft_message_dispatcher.report_seal_bad(
                     &sender_id,
                     block_num,
@@ -1049,6 +1052,9 @@ impl HoneyBadgerBFT {
     }
 
     fn start_hbbft_epoch_if_next_phase(&self) {
+        // experimental deactivation of empty blocks.
+        // see: https://github.com/DMDcoin/diamond-node/issues/160
+
         match self.client_arc() {
             None => return,
             Some(client) => {
@@ -1239,9 +1245,6 @@ impl HoneyBadgerBFT {
                     };
                 } // drop lock for hbbft_state
 
-                self.hbbft_peers_service
-                    .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
-
                 // if we do not have to do anything, we can return early.
                 if !(should_connect_to_validator_set || should_handle_early_epoch_end) {
                     return Ok(());
@@ -1250,6 +1253,9 @@ impl HoneyBadgerBFT {
                 self.hbbft_peers_service
                     .channel()
                     .send(HbbftConnectToPeersMessage::AnnounceAvailability)?;
+
+                self.hbbft_peers_service
+                    .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
 
                 if should_connect_to_validator_set {
                     self.hbbft_peers_service.send_message(
@@ -1268,6 +1274,8 @@ impl HoneyBadgerBFT {
                     );
                 }
 
+                self.do_keygen();
+
                 return Ok(());
             }
 
@@ -1280,7 +1288,7 @@ impl HoneyBadgerBFT {
     }
 
     /// Returns true if we are in the keygen phase and a new key has been generated.
-    fn do_keygen(&self, block_timestamp: u64) -> bool {
+    fn do_keygen(&self) -> bool {
         match self.client_arc() {
             None => false,
             Some(client) => {
@@ -1299,9 +1307,7 @@ impl HoneyBadgerBFT {
                 // Check if a new key is ready to be generated, return true to switch to the new epoch in that case.
                 // The execution needs to be *identical* on all nodes, which means it should *not* use the local signer
                 // when attempting to initialize the synckeygen.
-                if let Ok(all_available) =
-                    all_parts_acks_available(&*client, block_timestamp, validators.len())
-                {
+                if let Ok(all_available) = all_parts_acks_available(&*client, validators.len()) {
                     if all_available {
                         let null_signer = Arc::new(RwLock::new(None));
                         match initialize_synckeygen(
@@ -1577,6 +1583,8 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
 
     fn handle_message(&self, message: &[u8], node_id: Option<H512>) -> Result<(), EngineError> {
         let node_id = NodeId(node_id.ok_or(EngineError::UnexpectedMessage)?);
+        // todo: handling here old message as well.
+
         match rmp_serde::from_slice(message) {
             Ok(Message::HoneyBadger(msg_idx, hb_msg)) => {
                 self.process_hb_message(msg_idx, hb_msg, node_id)
@@ -1722,16 +1730,14 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
             {
                 let mut call = default_system_or_code_call(&self.machine, block);
                 let mut latest_block_number: BlockNumber = 0;
-                let mut latest_block_timestamp: u64 = 0;
                 if let Some(client) = self.client_arc() {
                     if let Some(header) = client.block_header(BlockId::Latest) {
                         latest_block_number = header.number();
-                        latest_block_timestamp = header.timestamp()
                     }
                 }
 
                 // only do the key gen
-                let is_epoch_end = self.do_keygen(latest_block_timestamp);
+                let is_epoch_end = self.do_keygen();
 
                 trace!(target: "consensus", "calling reward function for block {} isEpochEnd? {} on address: {} (latest block: {}", header_number,  is_epoch_end, address, latest_block_number);
                 let contract = BlockRewardContract::new_from_address(address);

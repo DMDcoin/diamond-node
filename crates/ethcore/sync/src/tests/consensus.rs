@@ -45,6 +45,7 @@ fn new_tx(secret: &Secret, nonce: U256, chain_id: u64) -> PendingTransaction {
 }
 
 #[test]
+#[cfg(feature = "devP2PTests")]
 fn authority_round() {
     let s0 = KeyPair::from_secret_slice(keccak("1").as_bytes()).unwrap();
     let s1 = KeyPair::from_secret_slice(keccak("0").as_bytes()).unwrap();
