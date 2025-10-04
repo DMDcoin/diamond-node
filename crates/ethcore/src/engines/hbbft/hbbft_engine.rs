@@ -62,6 +62,13 @@ use super::{
 use crate::engines::hbbft::hbbft_message_memorium::HbbftMessageDispatcher;
 use std::{ops::Deref, sync::atomic::Ordering};
 
+// Internal representation for storing deferred outgoing consensus messages.
+struct StoredOutgoingMessage {
+    block_number: BlockNumber,
+    data: Vec<u8>,
+    recipients: Vec<H512>,
+}
+
 type TargetedMessage = hbbft::TargetedMessage<Message, NodeId>;
 
 /// A message sent between validators that is part of Honey Badger BFT or the block sealing process.
@@ -104,6 +111,11 @@ pub struct HoneyBadgerBFT {
     early_epoch_manager: Mutex<Option<HbbftEarlyEpochEndManager>>,
     hbbft_engine_cache: Mutex<HbbftEngineCache>,
     delayed_hbbft_join: AtomicBool,
+
+    // When true, outgoing consensus messages are deferred and stored for later delivery.
+    defer_outgoing_messages: AtomicBool,
+    // Storage for deferred outgoing messages ready to be delivered later.
+    stored_outgoing_messages: Mutex<Vec<StoredOutgoingMessage>>,
 }
 
 struct TransitionHandler {
@@ -491,6 +503,9 @@ impl HoneyBadgerBFT {
             early_epoch_manager: Mutex::new(None),
             hbbft_engine_cache: Mutex::new(HbbftEngineCache::new()),
             delayed_hbbft_join: AtomicBool::new(false),
+
+            defer_outgoing_messages: AtomicBool::new(false),
+            stored_outgoing_messages: Mutex::new(Vec::new()),
         });
 
         if !engine.params.is_unit_test.unwrap_or(false) {
@@ -748,16 +763,14 @@ impl HoneyBadgerBFT {
         for m in messages {
             let ser =
                 rmp_serde::to_vec(&m.message).expect("Serialization of consensus message failed");
+
+            // Determine recipients based on the target, excluding ourselves.
+            let mut recipients: Vec<H512> = Vec::new();
             match m.target {
                 Target::Nodes(set) => {
                     trace!(target: "consensus", "Dispatching message {:?} to {:?}", m.message, set);
                     for node_id in set.into_iter().filter(|p| p != net_info.our_id()) {
-                        trace!(target: "consensus", "Sending message to {}", node_id.0);
-                        client.send_consensus_message(
-                            m.message.block_number(),
-                            ser.clone(),
-                            Some(node_id.0),
-                        );
+                        recipients.push(node_id.0);
                     }
                 }
                 Target::AllExcept(set) => {
@@ -766,13 +779,27 @@ impl HoneyBadgerBFT {
                         .all_ids()
                         .filter(|p| (p != &net_info.our_id() && !set.contains(p)))
                     {
-                        trace!(target: "consensus", "Sending exclusive message to {}", node_id.0);
-                        client.send_consensus_message(
-                            m.message.block_number(),
-                            ser.clone(),
-                            Some(node_id.0),
-                        );
+                        recipients.push(node_id.0);
                     }
+                }
+            }
+
+            let block_number = m.message.block_number();
+
+            if self.defer_outgoing_messages.load(Ordering::SeqCst) {
+                // Store for deferred delivery
+                self.stored_outgoing_messages
+                    .lock()
+                    .push(StoredOutgoingMessage {
+                        block_number,
+                        data: ser,
+                        recipients,
+                    });
+            } else {
+                // Send immediately
+                for node in recipients {
+                    trace!(target: "consensus", "Sending message to {}", node);
+                    client.send_consensus_message(block_number, ser.clone(), Some(node));
                 }
             }
         }
@@ -818,6 +845,38 @@ impl HoneyBadgerBFT {
         self.dispatch_messages(&client, messages, network_info);
         std::mem::drop(message_counter);
         self.process_output(client, step.output, network_info);
+    }
+
+    /// Enables or disables deferring of outgoing consensus messages.
+    pub fn set_defer_outgoing_messages(&self, defer: bool) {
+        self.defer_outgoing_messages.store(defer, Ordering::SeqCst);
+    }
+
+    /// Deliver all stored outgoing consensus messages immediately.
+    /// If no client is registered yet, the messages remain stored.
+    pub fn deliver_stored_outgoing_messages(&self) {
+        let client = match self.client_arc() {
+            Some(c) => c,
+            None => {
+                warn!(target: "consensus", "deliver_stored_outgoing_messages: No client available; keeping messages deferred.");
+                return;
+            }
+        };
+
+        let mut stored = self.stored_outgoing_messages.lock();
+        if stored.is_empty() {
+            return;
+        }
+        let mut messages: Vec<StoredOutgoingMessage> = Vec::with_capacity(stored.len());
+        std::mem::swap(&mut *stored, &mut messages);
+        drop(stored);
+
+        for msg in messages.into_iter() {
+            for node in msg.recipients.iter() {
+                trace!(target: "consensus", "Delivering deferred message to {}", node);
+                client.send_consensus_message(msg.block_number, msg.data.clone(), Some(*node));
+            }
+        }
     }
 
     /// Conditionally joins the current hbbft epoch if the number of received
