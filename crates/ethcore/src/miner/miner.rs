@@ -1484,6 +1484,10 @@ impl miner::MinerService for Miner {
             .expect("remove() returns one result per hash; one hash passed; qed")
     }
 
+    fn local_transaction_status(&self, hash: &H256) -> Option<pool::local_transactions::Status> {
+        self.transaction_queue.local_transaction_status(hash)
+    }
+
     fn queue_status(&self) -> QueueStatus {
         self.transaction_queue.status()
     }

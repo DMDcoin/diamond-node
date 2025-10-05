@@ -440,6 +440,13 @@ impl KeygenTransactionSender {
         // it could trigger in a scenario where a service transaction was just sent,
         // is getting included by other nodes, but this one does not know about it yet,
         // sending a Nonce that is to small.
+        // if a transaction gets replaced, "own_tx  Transaction culled" happens,
+        // in this case we there are signs, that our key gen transaction was not included,
+        // and we might need to resend it.
+        // currently there is no "observer" available, to observe culled transactions,
+        // local_transactions frequently deletes outdated transactions.
+        // however: we could check if the transaction is neither available in the service transaction pool,
+        // nor available as included transaction.
         // A better ServiceTransactionManager could be implemented to handle this more gracefully.
 
         let nonce = full_client

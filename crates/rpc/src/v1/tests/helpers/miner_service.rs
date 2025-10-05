@@ -286,6 +286,10 @@ impl MinerService for TestMinerService {
             .collect()
     }
 
+    fn local_transaction_status(&self, tx_hash: &H256) -> Option<LocalTransactionStatus> {
+        self.local_transactions.lock().get(tx_hash).cloned()
+    }
+
     fn ready_transactions_filtered<C: ethcore::client::BlockChain>(
         &self,
         chain: &C,

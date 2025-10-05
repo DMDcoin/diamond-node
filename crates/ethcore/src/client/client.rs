@@ -89,7 +89,7 @@ use ansi_term::Colour;
 use bytes::{Bytes, ToPretty};
 use call_contract::{CallContract, RegistryInfo};
 use db::{DBTransaction, DBValue, KeyValueDB};
-use ethcore_miner::pool::VerifiedTransaction;
+use ethcore_miner::pool::{VerifiedTransaction, local_transactions::Status};
 use ethereum_types::{Address, H256, H264, H512, U256};
 use hash::keccak;
 use itertools::Itertools;
@@ -1408,6 +1408,16 @@ impl Client {
             }
             hashes.push_front(hash.clone());
         }
+    }
+
+    /// Get local transactions from the miner.
+    pub fn local_transactions(&self) -> BTreeMap<H256, Status> {
+        self.importer.miner.local_transactions()
+    }
+
+    /// Get local transactions from the miner.
+    pub fn local_transaction_status(&self, tx_hash: &H256) -> Option<Status> {
+        self.importer.miner.local_transaction_status(tx_hash)
     }
 
     /// Get shared miner reference.

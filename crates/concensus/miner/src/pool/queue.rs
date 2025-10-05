@@ -41,6 +41,8 @@ use crate::pool::{
     verifier, PendingOrdering, PendingSettings, PrioritizationStrategy,
 };
 
+use super::local_transactions;
+
 type Listener = (
     LocalTransactionsList,
     (listener::Notifier, listener::Logger),
@@ -544,6 +546,17 @@ impl TransactionQueue {
                     .collect()
             },
         )
+    }
+
+    /// Returns status of a local transaction by its hash.
+    pub fn local_transaction_status(&self, tx_hash: &H256) -> Option<local_transactions::Status> {
+        self.pool
+            .read()
+            .listener()
+            .0
+            .all_transactions()
+            .get(tx_hash)
+            .cloned()
     }
 
     /// Collect pending transactions.
