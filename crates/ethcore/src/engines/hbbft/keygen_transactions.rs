@@ -159,9 +159,7 @@ impl KeygenTransactionSender {
                                 // make sure we did not just witness block inclusion.
                                 if let Some(full_client) = client.as_full_client() {
                                     if let Some(transaction) = full_client.block_transaction(
-                                        types::ids::TransactionId::Hash(
-                                            last_sent.transaction_hash,
-                                        ),
+                                        types::ids::TransactionId::Hash(last_sent.transaction_hash),
                                     ) {
                                         // our service transaction got included.
                                         warn!(target: "engine", "key gen transaction got included in block {} but we are still in wrong state ?!", transaction.block_number);

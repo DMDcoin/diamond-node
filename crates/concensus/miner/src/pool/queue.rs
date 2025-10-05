@@ -547,7 +547,10 @@ impl TransactionQueue {
     }
 
     /// Returns status of a local transaction by its hash.
-    pub fn local_transaction_status(&self, tx_hash: &H256) -> Option<crate::pool::local_transactions::Status> {
+    pub fn local_transaction_status(
+        &self,
+        tx_hash: &H256,
+    ) -> Option<crate::pool::local_transactions::Status> {
         self.pool
             .read()
             .listener()
