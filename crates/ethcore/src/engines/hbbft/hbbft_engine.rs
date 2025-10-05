@@ -565,7 +565,7 @@ impl HoneyBadgerBFT {
                     }
 
                     // Always log the latest timestamp and diff for visibility.
-                    warn!(target: "consensus", "Phoenix Protocol: latest block timestamp: {} (diff_secs: {})", h.timestamp(), diff_secs);
+                    trace!(target: "consensus", "Phoenix Protocol: latest block timestamp: {} (diff_secs: {})", h.timestamp(), diff_secs);
                 }
                 None => {
                     error!(target: "consensus", "Phoenix Protocol: No latest block header available.");
