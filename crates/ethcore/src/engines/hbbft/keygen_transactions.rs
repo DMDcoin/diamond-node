@@ -61,7 +61,7 @@ pub struct KeygenTransactionSender {
     /// Minimum delay between for resending key gen transactions in milliseconds.
     key_gen_transaction_delay_milliseconds: u128,
 
-    /// Minimum delay between  for resending key gen in blocks.
+    /// Minimum delay for resending key gen transactions, in milliseconds.
     key_gen_transaction_delay_blocks: u64,
 
     /// Last key gen service transaction we sent.
@@ -160,7 +160,7 @@ impl KeygenTransactionSender {
                                 if let Some(full_client) = client.as_full_client() {
                                     if let Some(transaction) = full_client.block_transaction(
                                         types::ids::TransactionId::Hash(
-                                            last_sent.transaction_hash.clone(),
+                                            last_sent.transaction_hash,
                                         ),
                                     ) {
                                         // our service transaction got included.
