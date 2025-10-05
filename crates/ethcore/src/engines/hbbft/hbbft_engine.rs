@@ -479,15 +479,15 @@ impl IoHandler<()> for TransitionHandler {
 impl HoneyBadgerBFT {
     // Phoenix recovery protocol parameters
     // Start deferring and reset HoneyBadger after this many seconds without a new block.
-    const PHOENIX_DEFER_AFTER_SECS: i64 = 60;
+    const PHOENIX_DEFER_AFTER_SECS: i64 = 600;
     // Add this number to PHOENIX_DEFER_AFTER_SECS for each try after the first try to
     // incrementally increase the time for the next block creation attempt.
     // If 'n' is the current try, starting at 0 then:
     // Try(0): PHOENIX_DEFER_AFTER_SECS
     // Try(n): Try(n-1) + PHOENIX_DEFER_AFTER_SECS + n * PHOENIX_DEFER_INCREMENT_SECS
-    const PHOENIX_DEFER_INCREMENT_SECS: i64 = 2;
+    const PHOENIX_DEFER_INCREMENT_SECS: i64 = 120;
     // Resume sending and deliver deferred messages after this many seconds.
-    const PHOENIX_RESUME_AFTER_SECS: i64 = 20;
+    const PHOENIX_RESUME_AFTER_SECS: i64 = 120;
     // Timeout for trying to acquire the hbbft_state lock to reset HoneyBadger, in milliseconds.
     const PHOENIX_LOCK_TIMEOUT_MS: u64 = 100;
 
