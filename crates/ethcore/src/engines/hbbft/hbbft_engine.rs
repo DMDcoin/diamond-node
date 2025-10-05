@@ -480,6 +480,12 @@ impl HoneyBadgerBFT {
     // Phoenix recovery protocol parameters
     // Start deferring and reset HoneyBadger after this many seconds without a new block.
     const PHOENIX_DEFER_AFTER_SECS: i64 = 60;
+    // Add this number to PHOENIX_DEFER_AFTER_SECS for each try after the first try to
+    // incrementally increase the time for the next block creation attempt.
+    // If 'n' is the current try, starting at 0 then:
+    // Try(0): PHOENIX_DEFER_AFTER_SECS
+    // Try(n): Try(n-1) + PHOENIX_DEFER_AFTER_SECS + n * PHOENIX_DEFER_INCREMENT_SECS
+    const PHOENIX_DEFER_INCREMENT_SECS: i64 = 2;
     // Resume sending and deliver deferred messages after this many seconds.
     const PHOENIX_RESUME_AFTER_SECS: i64 = 20;
     // Timeout for trying to acquire the hbbft_state lock to reset HoneyBadger, in milliseconds.
@@ -506,11 +512,26 @@ impl HoneyBadgerBFT {
                     let resume_after = Self::PHOENIX_RESUME_AFTER_SECS;
 
                     if diff_secs >= defer_after {
-                        // Determine the current recovery cycle index n and its boundaries.
-                        let n = diff_secs / defer_after; // floor division
-                        let cycle_start = n * defer_after; // n * DEFER
-                        let cycle_resume = cycle_start + resume_after; // n * DEFER + RESUME
-                        let next_cycle_start = (n + 1) * defer_after; // (n+1) * DEFER
+                        // Determine the current recovery cycle index n and its boundaries using
+                        // increasing delays per try. The cumulative start time S_n is defined as:
+                        // S_0 = PHOENIX_DEFER_AFTER_SECS
+                        // S_n = S_{n-1} + PHOENIX_DEFER_AFTER_SECS + n * PHOENIX_DEFER_INCREMENT_SECS
+                        let mut n: i64 = 0;
+                        let mut cycle_start: i64 = defer_after; // S_0
+                        let next_cycle_start: i64;
+                        loop {
+                            let incr = defer_after + (n + 1) * Self::PHOENIX_DEFER_INCREMENT_SECS;
+                            let candidate_next = cycle_start + incr; // S_{n+1}
+                            if diff_secs >= candidate_next {
+                                n += 1;
+                                cycle_start = candidate_next; // advance to next cycle
+                                continue;
+                            } else {
+                                next_cycle_start = candidate_next;
+                                break;
+                            }
+                        }
+                        let cycle_resume = cycle_start + resume_after;
 
                         if diff_secs < cycle_resume {
                             // We are within the deferring window of the current cycle.
