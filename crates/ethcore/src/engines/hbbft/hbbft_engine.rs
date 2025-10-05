@@ -547,6 +547,17 @@ impl HoneyBadgerBFT {
                                 warn!(target: "consensus", "Phoenix Protocol: Expecting block to be generated ({}s since last block; cycle n={}, resume @ {}, next_cycle @ {})", diff_secs, n, cycle_resume, next_cycle_start);
                             }
                         }
+                    } else {
+                        // A new block has been imported while recovery protocol was active.
+                        // Clean up recovery state: stop deferring and deliver any stored messages.
+                        if self.defer_outgoing_messages.load(Ordering::SeqCst)
+                            || self.phoenix_reset_performed.load(Ordering::SeqCst)
+                        {
+                            self.set_defer_outgoing_messages(false);
+                            self.deliver_stored_outgoing_messages();
+                            self.phoenix_reset_performed.store(false, Ordering::SeqCst);
+                            warn!(target: "consensus", "Phoenix Protocol: Cleaned up recovery state after new block ({}s since last block < defer threshold {})", diff_secs, defer_after);
+                        }
                     }
 
                     // Always log the latest timestamp and diff for visibility.
