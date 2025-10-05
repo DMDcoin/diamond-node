@@ -81,7 +81,7 @@ pub fn is_pending_validator(
     call_const_validator!(c, is_pending_validator, staking_address.clone())
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum KeyGenMode {
     WritePart,
     WriteAck,

@@ -48,7 +48,7 @@ use crate::{
 use bytes::Bytes;
 use crypto::publickey::{Generator, Random};
 use db::{COL_STATE, NUM_COLUMNS};
-use ethcore_miner::pool::VerifiedTransaction;
+use ethcore_miner::pool::{VerifiedTransaction, local_transactions::Status};
 use ethereum_types::{Address, H256, H512, U256};
 use ethtrie;
 use hash::keccak;
@@ -1274,6 +1274,10 @@ impl super::traits::EngineClient for TestBlockChainClient {
     }
 
     fn demand_shutdown(&self) {}
+
+    fn local_transaction_status(&self, tx_hash: &H256) -> Option<Status> {
+        self.miner.local_transaction_status(tx_hash)
+    }
 }
 
 impl PrometheusMetrics for TestBlockChainClient {

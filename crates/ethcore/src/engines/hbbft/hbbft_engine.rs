@@ -461,7 +461,7 @@ impl HoneyBadgerBFT {
         let engine = Arc::new(HoneyBadgerBFT {
             transition_service: IoService::<()>::start("Hbbft", 4)?,
             hbbft_peers_service: IoService::<HbbftConnectToPeersMessage>::start(
-                "peers_management",
+                "hbbftp", /* hbbft peers (we use 6 letter acronyms for nice log file layout.) */
                 1,
             )?,
             client: Arc::new(RwLock::new(None)),
@@ -484,7 +484,9 @@ impl HoneyBadgerBFT {
             params,
             message_counter: Mutex::new(0), // restore message counter from memory here for RBC ?  */
             random_numbers: RwLock::new(BTreeMap::new()),
-            keygen_transaction_sender: RwLock::new(KeygenTransactionSender::new()),
+            /* Todo: make this configureable
+             */
+            keygen_transaction_sender: RwLock::new(KeygenTransactionSender::new(1, 60000)),
 
             has_connected_to_validator_set: AtomicBool::new(false),
             current_minimum_gas_price: Mutex::new(None),

@@ -45,7 +45,7 @@ use crate::{
 };
 use bytes::Bytes;
 use call_contract::{CallContract, RegistryInfo};
-use ethcore_miner::pool::VerifiedTransaction;
+use ethcore_miner::pool::{VerifiedTransaction, local_transactions::Status};
 use ethereum_types::{Address, H256, H512, U256};
 use evm::Schedule;
 use itertools::Itertools;
@@ -707,6 +707,12 @@ pub trait EngineClient: Sync + Send + ChainInfo {
     fn config_shutdown_on_missing_block_import(&self) -> Option<u64> {
         None
     }
+
+    /// Get local transaction status.
+    /// Note that already included transactions might be not available here anymore.
+    /// As well as transactions that were culled, replaced, dropped or whatever,
+    /// do not exist forever in the memory.
+    fn local_transaction_status(&self, tx_hash: &H256) -> Option<Status>;
 }
 
 /// Extended client interface for providing proofs of the state.

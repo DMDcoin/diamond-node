@@ -91,7 +91,7 @@ impl HbbftPeersManagement {
                 ) {
                     connected_current_pending_validators.push(connected_validator);
                 } else {
-                    warn!(target: "Engine", "could not add pending validator to reserved peers: {}", pending_validator_address);
+                    debug!(target: "Engine", "could not add pending validator to reserved peers: {}", pending_validator_address);
                 }
             }
         }
@@ -546,7 +546,7 @@ fn connect_to_validator_core(
     };
 
     if socket_addr.port() == 0 {
-        error!(target: "engine", "connect_to_validator_core: no port specified for Node ( Public (NodeId): {:?} , staking address: {}, socket_addr: {:?}", node_id, staking_address, socket_addr);
+        debug!(target: "engine", "connect_to_validator_core: no port specified for Node ( Public (NodeId): {:?} , staking address: {}, socket_addr: {:?}", node_id, staking_address, socket_addr);
         // we interprate port 0 as NULL.
         return None;
     }
