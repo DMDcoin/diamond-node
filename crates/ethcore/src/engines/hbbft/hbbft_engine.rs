@@ -523,9 +523,13 @@ impl HoneyBadgerBFT {
                                 )) {
                                     Some(mut state) => {
                                         if state.reset_honeybadger().is_some() {
+                                            // Also reset the sealing protocol state to avoid mixing signatures
+                                            // from the previous block creation attempt.
+                                            self.sealing.write().clear();
+
                                             self.phoenix_reset_performed
                                                 .store(true, Ordering::SeqCst);
-                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages and reset HoneyBadger ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
+                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages, reset HoneyBadger and cleared sealing state ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
                                         } else {
                                             warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages but failed to reset HoneyBadger ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
                                         }
