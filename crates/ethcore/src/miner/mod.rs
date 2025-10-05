@@ -46,7 +46,10 @@ use crate::types::{
     transaction::{self, PendingTransaction, SignedTransaction, UnverifiedTransaction},
 };
 use bytes::Bytes;
-use ethcore_miner::pool::{QueueStatus, VerifiedTransaction, local_transactions};
+use ethcore_miner::pool::{
+    QueueStatus, VerifiedTransaction,
+    local_transactions::{self, Status},
+};
 use ethereum_types::{Address, H256, U256};
 
 use crate::{
@@ -287,4 +290,7 @@ pub trait MinerService: Send + Sync {
     /// Set a new minimum gas limit.
     /// Will not work if dynamic gas calibration is set.
     fn set_minimal_gas_price(&self, gas_price: U256) -> Result<bool, &str>;
+
+    /// Get the status of a local transaction by its hash.
+    fn local_transaction_status(&self, hash: &H256) -> Option<Status>;
 }

@@ -546,6 +546,20 @@ impl TransactionQueue {
         )
     }
 
+    /// Returns status of a local transaction by its hash.
+    pub fn local_transaction_status(
+        &self,
+        tx_hash: &H256,
+    ) -> Option<crate::pool::local_transactions::Status> {
+        self.pool
+            .read()
+            .listener()
+            .0
+            .all_transactions()
+            .get(tx_hash)
+            .cloned()
+    }
+
     /// Collect pending transactions.
     ///
     /// NOTE This is re-computing the pending set and it might be expensive to do so.
