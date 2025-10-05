@@ -55,6 +55,13 @@ pub struct ServiceTransactionMemory {
 }
 
 pub struct KeygenTransactionSender {
+    /// Minimum delay between for resending key gen transactions in milliseconds.
+    key_gen_transaction_delay_milliseconds: u128,
+
+    /// Minimum delay between  for resending key gen in blocks.
+    key_gen_transaction_delay_blocks: u64,
+
+    /// Last key gen service transaction we sent.
     last_keygen_service_transaction: Option<ServiceTransactionMemory>,
 }
 
@@ -83,13 +90,15 @@ impl From<CallError> for KeyGenError {
     }
 }
 
-static KEYGEN_TRANSACTION_RESEND_DELAY_SECONDS: u64 = 30;
-static KEYGEN_TRANSACTION_RESEND_DELAY_BLOCKS: u64 = 2;
-
 impl KeygenTransactionSender {
-    pub fn new() -> Self {
+    pub fn new(
+        key_gen_transaction_delay_blocks: u64,
+        key_gen_transaction_delay_milliseconds: u128,
+    ) -> Self {
         KeygenTransactionSender {
             last_keygen_service_transaction: None,
+            key_gen_transaction_delay_blocks,
+            key_gen_transaction_delay_milliseconds,
         }
     }
 
@@ -119,12 +128,9 @@ impl KeygenTransactionSender {
                                 return Ok(ShouldSendKeyAnswer::Yes);
                             }
 
-                            // we will check the state of our send transaction.
-                            // client.queued_transactions().
-
                             // if we are still in the same situation, we need to figure out if we just should retry to send our last transaction.
-                            if last_sent.send_time.elapsed().as_secs()
-                                < KEYGEN_TRANSACTION_RESEND_DELAY_SECONDS
+                            if last_sent.send_time.elapsed().as_millis()
+                                < self.key_gen_transaction_delay_milliseconds
                             {
                                 // we sent a transaction recently, so we should wait a bit.
                                 return Ok(ShouldSendKeyAnswer::NoWaiting);
@@ -133,12 +139,16 @@ impl KeygenTransactionSender {
                             let current_block = client.block_number(BlockId::Latest).unwrap_or(0);
 
                             // this check also prevents the resending of Transactions if no block got mined. (e.g. because of stalled network)
-                            if last_sent.block_sent + KEYGEN_TRANSACTION_RESEND_DELAY_BLOCKS
+                            if last_sent.block_sent + self.key_gen_transaction_delay_blocks
                                 > current_block
                             {
+                                // rational behind:
+                                // if blocks are not created anyway,
+                                // we do not have to send new transactions.
+
                                 // example:
                                 // send on block 10 (last_sent.block_sent = 10)
-                                // KEYGEN_TRANSACTION_RESEND_DELAY_BLOCKS = 2
+                                // key_gen_transaction_delay_blocks = 2
                                 // resent after Block 12.
                                 // current block is 11: waiting
                                 // current block is 12: waiting
@@ -423,12 +433,18 @@ impl KeygenTransactionSender {
         let gas = total_bytes_for_acks * 850 + 200_000;
         trace!(target: "engine","acks-len: {} gas: {}", total_bytes_for_acks, gas);
 
-        // full_client.nonce(&mining_address, BlockId::Latest).unwrap();
         // Nonce Management is complex.
-        // we will include queued transactions here,
-        // but it could lead to a problem where "unprocessed" stuck transactions are producing Nonce gaps.
+        // we wont include queued transactions here,
+        // because key gen transactions are so important,
+        // that they are topic to "replace" other service transactions.
+        // it could trigger in a scenario where a service transaction was just sent,
+        // is getting included by other nodes, but this one does not know about it yet,
+        // sending a Nonce that is to small.
+        // A better ServiceTransactionManager could be implemented to handle this more gracefully.
 
-        let nonce = full_client.next_nonce(&*mining_address);
+        let nonce = full_client
+            .nonce(&*mining_address, BlockId::Latest)
+            .unwrap_or(U256::zero());
 
         let acks_transaction = TransactionRequest::call(*KEYGEN_HISTORY_ADDRESS, write_acks_data.0)
             .gas(U256::from(gas))
@@ -471,9 +487,10 @@ impl KeygenTransactionSender {
         // and usually run into the gas limit problems.
         let gas: usize = data.len() * 800 + 100_000;
 
-        // WARNING: This Nonce could conflict with other Service Transactions.
-        // a better ServiceTransactionManager could be improve this here.
-        let nonce = full_client.next_nonce(&*mining_address); //full_client.nonce(&mining_address, BlockId::Latest).unwrap();
+        // for detailed nonce management rational, check up send_ack_transaction.
+        let nonce = full_client
+            .nonce(&*mining_address, BlockId::Latest)
+            .unwrap_or(U256::zero());
 
         let write_part_data =
             key_history_contract::functions::write_part::call(upcoming_epoch, current_round, data);
