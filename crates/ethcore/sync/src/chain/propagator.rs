@@ -433,7 +433,7 @@ impl ChainSync {
         let peer_id = match io.node_id_to_peer_id(peer) {
             Some(id) => id,
             None => {
-                warn!(target: "sync", "Peer with node id {} not found in peers list.", peer);
+                debug!(target: "sync", "Cannot send consensus message: Peer with node id {} seems not to be connected.", peer);
                 return Err(ErrorKind::PeerNotFound.into());
             }
         };

@@ -20,7 +20,9 @@ use crate::{
     },
     types::ids::BlockId,
 };
+use ethcore_miner::pool::local_transactions::Status;
 use ethereum_types::{Address, Public, U256};
+use hash::H256;
 use hbbft::sync_key_gen::SyncKeyGen;
 use itertools::Itertools;
 use parking_lot::RwLock;
@@ -40,7 +42,8 @@ pub struct ServiceTransactionMemory {
     pub send_time: Instant,
 
     // It would be good to have a transaction Hash here.
-    //pub transaction_hash: H256,
+    pub transaction_hash: H256,
+
     /// Type of the transaction, e.g. KeyGen Part or Ack.
     pub transaction_type: ServiceTransactionType,
 
@@ -126,6 +129,51 @@ impl KeygenTransactionSender {
                             {
                                 // other key gen mode, we need to send.
                                 return Ok(ShouldSendKeyAnswer::Yes);
+                            }
+
+                            let mut transaction_lost = false;
+                            // check if our last sent transaction is still pending.
+                            if let Some(service_tx_state) =
+                                client.local_transaction_status(&last_sent.transaction_hash)
+                            {
+                                match service_tx_state {
+                                    Status::Culled(_)
+                                    | Status::Dropped(_)
+                                    | Status::Rejected(..)
+                                    | Status::Replaced { .. }
+                                    | Status::Invalid(_)
+                                    | Status::Canceled(_) => {
+                                        transaction_lost = true;
+                                    }
+                                    _ => {}
+                                }
+                            } else {
+                                // the transaction got lost, and probably transaction info got already deleted.
+                                // it still might also got already included into a block.
+                                transaction_lost = true;
+                            }
+
+                            if transaction_lost {
+                                // maybe we lost the key gen transaction, because it got included into a block.
+
+                                // make sure we did not just witness block inclusion.
+                                if let Some(full_client) = client.as_full_client() {
+                                    if let Some(transaction) = full_client.block_transaction(
+                                        types::ids::TransactionId::Hash(
+                                            last_sent.transaction_hash.clone(),
+                                        ),
+                                    ) {
+                                        // our service transaction got included.
+                                        warn!(target: "engine", "key gen transaction got included in block {} but we are still in wrong state ?!", transaction.block_number);
+                                        return Ok(ShouldSendKeyAnswer::NoWaiting);
+                                    } else {
+                                        // our transaction is not pending anymore, and also has not got included into a block, we should resend.
+                                        return Ok(ShouldSendKeyAnswer::Yes);
+                                    }
+                                } else {
+                                    // that should really never happen.
+                                    warn!(target:"engine", "could not get full client to check for inclusion of key gen transaction");
+                                }
                             }
 
                             // if we are still in the same situation, we need to figure out if we just should retry to send our last transaction.
@@ -471,7 +519,7 @@ impl KeygenTransactionSender {
                 KeyGenMode::WriteAck,
             ),
             //nonce: nonce,
-            //transaction_hash: hash,
+            transaction_hash: hash,
             block_sent: client.block_number(BlockId::Latest).unwrap_or(0),
         });
 
@@ -515,7 +563,7 @@ impl KeygenTransactionSender {
 
         self.last_keygen_service_transaction = Some(ServiceTransactionMemory {
             send_time: Instant::now(),
-            //transaction_hash: hash,
+            transaction_hash: hash,
             transaction_type: ServiceTransactionType::KeyGenTransaction(
                 upcoming_epoch.as_u64(),
                 current_round.as_u64(),

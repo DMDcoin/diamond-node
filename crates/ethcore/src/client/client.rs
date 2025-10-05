@@ -3370,6 +3370,11 @@ impl super::traits::EngineClient for Client {
             .miner
             .create_pending_block_at(self, txns, timestamp, block_number)
     }
+
+    /// Get local transactions from the miner.
+    fn local_transaction_status(&self, tx_hash: &H256) -> Option<Status> {
+        self.importer.miner.local_transaction_status(tx_hash)
+    }
 }
 
 impl ProvingBlockChainClient for Client {
