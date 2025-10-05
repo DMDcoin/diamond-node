@@ -1,4 +1,8 @@
 
+## Diamond Node Software 0.12.7
+
+- [hbbft key generation: double transactions / missing transactions](https://github.com/DMDcoin/diamond-node/issues/290)
+
 ## Diamond Node Software 0.12.6
 
 - reduced Trace Log output for tracing devp2p propagation

@@ -850,7 +850,7 @@ dependencies = [
 
 [[package]]
 name = "diamond-node"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "ansi_term 0.10.2",
  "atty",
@@ -3579,7 +3579,7 @@ dependencies = [
 
 [[package]]
 name = "parity-version"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "parity-bytes",
  "rlp",
