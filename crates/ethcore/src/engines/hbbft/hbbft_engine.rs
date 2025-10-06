@@ -62,6 +62,13 @@ use super::{
 use crate::engines::hbbft::hbbft_message_memorium::HbbftMessageDispatcher;
 use std::{ops::Deref, sync::atomic::Ordering};
 
+// Internal representation for storing deferred outgoing consensus messages.
+struct StoredOutgoingMessage {
+    block_number: BlockNumber,
+    data: Vec<u8>,
+    recipients: Vec<H512>,
+}
+
 type TargetedMessage = hbbft::TargetedMessage<Message, NodeId>;
 
 /// A message sent between validators that is part of Honey Badger BFT or the block sealing process.
@@ -104,6 +111,13 @@ pub struct HoneyBadgerBFT {
     early_epoch_manager: Mutex<Option<HbbftEarlyEpochEndManager>>,
     hbbft_engine_cache: Mutex<HbbftEngineCache>,
     delayed_hbbft_join: AtomicBool,
+
+    // When true, outgoing consensus messages are deferred and stored for later delivery.
+    defer_outgoing_messages: AtomicBool,
+    // Storage for deferred outgoing messages ready to be delivered later.
+    stored_outgoing_messages: Mutex<Vec<StoredOutgoingMessage>>,
+    // Phoenix recovery protocol: ensure we reset HoneyBadger only once before resuming sending.
+    phoenix_reset_performed: AtomicBool,
 }
 
 struct TransitionHandler {
@@ -177,6 +191,8 @@ const ENGINE_DELAYED_UNITL_SYNCED_TOKEN: TimerToken = 3;
 // Some Operations have no urge on the timing, but are rather expensive.
 // those are handeled by this slow ticking timer.
 const ENGINE_VALIDATOR_CANDIDATE_ACTIONS: TimerToken = 4;
+// Check for current Phoenix Protocol phase
+const ENGINE_PHOENIX_CHECK: TimerToken = 5;
 
 impl TransitionHandler {
     fn handle_shutdown_on_missing_block_import(
@@ -362,6 +378,11 @@ impl IoHandler<()> for TransitionHandler {
 
         // io.channel()
         //     io.register_stream()
+
+        io.register_timer(ENGINE_PHOENIX_CHECK, Duration::from_secs(10))
+            .unwrap_or_else(
+                |e| warn!(target: "consensus", "ENGINE_PHOENIX_CHECK Timer failed: {}.", e),
+            );
     }
 
     fn timeout(&self, io: &IoContext<()>, timer: TimerToken) {
@@ -449,11 +470,131 @@ impl IoHandler<()> for TransitionHandler {
             if let Err(err) = self.engine.do_validator_engine_actions() {
                 error!(target: "consensus", "do_validator_engine_actions failed: {:?}", err);
             }
+        } else if timer == ENGINE_PHOENIX_CHECK {
+            self.engine.handle_phoenix_recovery_protocol();
         }
     }
 }
 
 impl HoneyBadgerBFT {
+    // Phoenix recovery protocol parameters
+    // Start deferring and reset HoneyBadger after this many seconds without a new block.
+    const PHOENIX_DEFER_AFTER_SECS: i64 = 600;
+    // Add this number to PHOENIX_DEFER_AFTER_SECS for each try after the first try to
+    // incrementally increase the time for the next block creation attempt.
+    // If 'n' is the current try, starting at 0 then:
+    // Try(0): PHOENIX_DEFER_AFTER_SECS
+    // Try(n): Try(n-1) + PHOENIX_DEFER_AFTER_SECS + n * PHOENIX_DEFER_INCREMENT_SECS
+    const PHOENIX_DEFER_INCREMENT_SECS: i64 = 120;
+    // Resume sending and deliver deferred messages after this many seconds.
+    const PHOENIX_RESUME_AFTER_SECS: i64 = 120;
+    // Timeout for trying to acquire the hbbft_state lock to reset HoneyBadger, in milliseconds.
+    const PHOENIX_LOCK_TIMEOUT_MS: u64 = 100;
+
+    /// Phoenix recovery protocol
+    /// Called periodically to detect stalls and perform a controlled recovery.
+    /// Retry recovery every n*PHOENIX_DEFER_AFTER_SECS by deferring and resetting,
+    /// and resume sending messages every n*PHOENIX_DEFER_AFTER_SECS + PHOENIX_RESUME_AFTER_SECS.
+    fn handle_phoenix_recovery_protocol(&self) {
+        if let Some(client) = self.client_arc() {
+            // Skip if still syncing.
+            if self.is_syncing(&client) {
+                return;
+            }
+
+            match client.block_header(BlockId::Latest) {
+                Some(h) => {
+                    let ts = h.timestamp() as i64;
+                    let now_ts = unix_now_secs() as i64;
+                    let diff_secs = now_ts - ts;
+
+                    let defer_after = Self::PHOENIX_DEFER_AFTER_SECS;
+                    let resume_after = Self::PHOENIX_RESUME_AFTER_SECS;
+
+                    if diff_secs >= defer_after {
+                        // Determine the current recovery cycle index n and its boundaries using
+                        // increasing delays per try. The cumulative start time S_n is defined as:
+                        // S_0 = PHOENIX_DEFER_AFTER_SECS
+                        // S_n = S_{n-1} + PHOENIX_DEFER_AFTER_SECS + n * PHOENIX_DEFER_INCREMENT_SECS
+                        let mut n: i64 = 0;
+                        let mut cycle_start: i64 = defer_after; // S_0
+                        let next_cycle_start: i64;
+                        loop {
+                            let incr = defer_after + (n + 1) * Self::PHOENIX_DEFER_INCREMENT_SECS;
+                            let candidate_next = cycle_start + incr; // S_{n+1}
+                            if diff_secs >= candidate_next {
+                                n += 1;
+                                cycle_start = candidate_next; // advance to next cycle
+                                continue;
+                            } else {
+                                next_cycle_start = candidate_next;
+                                break;
+                            }
+                        }
+                        let cycle_resume = cycle_start + resume_after;
+
+                        if diff_secs < cycle_resume {
+                            // We are within the deferring window of the current cycle.
+                            self.set_defer_outgoing_messages(true);
+
+                            // Ensure we reset the HoneyBadger instance only once during a deferring window.
+                            if !self.phoenix_reset_performed.load(Ordering::SeqCst) {
+                                match self.hbbft_state.try_write_for(Duration::from_millis(
+                                    Self::PHOENIX_LOCK_TIMEOUT_MS,
+                                )) {
+                                    Some(mut state) => {
+                                        if state.reset_honeybadger().is_some() {
+                                            // Also reset the sealing protocol state to avoid mixing signatures
+                                            // from the previous block creation attempt.
+                                            self.sealing.write().clear();
+
+                                            self.phoenix_reset_performed
+                                                .store(true, Ordering::SeqCst);
+                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages, reset HoneyBadger and cleared sealing state ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
+                                        } else {
+                                            warn!(target: "consensus", "Phoenix Protocol: Deferred outgoing messages but failed to reset HoneyBadger ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
+                                        }
+                                    }
+                                    None => {
+                                        warn!(target: "consensus", "Phoenix Protocol: Could not acquire hbbft_state lock to reset HoneyBadger while deferring messages ({}s since last block; cycle n={}, window [{}..{}))", diff_secs, n, cycle_start, cycle_resume);
+                                    }
+                                }
+                            }
+                        } else if diff_secs < next_cycle_start {
+                            // We are in the resume window of the current cycle.
+                            if self.phoenix_reset_performed.load(Ordering::SeqCst) {
+                                self.set_defer_outgoing_messages(false);
+                                self.deliver_stored_outgoing_messages();
+                                // Allow the next cycle to perform a reset again if needed.
+                                self.phoenix_reset_performed.store(false, Ordering::SeqCst);
+                                warn!(target: "consensus", "Phoenix Protocol: Resumed sending and delivered deferred messages ({}s since last block; cycle n={}, resume @ {}, next_cycle @ {})", diff_secs, n, cycle_resume, next_cycle_start);
+                            } else {
+                                warn!(target: "consensus", "Phoenix Protocol: Expecting block to be generated ({}s since last block; cycle n={}, resume @ {}, next_cycle @ {})", diff_secs, n, cycle_resume, next_cycle_start);
+                            }
+                        }
+                    } else {
+                        // A new block has been imported while recovery protocol was active.
+                        // Clean up recovery state: stop deferring and deliver any stored messages.
+                        if self.defer_outgoing_messages.load(Ordering::SeqCst)
+                            || self.phoenix_reset_performed.load(Ordering::SeqCst)
+                        {
+                            self.set_defer_outgoing_messages(false);
+                            self.deliver_stored_outgoing_messages();
+                            self.phoenix_reset_performed.store(false, Ordering::SeqCst);
+                            warn!(target: "consensus", "Phoenix Protocol: Cleaned up recovery state after new block ({}s since last block < defer threshold {})", diff_secs, defer_after);
+                        }
+                    }
+
+                    // Always log the latest timestamp and diff for visibility.
+                    trace!(target: "consensus", "Phoenix Protocol: latest block timestamp: {} (diff_secs: {})", h.timestamp(), diff_secs);
+                }
+                None => {
+                    error!(target: "consensus", "Phoenix Protocol: No latest block header available.");
+                }
+            }
+        }
+    }
+
     /// Creates an instance of the Honey Badger BFT Engine.
     pub fn new(params: HbbftParams, machine: EthereumMachine) -> Result<Arc<Self>, Error> {
         let is_unit_test = params.is_unit_test.unwrap_or(false);
@@ -493,6 +634,10 @@ impl HoneyBadgerBFT {
             early_epoch_manager: Mutex::new(None),
             hbbft_engine_cache: Mutex::new(HbbftEngineCache::new()),
             delayed_hbbft_join: AtomicBool::new(false),
+
+            defer_outgoing_messages: AtomicBool::new(false),
+            stored_outgoing_messages: Mutex::new(Vec::new()),
+            phoenix_reset_performed: AtomicBool::new(false),
         });
 
         if !engine.params.is_unit_test.unwrap_or(false) {
@@ -753,25 +898,42 @@ impl HoneyBadgerBFT {
         for m in messages {
             let ser =
                 rmp_serde::to_vec(&m.message).expect("Serialization of consensus message failed");
+
+            // Determine recipients based on the target, excluding ourselves.
+            let mut recipients: Vec<H512> = Vec::new();
             match m.target {
                 Target::Nodes(set) => {
-                    trace!(target: "consensus", "Dispatching message {:?} to {:?}", m.message, set);
                     for node_id in set.into_iter().filter(|p| p != net_info.our_id()) {
-                        let block_num = m.message.block_number();
-                        trace!(target: "consensus", "Sending message to {} for block #{} ", node_id.0, block_num);
-                        client.send_consensus_message(block_num, ser.clone(), Some(node_id.0));
+                        recipients.push(node_id.0);
                     }
                 }
                 Target::AllExcept(set) => {
-                    trace!(target: "consensus", "Dispatching exclusive message {:?} to all except {:?}", m.message, set);
                     for node_id in net_info
                         .all_ids()
                         .filter(|p| (p != &net_info.our_id() && !set.contains(p)))
                     {
-                        let block_num = m.message.block_number();
-                        trace!(target: "consensus", "Sending exclusive message to {} for block #{}", node_id.0, block_num);
-                        client.send_consensus_message(block_num, ser.clone(), Some(node_id.0));
+                        recipients.push(node_id.0);
                     }
+                }
+            }
+
+            let block_number = m.message.block_number();
+
+            if self.defer_outgoing_messages.load(Ordering::SeqCst) {
+                // Store for deferred delivery
+                warn!(target: "consensus", "Phoenix Protocol: Storing message for deferred sending for block #{} ", block_number);
+                self.stored_outgoing_messages
+                    .lock()
+                    .push(StoredOutgoingMessage {
+                        block_number,
+                        data: ser,
+                        recipients,
+                    });
+            } else {
+                // Send immediately
+                for node in recipients {
+                    trace!(target: "consensus", "Sending message to {} for block #{} ", node, block_number);
+                    client.send_consensus_message(block_number, ser.clone(), Some(node));
                 }
             }
         }
@@ -817,6 +979,38 @@ impl HoneyBadgerBFT {
         self.dispatch_messages(&client, messages, network_info);
         std::mem::drop(message_counter);
         self.process_output(client, step.output, network_info);
+    }
+
+    /// Enables or disables deferring of outgoing consensus messages.
+    pub fn set_defer_outgoing_messages(&self, defer: bool) {
+        self.defer_outgoing_messages.store(defer, Ordering::SeqCst);
+    }
+
+    /// Deliver all stored outgoing consensus messages immediately.
+    /// If no client is registered yet, the messages remain stored.
+    pub fn deliver_stored_outgoing_messages(&self) {
+        let client = match self.client_arc() {
+            Some(c) => c,
+            None => {
+                warn!(target: "consensus", "deliver_stored_outgoing_messages: No client available; keeping messages deferred.");
+                return;
+            }
+        };
+
+        let mut stored = self.stored_outgoing_messages.lock();
+        if stored.is_empty() {
+            return;
+        }
+        let mut messages: Vec<StoredOutgoingMessage> = Vec::with_capacity(stored.len());
+        std::mem::swap(&mut *stored, &mut messages);
+        drop(stored);
+
+        for msg in messages.into_iter() {
+            for node in msg.recipients.iter() {
+                trace!(target: "consensus", "Delivering deferred message to {}", node);
+                client.send_consensus_message(msg.block_number, msg.data.clone(), Some(*node));
+            }
+        }
     }
 
     /// Conditionally joins the current hbbft epoch if the number of received
