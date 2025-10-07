@@ -298,7 +298,9 @@ impl HbbftPeersManagement {
                 }
             }
 
-            info!(target: "engine", "removed {} peers from reserved peers management.", removed.len());
+            if removed.len() > 0 {
+                info!(target: "engine", "removed {} peers from reserved peers management.", removed.len());
+            }
         }
 
         // regardless of disconnect problems here, we clear all the data here.
