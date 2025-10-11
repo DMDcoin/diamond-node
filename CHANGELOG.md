@@ -1,3 +1,7 @@
+## Diamond Node Software 4.0.0
+
+Official Node Software start version for the DMD Diamond network version 4.
+see Whitepaper: https://github.com/DMDcoin/whitepaper/wiki
 
 ## Diamond Node Software 0.12.9
 
