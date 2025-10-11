@@ -6,7 +6,7 @@ Node client for the protocol version 4 of the bit.diamonds network.
 
 [license-badge]: https://img.shields.io/badge/license-GPL_v3-green.svg
 [license-url]: LICENSE
-[chat-url]: (https://dmdcoin.slack.com/)
+[chat-url]: (https://discord.com/invite/MwqZ2CYcB4)
 
 ## Table of Contents
 

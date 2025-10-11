@@ -1,4 +1,8 @@
 
+## Diamond Node Software 0.12.8
+
+- [Phoenix Protocol](https://github.com/DMDcoin/openethereum-3.x/issues/52)
+
 ## Diamond Node Software 0.12.7
 
 - [hbbft key generation: double transactions / missing transactions](https://github.com/DMDcoin/diamond-node/issues/290)
