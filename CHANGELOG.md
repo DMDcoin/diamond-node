@@ -1,4 +1,8 @@
 
+## Diamond Node Software 0.12.9
+
+- [Phoenix Protocol Bugfix for Validators](https://github.com/DMDcoin/openethereum-3.x/issues/52)
+
 ## Diamond Node Software 0.12.8
 
 - [Phoenix Protocol](https://github.com/DMDcoin/openethereum-3.x/issues/52)
