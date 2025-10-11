@@ -496,9 +496,13 @@ impl HoneyBadgerBFT {
     /// Retry recovery every n*PHOENIX_DEFER_AFTER_SECS by deferring and resetting,
     /// and resume sending messages every n*PHOENIX_DEFER_AFTER_SECS + PHOENIX_RESUME_AFTER_SECS.
     fn handle_phoenix_recovery_protocol(&self) {
+        if self.hbbft_state.read().is_validator() {
+            return;
+        }
+
         if let Some(client) = self.client_arc() {
             // Skip if still syncing.
-            if self.is_syncing(&client) {
+            if self.is_major_syncing(&client) {
                 return;
             }
 
@@ -1400,6 +1404,14 @@ impl HoneyBadgerBFT {
     fn is_syncing(&self, client: &Arc<dyn EngineClient>) -> bool {
         match client.as_full_client() {
             Some(full_client) => full_client.is_syncing(),
+            // We only support full clients at this point.
+            None => true,
+        }
+    }
+
+    fn is_major_syncing(&self, client: &Arc<dyn EngineClient>) -> bool {
+        match client.as_full_client() {
+            Some(full_client) => full_client.is_major_syncing(),
             // We only support full clients at this point.
             None => true,
         }
