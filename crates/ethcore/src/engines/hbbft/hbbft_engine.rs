@@ -496,7 +496,6 @@ impl HoneyBadgerBFT {
     /// Retry recovery every n*PHOENIX_DEFER_AFTER_SECS by deferring and resetting,
     /// and resume sending messages every n*PHOENIX_DEFER_AFTER_SECS + PHOENIX_RESUME_AFTER_SECS.
     fn handle_phoenix_recovery_protocol(&self) {
-        
         if !self.hbbft_state.read().is_validator() {
             return;
         }
