@@ -156,12 +156,25 @@ pub fn acks_of_address(
         if serialized_ack.is_empty() {
             return Err(CallError::ReturnValueInvalid);
         }
-        let deserialized_ack: Ack = bincode::deserialize(&serialized_ack).unwrap();
-        let outcome = skg
-            .handle_ack(vmap.get(&address).unwrap(), deserialized_ack)
-            .unwrap();
+        let deserialized_ack: Ack = match bincode::deserialize(&serialized_ack) {
+            Ok(ack) => ack,
+            Err(e) => {
+                error!(target: "engine", "Failed to deserialize Ack #{} for address {}: {:?}", n, address, e);
+                return Err(CallError::ReturnValueInvalid);
+            }
+        };
+
+        let outcome = match skg.handle_ack(vmap.get(&address).unwrap(), deserialized_ack) {
+            Ok(s) => s,
+            Err(e) => {
+                error!(target: "engine", "Failed to handle Ack #{} for address {}: {:?}", n, address, e);
+                return Err(CallError::ReturnValueInvalid);
+            }
+        };
+
         if let AckOutcome::Invalid(fault) = outcome {
-            panic!("Expected Ack Outcome to be valid. {:?}", fault);
+            error!(target: "engine", "Invalid Ack Outcome for #{} for address {}: {:?}", n, address, fault);
+            return Err(CallError::ReturnValueInvalid);
         }
     }
 
