@@ -884,10 +884,11 @@ impl SyncHandler {
                 return Ok(());
             }
 
-            if io
-                .chain()
-                .transaction_if_readable(&hash, &deadline.time_left())
-                .is_none()
+            if !sync.lately_received_transactions.contains(&hash)
+                && io
+                    .chain()
+                    .transaction_if_readable(&hash, &deadline.time_left())
+                    .is_none()
             {
                 sync.peers
                     .get_mut(&peer_id)

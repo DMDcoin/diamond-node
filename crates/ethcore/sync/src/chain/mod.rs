@@ -758,6 +758,8 @@ pub struct ChainSync {
     statistics: SyncPropagatorStatistics,
     /// memorizing currently pooled transaction to reduce the number of pooled transaction requests.
     asking_pooled_transaction_overview: PooledTransactionOverview,
+    /// memorized lately received transactions to avoid requesting them again.
+    lately_received_transactions: H256FastSet,
 }
 
 #[derive(Debug, Default)]
@@ -849,6 +851,7 @@ impl ChainSync {
             new_transactions_stats_period: config.new_transactions_stats_period,
             statistics: SyncPropagatorStatistics::new(),
             asking_pooled_transaction_overview: PooledTransactionOverview::new(),
+            lately_received_transactions: H256FastSet::default(),
         };
         sync.update_targets(chain);
         sync
@@ -952,6 +955,9 @@ impl ChainSync {
             trace!(target: "sync", "Received {:?}", txs.iter().map(|t| t.hash).map(|t| t.0).collect::<Vec<_>>());
         }
 
+        self.lately_received_transactions
+            .extend(txs.iter().map(|tx| tx.hash()));
+
         // Remove imported txs from all request queues
         let imported = txs.iter().map(|tx| tx.hash()).collect::<H256FastSet>();
         for (pid, peer_info) in &mut self.peers {
@@ -1024,6 +1030,7 @@ impl ChainSync {
         // Reactivate peers only if some progress has been made
         // since the last sync round of if starting fresh.
         self.active_peers = self.peers.keys().cloned().collect();
+        self.lately_received_transactions.clear();
         debug!(target: "sync", "resetting sync state to {:?}", self.state);
     }
 
@@ -1267,6 +1274,7 @@ impl ChainSync {
         debug!(target: "sync", "sync_peer: {} force {} state: {:?}",
             peer_id, force, self.state
         );
+
         if !self.active_peers.contains(&peer_id) {
             trace!(target: "sync", "Skipping deactivated peer {}", peer_id);
             return;
@@ -1440,6 +1448,9 @@ impl ChainSync {
                 let mut to_send = H256FastSet::default();
                 if let Some(peer) = self.peers.get_mut(&peer_id) {
                     // info: this check should do nothing, if everything is tracked correctly,
+
+                    peer.unfetched_pooled_transactions
+                        .retain(|h| !self.lately_received_transactions.contains(h));
 
                     if peer.asking_pooled_transactions.is_empty() {
                         // todo: we might just request the same transactions from  multiple peers here, at the same time.
