@@ -17,18 +17,20 @@
 /// Used for Engine testing.
 use std::str::FromStr;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering as AtomicOrdering},
     Arc,
+    atomic::{AtomicUsize, Ordering as AtomicOrdering},
 };
 
+use crate::types::{BlockNumber, header::Header};
 use bytes::Bytes;
 use ethereum_types::{Address, H256};
 use parity_util_mem::MallocSizeOf;
-use types::{header::Header, BlockNumber};
 
 use super::{SimpleList, SystemCall, ValidatorSet};
-use error::Error as EthcoreError;
-use machine::{AuxiliaryData, Call, EthereumMachine};
+use crate::{
+    error::Error as EthcoreError,
+    machine::{AuxiliaryData, Call, EthereumMachine},
+};
 
 /// Set used for testing with a single validator.
 #[derive(Clone, MallocSizeOf)]
@@ -47,10 +49,9 @@ impl Default for TestSet {
 impl TestSet {
     pub fn new(last_malicious: Arc<AtomicUsize>, last_benign: Arc<AtomicUsize>) -> Self {
         TestSet {
-            validator: SimpleList::new(vec![Address::from_str(
-                "7d577a597b2742b498cb5cf0c26cdcd726d39e6e",
-            )
-            .unwrap()]),
+            validator: SimpleList::new(vec![
+                Address::from_str("7d577a597b2742b498cb5cf0c26cdcd726d39e6e").unwrap(),
+            ]),
             last_malicious,
             last_benign,
         }
@@ -99,8 +100,8 @@ impl ValidatorSet for TestSet {
         _: bool,
         _: &Header,
         _: AuxiliaryData,
-    ) -> ::engines::EpochChange<EthereumMachine> {
-        ::engines::EpochChange::No
+    ) -> crate::engines::EpochChange<EthereumMachine> {
+        crate::engines::EpochChange::No
     }
 
     fn epoch_set(
@@ -109,7 +110,7 @@ impl ValidatorSet for TestSet {
         _: &EthereumMachine,
         _: BlockNumber,
         _: &[u8],
-    ) -> Result<(SimpleList, Option<H256>), ::error::Error> {
+    ) -> Result<(SimpleList, Option<H256>), crate::error::Error> {
         Ok((self.validator.clone(), None))
     }
 

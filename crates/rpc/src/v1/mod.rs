@@ -34,6 +34,7 @@ mod helpers;
 mod impls;
 #[cfg(test)]
 mod tests;
+
 mod types;
 
 pub mod extractors;
@@ -43,7 +44,7 @@ pub mod traits;
 
 pub use self::{
     extractors::{RpcExtractor, WsDispatcher, WsExtractor, WsStats},
-    helpers::{block_import, dispatch, NetworkSettings},
+    helpers::{NetworkSettings, block_import, dispatch},
     impls::*,
     metadata::Metadata,
     traits::{

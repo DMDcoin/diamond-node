@@ -182,7 +182,7 @@ where
 mod tests {
     use super::*;
 
-    use pool::tests::tx::{Tx, TxExt};
+    use crate::pool::tests::tx::{Tx, TxExt};
     use std::sync::Arc;
     use txpool::Scoring;
 
@@ -200,9 +200,9 @@ mod tests {
             .map(|(i, tx)| {
                 let mut verified = tx.verified();
                 verified.priority = match i {
-                    0 => ::pool::Priority::Local,
-                    1 => ::pool::Priority::Retracted,
-                    _ => ::pool::Priority::Regular,
+                    0 => crate::pool::Priority::Local,
+                    1 => crate::pool::Priority::Retracted,
+                    _ => crate::pool::Priority::Regular,
                 };
                 txpool::Transaction {
                     insertion_id: 0,

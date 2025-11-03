@@ -37,7 +37,7 @@ use ethereum_types::{H256, U256};
 use ethjson;
 use keccak_hash::keccak;
 use log::{trace, warn};
-use num::{BigUint, One, Zero};
+use num_bigint::BigUint;
 use parity_bytes::BytesRef;
 use parity_crypto::{
     digest,
@@ -924,8 +924,8 @@ fn modexp(mut base: BigUint, exp: Vec<u8>, modulus: BigUint) -> BigUint {
     const BITS_PER_DIGIT: usize = 8;
 
     // n^m % 0 || n^m % 1
-    if modulus <= BigUint::one() {
-        return BigUint::zero();
+    if modulus <= BigUint::from(1 as usize) {
+        return BigUint::from(0 as usize);
     }
 
     // normalize exponent
@@ -933,24 +933,24 @@ fn modexp(mut base: BigUint, exp: Vec<u8>, modulus: BigUint) -> BigUint {
 
     // n^0 % m
     if exp.peek().is_none() {
-        return BigUint::one();
+        return BigUint::from(1 as usize);
     }
 
     // 0^n % m, n > 0
-    if base.is_zero() {
-        return BigUint::zero();
+    if base.eq(&BigUint::from(0 as usize)) {
+        return BigUint::from(0 as usize);
     }
 
     base %= &modulus;
 
     // Fast path for base divisible by modulus.
-    if base.is_zero() {
-        return BigUint::zero();
+    if base.eq(&BigUint::from(0 as usize)) {
+        return BigUint::from(0 as usize);
     }
 
     // Left-to-right binary exponentiation (Handbook of Applied Cryptography - Algorithm 14.79).
     // http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-    let mut result = BigUint::one();
+    let mut result = BigUint::from(1 as usize);
 
     for digit in exp {
         let mut mask = 1 << (BITS_PER_DIGIT - 1);
@@ -992,7 +992,7 @@ impl Implementation for Modexp {
 
         // Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to handle empty base first.
         let r = if base_len == 0 && mod_len == 0 {
-            BigUint::zero()
+            BigUint::from(0 as usize)
         } else {
             // read the numbers themselves.
             let mut buf = vec![0; max(mod_len, max(base_len, exp_len))];
@@ -1381,7 +1381,7 @@ mod tests {
     use hex_literal::hex;
     use macros::map;
     use maplit::btreemap;
-    use num::{BigUint, One, Zero};
+    use num_bigint::BigUint;
     use parity_bytes::BytesRef;
     use rustc_hex::FromHex;
     use std::convert::TryFrom;
@@ -1525,28 +1525,41 @@ mod tests {
     #[test]
     fn modexp_func() {
         // n^0 % m == 1
+
         let mut base = BigUint::parse_bytes(b"12345", 10).unwrap();
-        let mut exp = BigUint::zero();
+        let mut exp = BigUint::from(0 as usize);
         let mut modulus = BigUint::parse_bytes(b"789", 10).unwrap();
-        assert_eq!(me(base, exp.to_bytes_be(), modulus), BigUint::one());
+        assert_eq!(
+            me(base, exp.to_bytes_be(), modulus),
+            BigUint::from(1 as usize)
+        );
 
         // 0^n % m == 0
-        base = BigUint::zero();
+        base = BigUint::from(0 as usize);
         exp = BigUint::parse_bytes(b"12345", 10).unwrap();
         modulus = BigUint::parse_bytes(b"789", 10).unwrap();
-        assert_eq!(me(base, exp.to_bytes_be(), modulus), BigUint::zero());
+        assert_eq!(
+            me(base, exp.to_bytes_be(), modulus),
+            BigUint::from(0 as usize)
+        );
 
         // n^m % 1 == 0
         base = BigUint::parse_bytes(b"12345", 10).unwrap();
         exp = BigUint::parse_bytes(b"789", 10).unwrap();
-        modulus = BigUint::one();
-        assert_eq!(me(base, exp.to_bytes_be(), modulus), BigUint::zero());
+        modulus = BigUint::from(1 as usize);
+        assert_eq!(
+            me(base, exp.to_bytes_be(), modulus),
+            BigUint::from(0 as usize)
+        );
 
         // if n % d == 0, then n^m % d == 0
         base = BigUint::parse_bytes(b"12345", 10).unwrap();
         exp = BigUint::parse_bytes(b"789", 10).unwrap();
         modulus = BigUint::parse_bytes(b"15", 10).unwrap();
-        assert_eq!(me(base, exp.to_bytes_be(), modulus), BigUint::zero());
+        assert_eq!(
+            me(base, exp.to_bytes_be(), modulus),
+            BigUint::from(0 as usize)
+        );
 
         // others
         base = BigUint::parse_bytes(b"12345", 10).unwrap();

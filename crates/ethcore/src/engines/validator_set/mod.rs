@@ -25,15 +25,17 @@ mod test;
 
 use std::sync::Weak;
 
+use crate::{
+    machine::{AuxiliaryData, Call, EthereumMachine},
+    types::{BlockNumber, header::Header, ids::BlockId},
+};
 use bytes::Bytes;
 use ethereum_types::{Address, H256};
 use ethjson::spec::ValidatorSet as ValidatorSpec;
-use machine::{AuxiliaryData, Call, EthereumMachine};
-use types::{header::Header, ids::BlockId, BlockNumber};
 
-use client::EngineClient;
+use crate::client::EngineClient;
 
-use error::Error as EthcoreError;
+use crate::error::Error as EthcoreError;
 
 pub use self::simple_list::SimpleList;
 #[cfg(test)]
@@ -129,7 +131,7 @@ pub trait ValidatorSet: Send + Sync + 'static {
         _first: bool,
         _header: &Header,
         _call: &mut SystemCall,
-    ) -> Result<(), ::error::Error> {
+    ) -> Result<(), crate::error::Error> {
         Ok(())
     }
 
@@ -156,7 +158,7 @@ pub trait ValidatorSet: Send + Sync + 'static {
         first: bool,
         header: &Header,
         aux: AuxiliaryData,
-    ) -> ::engines::EpochChange<EthereumMachine>;
+    ) -> crate::engines::EpochChange<EthereumMachine>;
 
     /// Recover the validator set from the given proof, the block number, and
     /// whether this header is first in its set.
@@ -172,7 +174,7 @@ pub trait ValidatorSet: Send + Sync + 'static {
         machine: &EthereumMachine,
         number: BlockNumber,
         proof: &[u8],
-    ) -> Result<(SimpleList, Option<H256>), ::error::Error>;
+    ) -> Result<(SimpleList, Option<H256>), crate::error::Error>;
 
     /// Checks if a given address is a validator, with the given function
     /// for executing synchronous calls to contracts.

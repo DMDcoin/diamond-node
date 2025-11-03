@@ -20,7 +20,7 @@ use ethereum_types::{H160, H256, U256};
 use jsonrpc_core::{BoxFuture, Result};
 use jsonrpc_derive::rpc;
 
-use v1::types::{Bytes, Transaction};
+use crate::v1::types::{Bytes, Transaction};
 
 /// Parity-specific rpc interface for operations altering the account-related settings.
 #[rpc(server)]

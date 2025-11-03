@@ -207,7 +207,7 @@ impl PackedReader {
     /// Create a new `PackedReader` for the file at the given path.
     /// This will fail if any io errors are encountered or the file
     /// is not a valid packed snapshot.
-    pub fn new(path: &Path) -> Result<Option<Self>, ::snapshot::error::Error> {
+    pub fn new(path: &Path) -> Result<Option<Self>, crate::snapshot::error::Error> {
         let mut file = File::open(path)?;
         let file_len = file.metadata()?.len();
         if file_len < 8 {
@@ -246,7 +246,7 @@ impl PackedReader {
         };
 
         if version > SNAPSHOT_VERSION {
-            return Err(::snapshot::error::Error::VersionNotSupported(version));
+            return Err(crate::snapshot::error::Error::VersionNotSupported(version));
         }
 
         let state: Vec<ChunkInfo> = rlp.list_at(0 + start)?;
@@ -302,7 +302,7 @@ pub struct LooseReader {
 impl LooseReader {
     /// Create a new `LooseReader` which will read the manifest and chunk data from
     /// the given directory.
-    pub fn new(mut dir: PathBuf) -> Result<Self, ::error::Error> {
+    pub fn new(mut dir: PathBuf) -> Result<Self, crate::error::Error> {
         let mut manifest_buf = Vec::new();
 
         dir.push("MANIFEST");
@@ -337,10 +337,10 @@ mod tests {
     use tempdir::TempDir;
 
     use super::{
-        LooseReader, LooseWriter, PackedReader, PackedWriter, SnapshotReader, SnapshotWriter,
-        SNAPSHOT_VERSION,
+        LooseReader, LooseWriter, PackedReader, PackedWriter, SNAPSHOT_VERSION, SnapshotReader,
+        SnapshotWriter,
     };
-    use snapshot::ManifestData;
+    use crate::snapshot::ManifestData;
 
     const STATE_CHUNKS: &'static [&'static [u8]] =
         &[b"dog", b"cat", b"hello world", b"hi", b"notarealchunk"];

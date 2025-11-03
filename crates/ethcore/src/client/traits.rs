@@ -20,45 +20,50 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     net::SocketAddr,
     sync::Arc,
+    time::Duration,
 };
 
-use blockchain::{BlockReceipts, TreeRoute};
+use crate::{
+    blockchain::{BlockReceipts, TreeRoute},
+    types::{
+        BlockNumber,
+        basic_account::BasicAccount,
+        block_status::BlockStatus,
+        blockchain_info::BlockChainInfo,
+        call_analytics::CallAnalytics,
+        data_format::DataFormat,
+        encoded,
+        filter::Filter,
+        header::Header,
+        ids::*,
+        log_entry::LocalizedLogEntry,
+        pruning_info::PruningInfo,
+        receipt::LocalizedReceipt,
+        trace_filter::Filter as TraceFilter,
+        transaction::{self, Action, LocalizedTransaction, SignedTransaction, TypedTxId},
+    },
+};
 use bytes::Bytes;
 use call_contract::{CallContract, RegistryInfo};
-use ethcore_miner::pool::VerifiedTransaction;
+use ethcore_miner::pool::{VerifiedTransaction, local_transactions::Status};
 use ethereum_types::{Address, H256, H512, U256};
 use evm::Schedule;
 use itertools::Itertools;
 use kvdb::DBValue;
 use parking_lot::Mutex;
-use types::{
-    basic_account::BasicAccount,
-    block_status::BlockStatus,
-    blockchain_info::BlockChainInfo,
-    call_analytics::CallAnalytics,
-    data_format::DataFormat,
-    encoded,
-    filter::Filter,
-    header::Header,
-    ids::*,
-    log_entry::LocalizedLogEntry,
-    pruning_info::PruningInfo,
-    receipt::LocalizedReceipt,
-    trace_filter::Filter as TraceFilter,
-    transaction::{self, Action, LocalizedTransaction, SignedTransaction, TypedTxId},
-    BlockNumber,
-};
 use vm::LastHashes;
 
-use block::{ClosedBlock, OpenBlock, SealedBlock};
-use client::Mode;
-use engines::EthEngine;
-use error::{Error, EthcoreResult};
-use executed::CallError;
-use executive::Executed;
-use state::StateInfo;
-use trace::LocalizedTrace;
-use verification::queue::{kind::blocks::Unverified, QueueInfo as BlockQueueInfo};
+use crate::{
+    block::{ClosedBlock, OpenBlock, SealedBlock},
+    client::Mode,
+    engines::EthEngine,
+    error::{Error, EthcoreResult},
+    executed::CallError,
+    executive::Executed,
+    state::StateInfo,
+    trace::LocalizedTrace,
+    verification::queue::{QueueInfo as BlockQueueInfo, kind::blocks::Unverified},
+};
 
 /// State information to be used during client query
 pub enum StateOrBlock {
@@ -215,6 +220,9 @@ pub trait EngineInfo {
 
 /// Provides information about the chain sync state.
 pub trait ChainSyncing: Send + Sync {
+    /// are we syncing?
+    fn is_syncing(&self) -> bool;
+
     /// are we in the middle of a major sync?
     fn is_major_syncing(&self) -> bool;
 }
@@ -416,6 +424,14 @@ pub trait BlockChainClient:
     /// Get verified transaction with specified transaction hash.
     fn transaction(&self, tx_hash: &H256) -> Option<Arc<VerifiedTransaction>>;
 
+    /// see queued_transactions(&self).
+    /// Get pool transaction with a given hash, but returns NONE fast, if if cannot acquire a readlock fast.
+    fn transaction_if_readable(
+        &self,
+        hash: &H256,
+        max_lock_duration: &Duration,
+    ) -> Option<Arc<VerifiedTransaction>>;
+
     /// Sorted list of transaction gas prices from at least last sample_size blocks.
     fn gas_price_corpus(&self, sample_size: usize) -> ::stats::Corpus<U256> {
         let mut h = self.chain_info().best_block_hash;
@@ -522,10 +538,14 @@ pub trait BlockChainClient:
 
     /// Same as transact(), but just adding the transaction to the queue, without calling back into the engine.
     /// Used by engines to queue transactions without causing deadlocks due to re-entrant calls.
-    fn transact_silently(&self, tx_request: TransactionRequest) -> Result<(), transaction::Error>;
+    fn transact_silently(&self, tx_request: TransactionRequest)
+    -> Result<H256, transaction::Error>;
+
+    /// Returns true if the chain is currently syncing in major states.
+    fn is_major_syncing(&self) -> bool;
 
     /// Returns true if the chain is currently syncing.
-    fn is_major_syncing(&self) -> bool;
+    fn is_syncing(&self) -> bool;
 
     /// Returns the next nonce for the given address, taking the transaction queue into account.
     fn next_nonce(&self, address: &Address) -> U256;
@@ -648,17 +668,17 @@ pub trait EngineClient: Sync + Send + ChainInfo {
     fn submit_seal(&self, block_hash: H256, seal: Vec<Bytes>);
 
     /// Broadcast a consensus message to the network.
-    fn broadcast_consensus_message(&self, message: Bytes);
+    fn broadcast_consensus_message(&self, future_block_id: u64, message: Bytes);
 
     /// Send a consensus message to the specified peer
-    fn send_consensus_message(&self, message: Bytes, node_id: Option<H512>);
+    fn send_consensus_message(&self, future_block_id: u64, message: Bytes, node_id: Option<H512>);
 
     /// Get the transition to the epoch the given parent hash is part of
     /// or transitions to.
     /// This will give the epoch that any children of this parent belong to.
     ///
     /// The block corresponding the the parent hash must be stored already.
-    fn epoch_transition_for(&self, parent_hash: H256) -> Option<::engines::EpochTransition>;
+    fn epoch_transition_for(&self, parent_hash: H256) -> Option<crate::engines::EpochTransition>;
 
     /// Attempt to cast the engine client to a full client.
     fn as_full_client(&self) -> Option<&dyn BlockChainClient>;
@@ -668,6 +688,9 @@ pub trait EngineClient: Sync + Send + ChainInfo {
 
     /// Get raw block header data by block id.
     fn block_header(&self, id: BlockId) -> Option<encoded::Header>;
+
+    /// demand a shutdown out of the nodesoftware.
+    fn demand_shutdown(&self);
 
     /// Get currently pending transactions
     fn queued_transactions(&self) -> Vec<Arc<VerifiedTransaction>>;
@@ -679,6 +702,17 @@ pub trait EngineClient: Sync + Send + ChainInfo {
         timestamp: u64,
         block_number: u64,
     ) -> Option<Header>;
+
+    /// Time in seconds until the Engine shuts down if no Block Import is performed.
+    fn config_shutdown_on_missing_block_import(&self) -> Option<u64> {
+        None
+    }
+
+    /// Get local transaction status.
+    /// Note that already included transactions might be not available here anymore.
+    /// As well as transactions that were culled, replaced, dropped or whatever,
+    /// do not exist forever in the memory.
+    fn local_transaction_status(&self, tx_hash: &H256) -> Option<Status>;
 }
 
 /// Extended client interface for providing proofs of the state.

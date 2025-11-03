@@ -16,9 +16,9 @@
 
 //! Trace filter deserialization.
 
+use crate::v1::types::BlockNumber;
 use ethcore::{client, client::BlockId};
 use ethereum_types::H160;
-use v1::types::BlockNumber;
 
 /// Trace filter
 #[derive(Debug, PartialEq, Deserialize)]
@@ -47,7 +47,9 @@ impl Into<client::TraceFilter> for TraceFilter {
             BlockNumber::Earliest => BlockId::Earliest,
             BlockNumber::Latest => BlockId::Latest,
             BlockNumber::Pending => {
-                warn!("Pending traces are not supported and might be removed in future versions. Falling back to Latest");
+                warn!(
+                    "Pending traces are not supported and might be removed in future versions. Falling back to Latest"
+                );
                 BlockId::Latest
             }
         };
@@ -69,9 +71,9 @@ impl Into<client::TraceFilter> for TraceFilter {
 
 #[cfg(test)]
 mod tests {
+    use crate::v1::types::{BlockNumber, TraceFilter};
     use ethereum_types::Address;
     use serde_json;
-    use v1::types::{BlockNumber, TraceFilter};
 
     #[test]
     fn test_empty_trace_filter_deserialize() {

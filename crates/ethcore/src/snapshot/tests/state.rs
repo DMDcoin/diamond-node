@@ -16,20 +16,21 @@
 
 //! State snapshotting tests.
 
-extern crate rand_xorshift;
+use rand_xorshift;
 
-use hash::{keccak, KECCAK_NULL_RLP};
-use std::sync::{atomic::AtomicBool, Arc};
+use hash::{KECCAK_NULL_RLP, keccak};
+use std::sync::{Arc, atomic::AtomicBool};
 
 use super::helpers::StateProducer;
-use snapshot::{
-    account, chunk_state,
-    io::{PackedReader, PackedWriter, SnapshotReader, SnapshotWriter},
-    Error as SnapshotError, Progress, StateRebuilder, SNAPSHOT_SUBPARTS,
+use crate::{
+    snapshot::{
+        Error as SnapshotError, Progress, SNAPSHOT_SUBPARTS, StateRebuilder, account, chunk_state,
+        io::{PackedReader, PackedWriter, SnapshotReader, SnapshotWriter},
+    },
+    types::basic_account::BasicAccount,
 };
-use types::basic_account::BasicAccount;
 
-use error::{Error, ErrorKind};
+use crate::error::{Error, ErrorKind};
 
 use self::rand_xorshift::XorShiftRng;
 use ethereum_types::H256;
@@ -75,7 +76,7 @@ fn snap_and_restore() {
 
     writer
         .into_inner()
-        .finish(::snapshot::ManifestData {
+        .finish(crate::snapshot::ManifestData {
             version: 2,
             state_hashes: state_hashes,
             block_hashes: Vec::new(),
@@ -128,7 +129,7 @@ fn get_code_from_prev_chunk() {
     use rlp::RlpStream;
     use std::collections::HashSet;
 
-    use account_db::{AccountDB, AccountDBMut};
+    use crate::account_db::{AccountDB, AccountDBMut};
 
     let code = b"this is definitely code";
     let mut used_code = HashSet::new();
@@ -214,7 +215,7 @@ fn checks_flag() {
 
     writer
         .into_inner()
-        .finish(::snapshot::ManifestData {
+        .finish(crate::snapshot::ManifestData {
             version: 2,
             state_hashes,
             block_hashes: Vec::new(),

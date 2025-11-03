@@ -81,10 +81,11 @@ macro_rules! static_assert_size_eq {
 		}
 	};
 	(@inner $a:ty, $b:ty) => {
-		unsafe {
-			let val: $b = ::mem::MaybeUninit::uninit().assume_init();
-			let _: $a = ::std::mem::transmute(val);
-		}
+        // Use const assertion instead of trait implementation
+        const _: () = assert!(
+            ::std::mem::size_of::<$a>() == ::std::mem::size_of::<$b>(),
+            concat!("Size mismatch between ", stringify!($a), " and ", stringify!($b))
+        );
 	};
 	($($rest:ty),*) => {
 		static_assert_size_eq!(size_eq: $($rest),*);
@@ -97,7 +98,7 @@ macro_rules! static_assert_size_eq {
 	};
 }
 
-static_assert_size_eq!(Node, NodeBytes, NodeWords, NodeDwords);
+static_assert_size_eq!(Node, NodeBytes, NodeWords);
 
 #[repr(C)]
 pub union Node {

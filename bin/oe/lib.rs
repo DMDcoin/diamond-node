@@ -25,7 +25,6 @@ extern crate atty;
 extern crate dir;
 extern crate futures;
 extern crate jsonrpc_core;
-extern crate num_cpus;
 extern crate number_prefix;
 extern crate parking_lot;
 extern crate regex;
@@ -51,7 +50,7 @@ extern crate ethcore_miner as miner;
 extern crate ethcore_network as network;
 extern crate ethcore_service;
 extern crate ethcore_sync as sync;
-extern crate ethereum_types;
+use ethereum_types;
 extern crate ethkey;
 extern crate ethstore;
 extern crate fetch;
@@ -127,7 +126,8 @@ use crate::{
 use std::alloc::System;
 
 pub use self::{configuration::Configuration, run::RunningClient};
-pub use ethcore_logger::{setup_log, Config as LoggerConfig, RotatingLogger};
+pub use ethcore::exit::ShutdownManager;
+pub use ethcore_logger::{Config as LoggerConfig, RotatingLogger, setup_log};
 pub use parity_rpc::PubSubSession;
 
 #[cfg(feature = "memory_profiling")]
@@ -146,7 +146,18 @@ fn print_hash_of(maybe_file: Option<String>) -> Result<String, String> {
 }
 
 #[cfg(feature = "deadlock_detection")]
-fn run_deadlock_detection_thread() {
+#[cfg(feature = "shutdown-on-deadlock")]
+fn on_deadlock_detected(shutdown: &Arc<ShutdownManager>) {
+    warn!("Deadlock detected, trying to shutdown the node software");
+    shutdown.demand_shutdown();
+}
+
+#[cfg(feature = "deadlock_detection")]
+#[cfg(not(feature = "shutdown-on-deadlock"))]
+fn on_deadlock_detected(_: &Arc<ShutdownManager>) {}
+
+#[cfg(feature = "deadlock_detection")]
+fn run_deadlock_detection_thread(shutdown: Arc<ShutdownManager>) {
     use ansi_term::Style;
     use parking_lot::deadlock;
     use std::{thread, time::Duration};
@@ -155,25 +166,28 @@ fn run_deadlock_detection_thread() {
 
     let builder = std::thread::Builder::new().name("DeadlockDetection".to_string());
 
-    // Create a background thread which checks for deadlocks every 10s
-    let spawned = builder.spawn(move || loop {
-        thread::sleep(Duration::from_secs(10));
-        let deadlocks = deadlock::check_deadlock();
-        if deadlocks.is_empty() {
-            continue;
-        }
-
-        warn!(
-            "{} {} detected",
-            deadlocks.len(),
-            Style::new().bold().paint("deadlock(s)")
-        );
-        for (i, threads) in deadlocks.iter().enumerate() {
-            warn!("{} #{}", Style::new().bold().paint("Deadlock"), i);
-            for t in threads {
-                warn!("Thread Id {:#?}", t.thread_id());
-                warn!("{:#?}", t.backtrace());
+    // Create a background thread which checks for deadlocks
+    let spawned = builder.spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(10));
+            let deadlocks = deadlock::check_deadlock();
+            if deadlocks.is_empty() {
+                continue;
             }
+
+            warn!(
+                "{} {} detected",
+                deadlocks.len(),
+                Style::new().bold().paint("deadlock(s)")
+            );
+            for (i, threads) in deadlocks.iter().enumerate() {
+                warn!("{} #{}", Style::new().bold().paint("Deadlock"), i);
+                for t in threads {
+                    warn!("Thread Id {:#?}", t.thread_id());
+                    warn!("{:#?}", t.backtrace());
+                }
+            }
+            on_deadlock_detected(&shutdown);
         }
     });
 
@@ -194,18 +208,24 @@ pub enum ExecutionAction {
     Instant(Option<String>),
 
     /// The client has started running and must be shut down manually by calling `shutdown`.
-    ///
+    ///      
     /// If you don't call `shutdown()`, execution will continue in the background.
     Running(RunningClient),
 }
 
-fn execute(command: Execute, logger: Arc<RotatingLogger>) -> Result<ExecutionAction, String> {
+fn execute(
+    command: Execute,
+    logger: Arc<RotatingLogger>,
+    shutdown: ShutdownManager,
+) -> Result<ExecutionAction, String> {
+    let shutdown_arc = Arc::new(shutdown);
+
     #[cfg(feature = "deadlock_detection")]
-    run_deadlock_detection_thread();
+    run_deadlock_detection_thread(shutdown_arc.clone());
 
     match command.cmd {
         Cmd::Run(run_cmd) => {
-            let outcome = run::execute(run_cmd, logger)?;
+            let outcome = run::execute(run_cmd, logger, shutdown_arc)?;
             Ok(ExecutionAction::Running(outcome))
         }
         Cmd::Version => Ok(ExecutionAction::Instant(Some(Args::print_version()))),
@@ -250,6 +270,10 @@ fn execute(command: Execute, logger: Arc<RotatingLogger>) -> Result<ExecutionAct
 ///
 /// On error, returns what to print on stderr.
 // FIXME: totally independent logging capability, see https://github.com/openethereum/openethereum/issues/10252
-pub fn start(conf: Configuration, logger: Arc<RotatingLogger>) -> Result<ExecutionAction, String> {
-    execute(conf.into_command()?, logger)
+pub fn start(
+    conf: Configuration,
+    logger: Arc<RotatingLogger>,
+    shutdown: ShutdownManager,
+) -> Result<ExecutionAction, String> {
+    execute(conf.into_command()?, logger, shutdown)
 }

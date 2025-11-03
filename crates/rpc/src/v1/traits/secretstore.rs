@@ -18,11 +18,11 @@
 
 use std::collections::BTreeSet;
 
+use crate::v1::types::{Bytes, EncryptedDocumentKey};
 use ethereum_types::{H160, H256, H512};
 use ethkey::Password;
 use jsonrpc_core::Result;
 use jsonrpc_derive::rpc;
-use v1::types::{Bytes, EncryptedDocumentKey};
 
 /// Parity-specific rpc interface.
 #[rpc(server)]

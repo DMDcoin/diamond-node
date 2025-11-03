@@ -24,7 +24,6 @@ extern crate common_types as types;
 extern crate ethabi;
 extern crate ethabi_derive;
 extern crate ethcore_call_contract as call_contract;
-extern crate ethereum_types;
 extern crate futures;
 extern crate keccak_hash as hash;
 extern crate linked_hash_map;
@@ -35,6 +34,7 @@ extern crate parking_lot;
 #[cfg(feature = "price-info")]
 extern crate price_info;
 extern crate rlp;
+extern crate rustc_hex;
 extern crate txpool;
 
 #[macro_use]
@@ -52,8 +52,6 @@ extern crate trace_time;
 extern crate env_logger;
 #[cfg(test)]
 extern crate ethkey;
-#[cfg(test)]
-extern crate rustc_hex;
 
 pub mod external;
 #[cfg(feature = "price-info")]

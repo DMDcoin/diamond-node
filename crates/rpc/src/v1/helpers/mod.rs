@@ -40,9 +40,8 @@ mod subscription_manager;
 mod work;
 
 pub use self::{
-    dispatch::{Dispatcher, FullDispatcher},
     network_settings::NetworkSettings,
-    poll_filter::{limit_logs, PollFilter, SyncPollFilter},
+    poll_filter::{PollFilter, SyncPollFilter, limit_logs},
     poll_manager::PollManager,
     requests::{
         CallRequest, ConfirmationPayload, ConfirmationRequest, FilledTransactionRequest,
@@ -54,6 +53,6 @@ pub use self::{
     work::submit_work_detail,
 };
 
-pub fn to_url(address: &Option<::Host>) -> Option<String> {
+pub fn to_url(address: &Option<crate::Host>) -> Option<String> {
     address.as_ref().map(|host| (**host).to_owned())
 }

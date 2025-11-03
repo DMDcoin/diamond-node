@@ -70,19 +70,34 @@ impl PrometheusRegistry {
             .expect("prometheus identifiers must be are unique");
     }
 
-    /// Adds a new prometheus gauge with a label
-    pub fn register_gauge_with_label(&mut self, name: &str, help: &str, label: &str, value: i64) {
-        //let label_formated = format!("{}", label);
-        let name_formatted = format!("{}{}", self.prefix, name);
-        let mut opts = prometheus::Opts::new(name_formatted, help);
+    /// Adds a new prometheus gauge with a "other_node" label.
+    /// Designed for tracking communication partner values.
+    pub fn register_gauge_with_other_node_label(
+        &mut self,
+        name: &str,
+        help: &str,
+        other_node: &str,
+        value: i64,
+    ) {
+        self.register_gauge_with_label(name, help, "other_node", other_node, value);
+    }
 
+    /// Adds a new prometheus gauge with a label
+    pub fn register_gauge_with_label(
+        &mut self,
+        name: &str,
+        help: &str,
+        label: &str,
+        label_value: &str,
+        value: i64,
+    ) {
+        let opts = prometheus::Opts::new(name, help).const_label(label, label_value);
         // add labels here .
-        opts.variable_labels.push(label.to_string());
+        //opts.variable_labels.push(label.to_string());
 
         match prometheus::IntGauge::with_opts(opts) {
             Ok(g) => {
                 g.set(value);
-
                 self.registry
                     .register(Box::new(g))
                     .expect("prometheus identifiers must be are unique");
@@ -107,6 +122,27 @@ impl PrometheusRegistry {
             elapsed.as_millis() as i64,
         );
         t
+    }
+
+    pub fn register_version(&mut self) {
+        let sha3 = vergen::SHORT_SHA;
+        let version = sha3.bits();
+        self.register_gauge("version_sha3_bits", "version_sha3", version as i64);
+        self.register_gauge(
+            "version_semver_bits",
+            "Sementic Versioning bits",
+            vergen::SEMVER.bits() as i64,
+        );
+        self.register_gauge(
+            "version_commit_date",
+            "commit date",
+            vergen::COMMIT_DATE.bits() as i64,
+        );
+        self.register_gauge(
+            "version_vergen_target",
+            "vergen targets",
+            vergen::TARGET.bits() as i64,
+        );
     }
 }
 

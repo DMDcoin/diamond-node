@@ -46,7 +46,7 @@
 //! }
 //!
 //! fn main () {
-//! 	let mut service = IoService::<MyMessage>::start("name").expect("Error creating network service");
+//! 	let mut service = IoService::<MyMessage>::start("name", 4).expect("Error creating network service");
 //! 	service.register_handler(Arc::new(MyHandler)).unwrap();
 //!
 //! 	// Wait for quit condition
@@ -76,7 +76,6 @@ extern crate log as rlog;
 extern crate crossbeam_deque as deque;
 extern crate fnv;
 extern crate futures;
-extern crate num_cpus;
 extern crate parking_lot;
 extern crate slab;
 extern crate time;
@@ -91,9 +90,9 @@ mod service_non_mio;
 mod worker;
 
 #[cfg(feature = "mio")]
-use mio::deprecated::{EventLoop, NotifyError};
-#[cfg(feature = "mio")]
 use mio::Token;
+#[cfg(feature = "mio")]
+use mio::deprecated::{EventLoop, NotifyError};
 use std::{cell::Cell, error, fmt};
 
 thread_local! {
@@ -142,10 +141,10 @@ impl<Message> From<NotifyError<service_mio::IoMessage<Message>>> for IoError
 where
     Message: Send,
 {
-    fn from(_err: NotifyError<service_mio::IoMessage<Message>>) -> IoError {
+    fn from(err: NotifyError<service_mio::IoMessage<Message>>) -> IoError {
         IoError::Mio(::std::io::Error::new(
             ::std::io::ErrorKind::ConnectionAborted,
-            "Network IO notification error",
+            format!("Network IO notification error {}", err),
         ))
     }
 }
@@ -202,16 +201,16 @@ where
 
 #[cfg(feature = "mio")]
 pub use service_mio::{
-    IoChannel, IoContext, IoManager, IoService, StreamToken, TimerToken, TOKENS_PER_HANDLER,
+    IoChannel, IoContext, IoManager, IoService, StreamToken, TOKENS_PER_HANDLER, TimerToken,
 };
 #[cfg(not(feature = "mio"))]
-pub use service_non_mio::{IoChannel, IoContext, IoService, TimerToken, TOKENS_PER_HANDLER};
+pub use service_non_mio::{IoChannel, IoContext, IoService, TOKENS_PER_HANDLER, TimerToken};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::{
-        sync::{atomic, Arc},
+        sync::{Arc, atomic},
         thread,
         time::Duration,
     };
@@ -240,7 +239,7 @@ mod tests {
         let handler = Arc::new(MyHandler(atomic::AtomicBool::new(false)));
 
         let service =
-            IoService::<MyMessage>::start("Test").expect("Error creating network service");
+            IoService::<MyMessage>::start("Test", 4).expect("Error creating network service");
         service.register_handler(handler.clone()).unwrap();
 
         service.send_message(MyMessage { data: 5 }).unwrap();
@@ -254,9 +253,7 @@ mod tests {
         struct MyHandler(atomic::AtomicBool);
 
         #[derive(Clone)]
-        struct MyMessage {
-            data: u32,
-        }
+        struct MyMessage {}
 
         impl IoHandler<MyMessage> for MyHandler {
             fn initialize(&self, io: &IoContext<MyMessage>) {
@@ -273,7 +270,7 @@ mod tests {
         let handler = Arc::new(MyHandler(atomic::AtomicBool::new(false)));
 
         let service =
-            IoService::<MyMessage>::start("Test").expect("Error creating network service");
+            IoService::<MyMessage>::start("Test", 4).expect("Error creating network service");
         service.register_handler(handler.clone()).unwrap();
 
         thread::sleep(Duration::from_secs(2));
@@ -285,9 +282,7 @@ mod tests {
         struct MyHandler(atomic::AtomicUsize);
 
         #[derive(Clone)]
-        struct MyMessage {
-            data: u32,
-        }
+        struct MyMessage {}
 
         impl IoHandler<MyMessage> for MyHandler {
             fn initialize(&self, io: &IoContext<MyMessage>) {
@@ -303,7 +298,7 @@ mod tests {
         let handler = Arc::new(MyHandler(atomic::AtomicUsize::new(0)));
 
         let service =
-            IoService::<MyMessage>::start("Test").expect("Error creating network service");
+            IoService::<MyMessage>::start("Test", 4).expect("Error creating network service");
         service.register_handler(handler.clone()).unwrap();
 
         thread::sleep(Duration::from_secs(2));

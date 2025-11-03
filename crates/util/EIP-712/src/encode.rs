@@ -438,7 +438,7 @@ mod tests {
 
         let typed_data = from_str::<EIP712>(TEST).expect("alas error!");
         assert_eq!(
-            hash_structured_data(typed_data).unwrap_err().kind(),
+            hash_structured_data(typed_data).unwrap_err(),
             ErrorKind::UnequalArrayItems(2, "Person[2]".into(), 1)
         )
     }

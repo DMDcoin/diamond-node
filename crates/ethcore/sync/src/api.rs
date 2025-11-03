@@ -18,41 +18,45 @@ use bytes::Bytes;
 use crypto::publickey::Secret;
 use devp2p::NetworkService;
 use network::{
-    client_version::ClientVersion, ConnectionFilter, Error, ErrorKind,
-    NetworkConfiguration as BasicNetworkConfiguration, NetworkContext, NetworkProtocolHandler,
-    NodeId, NonReservedPeerMode, PeerId, ProtocolId,
+    ConnectionFilter, Error, ErrorKind, NetworkConfiguration as BasicNetworkConfiguration,
+    NetworkContext, NetworkProtocolHandler, NodeId, NonReservedPeerMode, PeerId, ProtocolId,
+    client_version::ClientVersion,
 };
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     io,
     ops::RangeInclusive,
-    sync::{atomic, mpsc, Arc},
+    sync::{Arc, atomic, mpsc},
     time::Duration,
 };
 
-use chain::{
-    fork_filter::ForkFilterApi, ChainSyncApi, SyncState, SyncStatus as EthSyncStatus,
-    ETH_PROTOCOL_VERSION_63, ETH_PROTOCOL_VERSION_64, ETH_PROTOCOL_VERSION_65,
-    ETH_PROTOCOL_VERSION_66, PAR_PROTOCOL_VERSION_1, PAR_PROTOCOL_VERSION_2,
+use crate::{
+    chain::{
+        ChainSyncApi, ETH_PROTOCOL_VERSION_63, ETH_PROTOCOL_VERSION_64, ETH_PROTOCOL_VERSION_65,
+        ETH_PROTOCOL_VERSION_66, PAR_PROTOCOL_VERSION_1, PAR_PROTOCOL_VERSION_2, SyncState,
+        SyncStatus as EthSyncStatus, fork_filter::ForkFilterApi,
+    },
+    ethcore::{
+        client::{BlockChainClient, ChainMessageType, ChainNotify, NewBlocks},
+        snapshot::SnapshotService,
+    },
+    io::TimerToken,
+    network::IpFilter,
+    stats::{PrometheusMetrics, PrometheusRegistry},
 };
-use ethcore::{
-    client::{BlockChainClient, ChainMessageType, ChainNotify, NewBlocks},
-    snapshot::SnapshotService,
-};
-use ethereum_types::{H256, H512, U256, U64};
-use io::TimerToken;
-use network::IpFilter;
+use ethereum_types::{H256, H512, U64, U256};
 use parking_lot::{Mutex, RwLock};
-use stats::{PrometheusMetrics, PrometheusRegistry};
 
+use crate::{
+    sync_io::{NetSyncIo, SyncIo},
+    types::{
+        BlockNumber, creation_status::CreationStatus, restoration_status::RestorationStatus,
+        transaction::UnverifiedTransaction,
+    },
+};
 use std::{
     net::{AddrParseError, SocketAddr},
     str::FromStr,
-};
-use sync_io::{NetSyncIo, SyncIo};
-use types::{
-    creation_status::CreationStatus, restoration_status::RestorationStatus,
-    transaction::UnverifiedTransaction, BlockNumber,
 };
 
 /// OpenEthereum sync protocol
@@ -318,12 +322,12 @@ impl SyncProvider for EthSync {
 
                         Some(PeerInfo {
                             id: session_info.id.map(|id| format!("{:x}", id)),
-                            client_version: session_info.client_version,
                             capabilities: session_info
-                                .peer_capabilities
-                                .into_iter()
+                                .peer_capabilities()
+                                .iter()
                                 .map(|c| c.to_string())
                                 .collect(),
+                            client_version: session_info.client_version,
                             remote_address: session_info.remote_address,
                             local_address: session_info.local_address,
                             eth_info: peer_info,
@@ -447,6 +451,10 @@ impl PrometheusMetrics for EthSync {
             "First block number of the present snapshot",
             manifest_block_num as i64,
         );
+
+        self.eth_handler.prometheus_metrics(r);
+
+        self.network.prometheus_metrics(r);
     }
 }
 
@@ -486,40 +494,85 @@ impl SyncProtocolHandler {
         let mut sync_io = NetSyncIo::new(nc, &*self.chain, &*self.snapshot_service, &self.overlay);
 
         for node_id in pub_keys.iter() {
-            if let Some(peer_id) = nc.node_id_to_peer_id(*node_id) {
+            if let Some(peer_id) = nc.node_id_to_peer_id(node_id) {
                 let found_peers = self.sync.peer_info(&[peer_id]);
                 if let Some(peer_info) = found_peers.first() {
                     if let Some(_) = peer_info {
-                        self.send_cached_consensus_messages_for(&mut sync_io, node_id, peer_id);
+                        self.send_cached_consensus_messages_for(&mut sync_io, node_id);
                     }
                 }
             }
         }
     }
 
-    fn send_cached_consensus_messages_for(
-        &self,
-        sync_io: &mut dyn SyncIo,
-        node_id: &NodeId,
-        peer_id: PeerId,
-    ) {
+    fn send_cached_consensus_messages_for(&self, sync_io: &mut dyn SyncIo, node_id: &NodeId) {
+        let last_interesting_block = self
+            .chain
+            .block_number(types::ids::BlockId::Latest)
+            .unwrap_or(0);
+
         // now since we are connected, lets send any cached messages
         if let Some(vec_msg) = self.message_cache.write().remove(&Some(*node_id)) {
             trace!(target: "consensus", "Cached Messages: Trying to send cached messages to {:?}", node_id);
+
+            let mut failed_messages: Vec<ChainMessageType> = Vec::new();
+
             for msg in vec_msg {
                 match msg {
-                    ChainMessageType::Consensus(message) => self
-                        .sync
-                        .write()
-                        .send_consensus_packet(sync_io, message, peer_id),
+                    ChainMessageType::Consensus(block, message) => {
+                        if block < last_interesting_block {
+                            // https://github.com/DMDcoin/diamond-node/issues/261
+                            continue;
+                        }
+                        let send_consensus_result = self.sync.write().send_consensus_packet(
+                            sync_io,
+                            message.clone(),
+                            node_id,
+                        );
+
+                        match send_consensus_result {
+                            Ok(_) => {}
+                            Err(e) => {
+                                info!(target: "consensus", "Error sending cached consensus message to peer (re-adding) {:?}: {:?}", node_id, e);
+                                failed_messages.push(ChainMessageType::Consensus(block, message));
+                            }
+                        }
+                    }
                 }
+            }
+
+            if !failed_messages.is_empty() {
+                // If we failed to send some messages, cache them for later
+                self.message_cache
+                    .write()
+                    .entry(Some(*node_id))
+                    .or_default()
+                    .extend(failed_messages);
+            } else {
+                trace!(target: "consensus", "Cached Messages: Successfully sent all cached messages to {:?}", node_id);
             }
         }
     }
 }
 
+impl PrometheusMetrics for SyncProtocolHandler {
+    fn prometheus_metrics(&self, r: &mut PrometheusRegistry) {
+        if let Some(cache) = self.message_cache.try_read_for(Duration::from_millis(50)) {
+            let sum = cache.iter().map(|(_, v)| v.len()).sum::<usize>();
+            r.register_gauge(
+                "consensus_message_cache",
+                "Number of cached consensus messages",
+                sum as i64,
+            );
+        }
+
+        self.sync.prometheus_metrics(r);
+    }
+}
+
 impl NetworkProtocolHandler for SyncProtocolHandler {
     fn initialize(&self, io: &dyn NetworkContext) {
+        trace!(target: "sync", "Initializing sync protocol handler for subprotocol: {}", io.subprotocol_name());
         if io.subprotocol_name() != PAR_PROTOCOL {
             io.register_timer(PEERS_TIMER, Duration::from_millis(700))
                 .expect("Error registering peers timer");
@@ -539,6 +592,11 @@ impl NetworkProtocolHandler for SyncProtocolHandler {
     }
 
     fn read(&self, io: &dyn NetworkContext, peer: &PeerId, packet_id: u8, data: &[u8]) {
+        let session_info = io.session_info(*peer);
+        if session_info.is_none() {
+            debug!(target: "sync", "Received packet from peer, where no Session info is available anymore (was just disconnected ?): {peer}");
+            return;
+        }
         let node_id = io.session_info(*peer).unwrap().id;
         self.sync.dispatch_packet(
             &mut NetSyncIo::new(io, &*self.chain, &*self.snapshot_service, &self.overlay),
@@ -551,9 +609,12 @@ impl NetworkProtocolHandler for SyncProtocolHandler {
 
     fn connected(&self, io: &dyn NetworkContext, peer: &PeerId) {
         trace_time!("sync::connected");
-        let node_id = io.session_info(*peer).unwrap().id;
+        let node_id = io
+            .session_info(*peer)
+            .unwrap_or_else(|| panic!("peer not found: {peer}"))
+            .id;
         if io.is_reserved_peer(*peer) {
-            trace!(target: "sync", "Connected to reserved peer {:?}", node_id);
+            debug!(target: "sync", "Connected to reserved peer {node_id:?} {peer}" );
         }
         // If warp protocol is supported only allow warp handshake
         let warp_protocol = io.protocol_version(PAR_PROTOCOL, *peer).unwrap_or(0) != 0;
@@ -569,7 +630,7 @@ impl NetworkProtocolHandler for SyncProtocolHandler {
     fn disconnected(&self, io: &dyn NetworkContext, peer: &PeerId) {
         trace_time!("sync::disconnected");
         if io.is_reserved_peer(*peer) {
-            trace!(target: "sync", "Disconnected from reserved peer {:?}", io.session_info(*peer).expect("").id);
+            debug!(target: "sync", "Disconnected from reserved peer peerID: {} protocol: {} peer: {}",peer , io.subprotocol_name(),  io.session_info(*peer).expect("").id.map_or("".to_string(), |f| format!("{:?}", f)));
         }
         if io.subprotocol_name() != PAR_PROTOCOL {
             self.sync.write().on_peer_aborting(
@@ -581,12 +642,13 @@ impl NetworkProtocolHandler for SyncProtocolHandler {
 
     fn timeout(&self, nc: &dyn NetworkContext, timer: TimerToken) {
         trace_time!("sync::timeout");
+
         let mut io = NetSyncIo::new(nc, &*self.chain, &*self.snapshot_service, &self.overlay);
         match timer {
             PEERS_TIMER => self.sync.write().maintain_peers(&mut io),
             MAINTAIN_SYNC_TIMER => self.sync.write().maintain_sync(&mut io),
             CONTINUE_SYNC_TIMER => self.sync.write().continue_sync(&mut io),
-            TX_TIMER => self.sync.write().propagate_new_transactions(&mut io),
+            TX_TIMER => self.sync.write().propagate_new_ready_transactions(&mut io),
             PRIORITY_TIMER => self.sync.process_priority_queue(&mut io),
             DELAYED_PROCESSING_TIMER => self.sync.process_delayed_requests(&mut io),
             CONSENSUS_SEND_RETRY_TIMER => self.try_resend_consensus_messages(nc),
@@ -636,7 +698,10 @@ impl ChainNotify for EthSync {
         match self.network.start() {
             Err((err, listen_address)) => match err.into() {
                 ErrorKind::Io(ref e) if e.kind() == io::ErrorKind::AddrInUse => {
-                    warn!("Network port {:?} is already in use, make sure that another instance of an Ethereum client is not running or change the port using the --port option.", listen_address.expect("Listen address is not set."))
+                    warn!(
+                        "Network port {:?} is already in use, make sure that another instance of an Ethereum client is not running or change the port using the --port option.",
+                        listen_address.expect("Listen address is not set.")
+                    )
                 }
                 err => warn!("Error starting network: {}", err),
             },
@@ -679,7 +744,7 @@ impl ChainNotify for EthSync {
                 &self.eth_handler.overlay,
             );
             match message_type {
-                ChainMessageType::Consensus(message) => self
+                ChainMessageType::Consensus(_block, message) => self
                     .eth_handler
                     .sync
                     .write()
@@ -688,35 +753,23 @@ impl ChainNotify for EthSync {
         });
     }
 
-    fn send(&self, message_type: ChainMessageType, node_id: Option<H512>) {
+    fn send(&self, message_type: ChainMessageType, node_id: &H512) {
         self.network.with_context(PAR_PROTOCOL, |context| {
-            let peer_ids = self.network.connected_peers();
-            let target_peer_id = peer_ids.into_iter().find(|p| {
-                match context.session_info(*p){
-                    Some(session_info) => {
-                        session_info.id == node_id
-                    },
-                    None => { warn!(target:"sync", "No session exists for peerId {:?}", p); false},
-                }
-            });
-
-            let my_peer_id = match target_peer_id {
-                None => {
-                    trace!(target: "consensus", "Cached Messages: peer {:?} not connected, caching message...", node_id);
-                    let mut lock = self.eth_handler.message_cache.write();
-                    lock.entry(node_id.clone()).or_default().push(message_type);
-                    return;
-                }
-                Some(n) => n,
-            };
-
             let mut sync_io = NetSyncIo::new(context,
                                              &*self.eth_handler.chain,
                                              &*self.eth_handler.snapshot_service,
                                              &self.eth_handler.overlay);
 
             match message_type {
-                ChainMessageType::Consensus(message) => self.eth_handler.sync.write().send_consensus_packet(&mut sync_io, message, my_peer_id),
+                ChainMessageType::Consensus(block, message) => {
+                    let send_result = self.eth_handler.sync.write().send_consensus_packet(&mut sync_io, message.clone(), node_id);
+                    if let Err(e) = send_result {
+                        info!(target: "consensus", "Error sending consensus message to peer - caching message {:?}: {:?}", node_id, e);
+                        // If we failed to send the message, cache it for later
+                        let mut lock = self.eth_handler.message_cache.write();
+                        lock.entry(Some(node_id.clone())).or_default().push(ChainMessageType::Consensus(block, message));
+                    }
+                },
             }
         });
     }

@@ -16,8 +16,6 @@
 
 //! Virtual machines support library
 
-extern crate ethereum_types;
-extern crate ethjson;
 extern crate keccak_hash as hash;
 extern crate parity_bytes as bytes;
 extern crate patricia_trie_ethereum as ethtrie;
@@ -34,11 +32,13 @@ pub mod schedule;
 
 pub mod tests;
 
+pub use crate::error::{
+    Error, ExecTrapError, ExecTrapResult, Result, TrapError, TrapKind, TrapResult,
+};
 pub use access_list::AccessList;
 pub use action_params::{ActionParams, ActionValue, ParamsType};
 pub use call_type::CallType;
 pub use env_info::{EnvInfo, LastHashes};
-pub use error::{Error, ExecTrapError, ExecTrapResult, Result, TrapError, TrapKind, TrapResult};
 pub use ext::{ContractCreateResult, CreateContractAddress, Ext, MessageCallResult};
 pub use return_data::{GasLeft, ReturnData};
 pub use schedule::{CleanDustMode, Schedule, WasmCosts};

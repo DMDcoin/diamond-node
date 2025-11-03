@@ -206,7 +206,7 @@ impl KeyFile {
 
 #[cfg(test)]
 mod tests {
-    use json::{Aes128Ctr, Cipher, Crypto, Kdf, KeyFile, Scrypt, Uuid, Version};
+    use crate::json::{Aes128Ctr, Cipher, Crypto, Kdf, KeyFile, Scrypt, Uuid, Version};
     use serde_json;
     use std::str::FromStr;
 

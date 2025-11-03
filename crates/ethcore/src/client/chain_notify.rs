@@ -14,16 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use blockchain::ImportRoute;
+use crate::{blockchain::ImportRoute, types::transaction::UnverifiedTransaction};
 use bytes::Bytes;
 use ethereum_types::{H256, H512, U256};
 use std::{collections::HashMap, time::Duration};
-use types::transaction::UnverifiedTransaction;
 
 /// Messages to broadcast via chain
 pub enum ChainMessageType {
     /// Consensus message
-    Consensus(Vec<u8>),
+    Consensus(u64, Vec<u8>),
 }
 
 /// Route type to indicate whether it is enacted or retracted.
@@ -185,7 +184,7 @@ pub trait ChainNotify: Send + Sync {
     }
 
     /// fires when chain sends a message to a specific peer
-    fn send(&self, _message_type: ChainMessageType, _node_id: Option<H512>) {
+    fn send(&self, _message_type: ChainMessageType, _node_id: &H512) {
         // does nothing by default
     }
 

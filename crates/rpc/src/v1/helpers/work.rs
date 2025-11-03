@@ -18,11 +18,11 @@
 
 use std::sync::Arc;
 
+use crate::v1::helpers::errors;
 use ethcore::miner::{BlockChainClient, MinerService};
-use ethereum_types::{H256, H64};
+use ethereum_types::{H64, H256};
 use jsonrpc_core::Error;
 use rlp;
-use v1::helpers::errors;
 
 // Submit a POW work and return the block's hash
 pub fn submit_work_detail<C: BlockChainClient, M: MinerService>(

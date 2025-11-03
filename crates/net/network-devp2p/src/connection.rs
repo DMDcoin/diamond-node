@@ -14,19 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    handshake::Handshake,
+    io::{IoContext, StreamToken},
+};
 use bytes::{Buf, BufMut};
 use crypto::{
     aes::{AesCtr256, AesEcb256},
     publickey::Secret,
 };
 use ethereum_types::{H128, H256, H512};
-use handshake::Handshake;
 use hash::{keccak, write_keccak};
-use io::{IoContext, StreamToken};
 use mio::{
+    PollOpt, Ready, Token,
     deprecated::{EventLoop, Handler, TryRead, TryWrite},
     tcp::*,
-    PollOpt, Ready, Token,
 };
 use network::{Error, ErrorKind};
 use parity_bytes::*;
@@ -41,8 +43,8 @@ use std::{
 use tiny_keccak::Keccak;
 
 const ENCRYPTED_HEADER_LEN: usize = 32;
-const RECEIVE_PAYLOAD: Duration = Duration::from_secs(30);
-pub const MAX_PAYLOAD_SIZE: usize = (1 << 24) - 1;
+const RECEIVE_PAYLOAD: Duration = Duration::from_secs(60);
+pub const MAX_PAYLOAD_SIZE: usize = (1 << 26) - 1;
 
 /// Network responses should try not to go over this limit.
 /// This should be lower than MAX_PAYLOAD_SIZE
@@ -304,7 +306,6 @@ pub enum WriteStatus {
 
 /// `RLPx` packet
 pub struct Packet {
-    pub protocol: u16,
     pub data: Bytes,
 }
 
@@ -515,10 +516,7 @@ impl EncryptedConnection {
         self.decoder
             .decrypt(&mut payload[..self.payload_len + padding])?;
         payload.truncate(self.payload_len);
-        Ok(Packet {
-            protocol: self.protocol_id,
-            data: payload,
-        })
+        Ok(Packet { data: payload })
     }
 
     /// Update MAC after reading or writing any data.
@@ -586,7 +584,7 @@ mod tests {
     };
 
     use super::*;
-    use io::*;
+    use crate::io::*;
     use mio::Ready;
     use parity_bytes::Bytes;
 

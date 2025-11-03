@@ -67,11 +67,11 @@ impl CacheConfig {
     /// Creates new cache config with gitven details.
     pub fn new(db: u32, blockchain: u32, queue: u32, state: u32) -> Self {
         CacheConfig {
-            db: db,
-            blockchain: blockchain,
-            queue: queue,
+            db,
+            blockchain,
+            queue,
             traces: DEFAULT_TRACE_CACHE_SIZE,
-            state: state,
+            state,
         }
     }
 

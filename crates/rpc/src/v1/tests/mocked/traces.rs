@@ -20,16 +20,16 @@ use ethcore::{
     client::TestBlockChainClient,
     executed::{CallError, Executed},
     trace::{
-        trace::{Action, Call, Res},
         LocalizedTrace,
+        trace::{Action, Call, Res},
     },
 };
 use ethereum_types::{Address, H256};
 
 use vm::CallType;
 
+use crate::v1::{Metadata, Traces, TracesClient, tests::helpers::TestMinerService};
 use jsonrpc_core::IoHandler;
-use v1::{tests::helpers::TestMinerService, Metadata, Traces, TracesClient};
 
 struct Tester {
     client: Arc<TestBlockChainClient>,

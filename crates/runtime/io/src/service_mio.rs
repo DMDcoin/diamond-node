@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+    IoError, IoHandler,
+    worker::{Work, WorkType, Worker},
+};
 use deque;
 use mio::{
     deprecated::{EventLoop, EventLoopBuilder, Handler, Sender},
@@ -28,9 +32,6 @@ use std::{
     thread::{self, JoinHandle},
     time::Duration,
 };
-use worker::{Work, WorkType, Worker};
-use IoError;
-use IoHandler;
 
 /// Timer ID
 pub type TimerToken = usize;
@@ -213,9 +214,10 @@ where
         symbolic_name: &str,
         event_loop: &mut EventLoop<IoManager<Message>>,
         handlers: Arc<RwLock<Slab<Arc<dyn IoHandler<Message>>>>>,
+        num_workers: i32,
     ) -> Result<(), IoError> {
-        let (worker, stealer) = deque::fifo();
-        let num_workers = 4;
+        let worker = deque::Worker::new_fifo();
+        let stealer = worker.stealer();
         let work_ready_mutex = Arc::new(Mutex::new(()));
         let work_ready = Arc::new(Condvar::new());
         let workers = (0..num_workers)
@@ -303,7 +305,11 @@ where
                     handler_id: handler_index,
                 });
                 self.work_ready.notify_all();
+            } else {
+                debug!(target: "io", "No timer available for token {}. handler_index {handler_index}, subtoken {token_id}", token.0);
             }
+        } else {
+            debug!(target: "io", "No handler for token {} registered. handler_index {handler_index}, subtoken {token_id}", token.0);
         }
     }
 
@@ -344,6 +350,7 @@ where
                 delay,
                 once,
             } => {
+                trace!(target: "io", "Registering timer: handler_id={}, token={}, delay={:?}, once={}", handler_id, token, delay, once);
                 let timer_id = token + handler_id * TOKENS_PER_HANDLER;
                 let timeout = event_loop
                     .timeout(Token(timer_id), delay)
@@ -535,7 +542,10 @@ where
     Message: Send + Sync + 'static,
 {
     /// Starts IO event loop
-    pub fn start(symbolic_name: &'static str) -> Result<IoService<Message>, IoError> {
+    pub fn start(
+        symbolic_name: &'static str,
+        num_workers: i32,
+    ) -> Result<IoService<Message>, IoError> {
         let mut config = EventLoopBuilder::new();
         config.messages_per_tick(1024);
         let mut event_loop = config.build().expect("Error creating event loop");
@@ -543,7 +553,7 @@ where
         let handlers = Arc::new(RwLock::new(Slab::with_capacity(MAX_HANDLERS)));
         let h = handlers.clone();
         let thread = thread::spawn(move || {
-            IoManager::<Message>::start(symbolic_name, &mut event_loop, h)
+            IoManager::<Message>::start(symbolic_name, &mut event_loop, h, num_workers)
                 .expect("Error starting IO service");
         });
         Ok(IoService {

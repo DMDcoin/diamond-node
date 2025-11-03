@@ -19,10 +19,12 @@ use ethereum_types::{Address, H256};
 use parity_util_mem::MallocSizeOf;
 
 use super::{SystemCall, ValidatorSet};
+use crate::{
+    error::Error as EthcoreError,
+    machine::{AuxiliaryData, Call, EthereumMachine},
+    types::{BlockNumber, header::Header},
+};
 use bytes::Bytes;
-use error::Error as EthcoreError;
-use machine::{AuxiliaryData, Call, EthereumMachine};
-use types::{header::Header, BlockNumber};
 
 /// Validator set containing a known set of addresses.
 #[derive(Clone, Debug, PartialEq, Eq, Default, MallocSizeOf)]
@@ -90,8 +92,8 @@ impl ValidatorSet for SimpleList {
         _: bool,
         _: &Header,
         _: AuxiliaryData,
-    ) -> ::engines::EpochChange<EthereumMachine> {
-        ::engines::EpochChange::No
+    ) -> crate::engines::EpochChange<EthereumMachine> {
+        crate::engines::EpochChange::No
     }
 
     fn epoch_set(
@@ -100,7 +102,7 @@ impl ValidatorSet for SimpleList {
         _: &EthereumMachine,
         _: BlockNumber,
         _: &[u8],
-    ) -> Result<(SimpleList, Option<H256>), ::error::Error> {
+    ) -> Result<(SimpleList, Option<H256>), crate::error::Error> {
         Ok((self.clone(), None))
     }
 

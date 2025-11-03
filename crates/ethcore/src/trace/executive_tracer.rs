@@ -16,16 +16,16 @@
 
 //! Simple executive tracer.
 
-use ethereum_types::{Address, U256};
-use log::{debug, warn};
-use std::cmp::min;
-use trace::{
+use crate::trace::{
+    FlatTrace, Tracer, VMTracer,
     trace::{
         Action, Call, CallResult, Create, CreateResult, MemoryDiff, Res, Reward, RewardType,
         StorageDiff, Suicide, VMExecutedOperation, VMOperation, VMTrace,
     },
-    FlatTrace, Tracer, VMTracer,
 };
+use ethereum_types::{Address, U256};
+use log::{debug, warn};
+use std::cmp::min;
 use vm::{ActionParams, Error as VmError};
 
 /// Simple executive tracer. Traces all calls and creates. Ignores delegatecalls.
@@ -42,7 +42,10 @@ impl Tracer for ExecutiveTracer {
     type Output = FlatTrace;
 
     fn prepare_trace_call(&mut self, params: &ActionParams, depth: usize, is_builtin: bool) {
-        assert!(!self.skip_one, "skip_one is used only for builtin contracts that do not have subsequent calls; in prepare_trace_call it cannot be true; qed");
+        assert!(
+            !self.skip_one,
+            "skip_one is used only for builtin contracts that do not have subsequent calls; in prepare_trace_call it cannot be true; qed"
+        );
 
         if depth != 0 && is_builtin && params.value.value() == U256::zero() {
             self.skip_one = true;
@@ -69,7 +72,10 @@ impl Tracer for ExecutiveTracer {
     }
 
     fn prepare_trace_create(&mut self, params: &ActionParams) {
-        assert!(!self.skip_one, "skip_one is used only for builtin contracts that do not have subsequent calls; in prepare_trace_create it cannot be true; qed");
+        assert!(
+            !self.skip_one,
+            "skip_one is used only for builtin contracts that do not have subsequent calls; in prepare_trace_create it cannot be true; qed"
+        );
 
         if let Some(parentlen) = self.sublen_stack.last_mut() {
             *parentlen += 1;
@@ -113,7 +119,10 @@ impl Tracer for ExecutiveTracer {
     }
 
     fn done_trace_create(&mut self, gas_used: U256, code: &[u8], address: Address) {
-        assert!(!self.skip_one, "skip_one is only set with prepare_trace_call for builtin contracts with no subsequent calls; skip_one cannot be true after the same level prepare_trace_create; qed");
+        assert!(
+            !self.skip_one,
+            "skip_one is only set with prepare_trace_call for builtin contracts with no subsequent calls; skip_one cannot be true after the same level prepare_trace_create; qed"
+        );
 
         let vecindex = self.vecindex_stack.pop().expect("Executive invoked prepare_trace_create before this function; vecindex_stack is never empty; qed");
         let sublen = self.sublen_stack.pop().expect("Executive invoked prepare_trace_create before this function; sublen_stack is never empty; qed");

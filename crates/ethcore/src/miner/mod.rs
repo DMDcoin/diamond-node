@@ -29,33 +29,39 @@ pub mod stratum;
 pub use self::miner::{Author, AuthoringParams, Miner, MinerOptions, Penalization, PendingSet};
 pub use ethcore_miner::{
     local_accounts::LocalAccounts,
-    pool::{transaction_filter::TransactionFilter, PendingOrdering},
+    pool::{PendingOrdering, transaction_filter::TransactionFilter},
 };
 
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
+    time::Duration,
 };
 
-use bytes::Bytes;
-use ethcore_miner::pool::{local_transactions, QueueStatus, VerifiedTransaction};
-use ethereum_types::{Address, H256, U256};
-use types::{
+use crate::types::{
+    BlockNumber,
     block::Block,
     header::Header,
     receipt::RichReceipt,
     transaction::{self, PendingTransaction, SignedTransaction, UnverifiedTransaction},
-    BlockNumber,
 };
+use bytes::Bytes;
+use ethcore_miner::pool::{
+    QueueStatus, VerifiedTransaction,
+    local_transactions::{self, Status},
+};
+use ethereum_types::{Address, H256, U256};
 
-use block::SealedBlock;
-use call_contract::{CallContract, RegistryInfo};
-use client::{
-    traits::ForceUpdateSealing, AccountData, BlockChain, BlockProducer, Nonce, ScheduleInfo,
-    SealedBlockImporter,
+use crate::{
+    block::SealedBlock,
+    client::{
+        AccountData, BlockChain, BlockProducer, Nonce, ScheduleInfo, SealedBlockImporter,
+        traits::ForceUpdateSealing,
+    },
+    error::Error,
+    state::StateInfo,
 };
-use error::Error;
-use state::StateInfo;
+use call_contract::{CallContract, RegistryInfo};
 
 /// Provides methods to verify incoming external transactions
 pub trait TransactionVerifierClient: Send + Sync
@@ -197,6 +203,14 @@ pub trait MinerService: Send + Sync {
     /// Query transaction from the pool given it's hash.
     fn transaction(&self, hash: &H256) -> Option<Arc<VerifiedTransaction>>;
 
+    /// Query transaction from the pool given it's hash, without blocking.
+    /// Might return "None" in cases when the lock could not get acquired.
+    fn transaction_if_readable(
+        &self,
+        hash: &H256,
+        max_lock_duration: &Duration,
+    ) -> Option<Arc<VerifiedTransaction>>;
+
     /// Returns next valid nonce for given address.
     ///
     /// This includes nonces of all transactions from this address in the pending queue
@@ -276,4 +290,7 @@ pub trait MinerService: Send + Sync {
     /// Set a new minimum gas limit.
     /// Will not work if dynamic gas calibration is set.
     fn set_minimal_gas_price(&self, gas_price: U256) -> Result<bool, &str>;
+
+    /// Get the status of a local transaction by its hash.
+    fn local_transaction_status(&self, hash: &H256) -> Option<Status>;
 }

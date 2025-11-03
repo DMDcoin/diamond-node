@@ -16,9 +16,9 @@
 
 //! EIP-191 specific types
 
+use crate::v1::types::Bytes;
 use ethereum_types::H160;
-use serde::{de, Deserialize, Deserializer};
-use v1::types::Bytes;
+use serde::{Deserialize, Deserializer, de};
 
 /// EIP-191 version specifier
 #[derive(Debug)]
@@ -55,7 +55,7 @@ impl<'de> Deserialize<'de> for EIP191Version {
                 return Err(de::Error::custom(format!(
                     "Invalid byte version '{}'",
                     other
-                )))
+                )));
             }
         };
         Ok(byte_version)

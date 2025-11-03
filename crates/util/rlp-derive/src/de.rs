@@ -146,7 +146,6 @@ fn decodable_field(index: usize, field: &syn::Field, quotes: ParseQuotes) -> Tok
                 .segments
                 .first()
                 .expect("there must be at least 1 segment")
-                .value()
                 .ident;
             if &ident.to_string() == "Vec" {
                 if quotes.takes_index {

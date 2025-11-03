@@ -17,7 +17,7 @@
 //! Disk-backed `HashDB` implementation.
 
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     io,
     sync::Arc,
 };
@@ -28,7 +28,7 @@ use ethereum_types::H256;
 use hash_db::HashDB;
 use keccak_hasher::KeccakHasher;
 use memory_db::*;
-use rlp::{decode, encode, Decodable, DecoderError, Encodable, Rlp, RlpStream};
+use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream, decode, encode};
 
 /// Implementation of the `HashDB` trait for a disk-backed database with a memory overlay.
 ///
@@ -79,7 +79,7 @@ impl OverlayDB {
     /// Create a new instance of OverlayDB given a `backing` database.
     pub fn new(backing: Arc<dyn KeyValueDB>, col: Option<u32>) -> OverlayDB {
         OverlayDB {
-            overlay: ::new_memory_db(),
+            overlay: crate::new_memory_db(),
             backing: backing,
             column: col,
         }

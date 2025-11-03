@@ -1,19 +1,12 @@
-# OpenEthereum
+# Diamond Node
 
-Fast and feature-rich multi-network Ethereum client.
-
-[» Download the latest release «](https://github.com/openethereum/openethereum/releases/latest)
+Node client for the protocol version 4 of the bit.diamonds network.
 
 [![GPL licensed][license-badge]][license-url]
-[![Build Status][ci-badge]][ci-url]
-[![Discord chat][chat-badge]][chat-url]
 
 [license-badge]: https://img.shields.io/badge/license-GPL_v3-green.svg
 [license-url]: LICENSE
-[ci-badge]: https://github.com/openethereum/openethereum/workflows/Build%20and%20Test%20Suite/badge.svg
-[ci-url]: https://github.com/openethereum/openethereum/actions
-[chat-badge]: https://img.shields.io/discord/669192218728202270.svg?logo=discord
-[chat-url]: https://discord.io/openethereum
+[chat-url]: (https://discord.com/invite/MwqZ2CYcB4)
 
 ## Table of Contents
 
@@ -32,29 +25,25 @@ Fast and feature-rich multi-network Ethereum client.
 
 ## 1. Description <a id="chapter-001"></a>
 
-**Built for mission-critical use**: Miners, service providers, and exchanges need fast synchronisation and maximum uptime. OpenEthereum provides the core infrastructure essential for speedy and reliable services.
-
-- Clean, modular codebase for easy customisation
-- Advanced CLI-based client
-- Minimal memory and storage footprint
-- Synchronise in hours, not days with Warp Sync
-- Modular for light integration into your service or product
+diamond-node is the node software for the upcomming V4 of the diamond network.
+The Node Software is on a alpha level and still under active development.
 
 ## 2. Technical Overview <a id="chapter-002"></a>
 
-OpenEthereum's goal is to be the fastest, lightest, and most secure Ethereum client. We are developing OpenEthereum using the **Rust programming language**. OpenEthereum is licensed under the GPLv3 and can be used for all your Ethereum needs.
+diamond-node builds on OpenEthereum, and shares a lot of base features, 
+covered in the [OpenEthereum Documentation](https://openethereum.github.io/).
 
-By default, OpenEthereum runs a JSON-RPC HTTP server on port `:8545` and a Web-Sockets server on port `:8546`. This is fully configurable and supports a number of APIs.
+By default, diamond-node runs a JSON-RPC HTTP server on port `:8545` and a Web-Sockets server on port `:8546`. This is fully configurable and supports a number of APIs.
 
-If you run into problems while using OpenEthereum, check out the [old wiki for documentation](https://openethereum.github.io/), feel free to [file an issue in this repository](https://github.com/openethereum/openethereum/issues/new), or hop on our [Discord](https://discord.io/openethereum) chat room to ask a question. We are glad to help!
+If you run into problems while using diamond-node, feel free to [file an issue in this repository](https://github.com/dmdcoind/diamond-node/issues/new), or hop on our [Slack](https://dmdcoin.slack.com/), [Telegram](https://t.me/DMDcoin) or [Discord](https://discord.gg/TStv6gm) chat room to ask a question. We are glad to help!
 
-You can download OpenEthereum's latest release at [the releases page](https://github.com/openethereum/openethereum/releases) or follow the instructions below to build from source. Read the [CHANGELOG.md](CHANGELOG.md) for a list of all changes between different versions.
+We do not provide binaries and suggest to build from source.
 
 ## 3. Building <a id="chapter-003"></a>
 
 ### 3.1 Build Dependencies <a id="chapter-0031"></a>
 
-OpenEthereum requires **latest stable Rust version** to build.
+diamond-node requires **latest stable Rust version** to build.
 
 We recommend installing Rust through [rustup](https://www.rustup.rs/). If you don't already have `rustup`, you can install it like this:
 
@@ -63,7 +52,7 @@ We recommend installing Rust through [rustup](https://www.rustup.rs/). If you do
   $ curl https://sh.rustup.rs -sSf | sh
   ```
 
-  OpenEthereum also requires `clang` (>= 9.0), `clang++`, `pkg-config`, `file`, `make`, and `cmake` packages to be installed.
+  diamond-node also requires `clang` (>= 9.0), `clang++`, `pkg-config`, `file`, `make`, and `cmake` packages to be installed.
 
 - OSX:
   ```bash
@@ -83,14 +72,14 @@ Once you have `rustup` installed, then you need to install:
 * [Perl](https://www.perl.org)
 * [Yasm](https://yasm.tortall.net)
 
-Make sure that these binaries are in your `PATH`. After that, you should be able to build OpenEthereum from source.
+Make sure that these binaries are in your `PATH`. After that, you should be able to build diamond-node from source.
 
 ### 3.2 Build from Source Code <a id="chapter-0032"></a>
 
 ```bash
 # download OpenEthereum code
-$ git clone https://github.com/openethereum/openethereum
-$ cd openethereum
+$ git clone https://github.com/DMDcoin/diamond-node
+$ cd diamond-node
 
 # build in release mode
 $ cargo build --release --features final
@@ -116,26 +105,26 @@ This always compiles the latest nightly builds. If you want to build stable, do 
 $ git checkout stable
 ```
 
-### 3.3 Starting OpenEthereum <a id="chapter-0034"></a>
+### 3.3 Starting diamond-node <a id="chapter-0034"></a>
 
 #### Manually
 
-To start OpenEthereum manually, just run
+To start diamond-node manually, just run
 
 ```bash
 $ ./target/release/openethereum
 ```
 
-so OpenEthereum begins syncing the Ethereum blockchain.
+so diamond-node begins syncing the Ethereum blockchain.
 
 #### Using `systemd` service file
 
-To start OpenEthereum as a regular user using `systemd` init:
+To start diamond-node as a regular user using `systemd` init:
 
 1. Copy `./scripts/openethereum.service` to your
 `systemd` user directory (usually `~/.config/systemd/user`).
 2. Copy release to bin folder, write `sudo install ./target/release/openethereum /usr/bin/openethereum`
-3. To configure OpenEthereum, see [our wiki](https://openethereum.github.io/Configuring-OpenEthereum) for details.
+3. To configure diamond-node, see [our wiki](https://openethereum.github.io/Configuring-OpenEthereum) for details.
 
 ## 4. Testing <a id="chapter-004"></a>
 

@@ -14,11 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use block::ExecutedBlock;
-use engines::{Engine, Seal, SealingState};
-use machine::Machine;
+use crate::{
+    block::ExecutedBlock,
+    engines::{Engine, Seal, SealingState},
+    machine::Machine,
+    types::header::{ExtendedHeader, Header},
+};
 use std::sync::atomic::{AtomicU64, Ordering};
-use types::header::{ExtendedHeader, Header};
 
 /// `InstantSeal` params.
 #[derive(Default, Debug, PartialEq)]
@@ -126,13 +128,11 @@ impl<M: Machine> Engine<M> for InstantSeal<M> {
 
 #[cfg(test)]
 mod tests {
-    use block::*;
-    use engines::Seal;
+    use crate::{
+        block::*, engines::Seal, spec::Spec, test_helpers::get_temp_state_db, types::header::Header,
+    };
     use ethereum_types::{Address, H520};
-    use spec::Spec;
     use std::sync::Arc;
-    use test_helpers::get_temp_state_db;
-    use types::header::Header;
 
     #[test]
     fn instant_can_seal() {

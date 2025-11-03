@@ -18,29 +18,30 @@ use bytes::Bytes;
 
 #[cfg(not(test))]
 use devp2p::PAYLOAD_SOFT_LIMIT;
+use time_utils::DeadlineStopwatch;
 #[cfg(test)]
 pub const PAYLOAD_SOFT_LIMIT: usize = 100_000;
 
+use crate::types::{BlockNumber, ids::BlockId};
 use enum_primitive::FromPrimitive;
 use ethereum_types::{H256, H512};
 use network::{self, PeerId};
 use parking_lot::RwLock;
 use rlp::{Rlp, RlpStream};
-use std::cmp;
-use types::{ids::BlockId, BlockNumber};
+use std::{cmp, time::Duration};
 
-use sync_io::SyncIo;
+use crate::sync_io::SyncIo;
 
 use super::{
-    request_id::{prepend_request_id, strip_request_id, RequestId},
+    request_id::{RequestId, prepend_request_id, strip_request_id},
     sync_packet::{PacketInfo, SyncPacket, SyncPacket::*},
 };
 
 use super::{
-    ChainSync, PacketProcessError, RlpResponseResult, SyncHandler, MAX_BODIES_TO_SEND,
-    MAX_HEADERS_TO_SEND, MAX_RECEIPTS_HEADERS_TO_SEND,
+    ChainSync, MAX_BODIES_TO_SEND, MAX_HEADERS_TO_SEND, MAX_RECEIPTS_HEADERS_TO_SEND,
+    PacketProcessError, RlpResponseResult, SyncHandler,
 };
-use chain::MAX_NODE_DATA_TO_SEND;
+use crate::chain::MAX_NODE_DATA_TO_SEND;
 use std::borrow::Borrow;
 
 /// The Chain Sync Supplier: answers requests from peers with available data
@@ -252,7 +253,11 @@ impl SyncSupplier {
                     }
                     number
                 }
-                None => return Ok(Some((BlockHeadersPacket, RlpStream::new_list(0)))), //no such header, return nothing
+                None => {
+                    trace!(target: "sync", "{} -> GetBlockHeaders: no such header {}", peer_id, hash);
+                    //no such header, return nothing
+                    return Ok(Some((BlockHeadersPacket, RlpStream::new_list(0))));
+                }
             }
         } else {
             let number = r.val_at::<BlockNumber>(0)?;
@@ -310,20 +315,41 @@ impl SyncSupplier {
         let mut added = 0;
         let mut rlp = RlpStream::new();
         rlp.begin_unbounded_list();
+        let mut not_found = 0;
+        let mut parse_errors = 0;
+
+        let deadline = DeadlineStopwatch::new(Duration::from_millis(200));
         for v in r {
             if let Ok(hash) = v.as_val::<H256>() {
-                if let Some(tx) = io.chain().queued_transaction(hash) {
+                // io.chain().transaction(hash)
+
+                if deadline.is_expired() {
+                    debug!(target: "sync", "{} -> GetPooledTransactions: deadline reached, only returning partial result to ", peer_id);
+                    break;
+                }
+
+                // we do not lock here, if we cannot access the memory at this point in time,
+                // we will just skip this transaction, otherwise the other peer might wait to long, resulting in a timeout.
+                // also this solved a potential deadlock situation:
+                if let Some(tx) = io
+                    .chain()
+                    .transaction_if_readable(&hash, &deadline.time_left())
+                {
                     tx.signed().rlp_append(&mut rlp);
                     added += 1;
                     if rlp.len() > PAYLOAD_SOFT_LIMIT {
                         break;
                     }
+                } else {
+                    not_found += 1;
                 }
+            } else {
+                parse_errors += 1;
             }
         }
         rlp.finalize_unbounded_list();
 
-        trace!(target: "sync", "{} -> GetPooledTransactions: returned {} entries", peer_id, added);
+        debug!(target: "sync", "{} -> GetPooledTransactions: returned {} entries. Not found: {}. unparsable {}", peer_id, added, not_found, parse_errors);
         Ok(Some((PooledTransactionsPacket, rlp)))
     }
 
@@ -503,7 +529,10 @@ impl SyncSupplier {
 #[cfg(test)]
 mod test {
     use super::{super::tests::*, *};
-    use blocks::SyncHeader;
+    use crate::{
+        blocks::SyncHeader,
+        tests::{helpers::TestIo, snapshot::TestSnapshotService},
+    };
     use bytes::Bytes;
     use ethcore::{
         client::{BlockChainClient, EachBlockWith, TestBlockChainClient},
@@ -513,7 +542,6 @@ mod test {
     use parking_lot::RwLock;
     use rlp::{Rlp, RlpStream};
     use std::{collections::VecDeque, str::FromStr};
-    use tests::{helpers::TestIo, snapshot::TestSnapshotService};
 
     #[test]
     fn return_block_headers() {
@@ -535,7 +563,7 @@ mod test {
             rlp.out()
         }
         fn to_header_vec(
-            rlp: ::chain::RlpResponseResult,
+            rlp: crate::chain::RlpResponseResult,
             eip1559_transition: BlockNumber,
         ) -> Vec<SyncHeader> {
             Rlp::new(&rlp.unwrap().unwrap().1.out())

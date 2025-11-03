@@ -38,14 +38,14 @@
 /// Unix: $BASE/openethereum/
 ///
 extern crate app_dirs;
-extern crate ethereum_types;
+use ethereum_types;
 extern crate home;
 extern crate journaldb;
 
 pub mod helpers;
-use app_dirs::{data_root, get_app_root, AppDataType, AppInfo};
-use ethereum_types::{H256, H64};
-use helpers::{replace_home, replace_home_and_local};
+use crate::helpers::{replace_home, replace_home_and_local};
+use app_dirs::{AppDataType, AppInfo, data_root, get_app_root};
+use ethereum_types::{H64, H256};
 use journaldb::Algorithm;
 use std::{
     fs,
@@ -335,7 +335,7 @@ mod platform {
 #[cfg(test)]
 mod tests {
     use super::Directories;
-    use helpers::{replace_home, replace_home_and_local};
+    use crate::helpers::{replace_home, replace_home_and_local};
 
     #[test]
     fn test_default_directories() {

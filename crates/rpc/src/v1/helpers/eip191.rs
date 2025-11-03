@@ -15,16 +15,16 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! EIP-191 compliant decoding + hashing
-use eip_712::{hash_structured_data, EIP712};
-use ethereum_types::H256;
-use hash::keccak;
-use jsonrpc_core::Error;
-use serde_json::{from_value, Value};
-use std::fmt::Display;
-use v1::{
+use crate::v1::{
     helpers::{dispatch::eth_data_hash, errors},
     types::{Bytes, EIP191Version, PresignedTransaction},
 };
+use eip_712::{EIP712, hash_structured_data};
+use ethereum_types::H256;
+use hash::keccak;
+use jsonrpc_core::Error;
+use serde_json::{Value, from_value};
+use std::fmt::Display;
 
 /// deserializes and hashes the message depending on the version specifier
 pub fn hash_message(version: EIP191Version, message: Value) -> Result<H256, Error> {
@@ -33,7 +33,7 @@ pub fn hash_message(version: EIP191Version, message: Value) -> Result<H256, Erro
             let typed_data =
                 from_value::<EIP712>(message).map_err(map_serde_err("StructuredData"))?;
 
-            hash_structured_data(typed_data).map_err(|err| errors::invalid_call_data(err.kind()))?
+            hash_structured_data(typed_data).map_err(|err| errors::invalid_call_data(err))?
         }
 
         EIP191Version::PresignedTransaction => {

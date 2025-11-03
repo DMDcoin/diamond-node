@@ -15,41 +15,46 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-    str::{from_utf8, FromStr},
+    str::{FromStr, from_utf8},
     sync::Arc,
 };
 
-use client::{
-    traits::{
-        BlockChainClient, BlockChainReset, BlockInfo, ChainInfo, ImportBlock, ImportExportBlocks,
+use crate::{
+    client::{
+        Client, ClientConfig, ImportSealedBlock, PrepareOpenBlock,
+        traits::{
+            BlockChainClient, BlockChainReset, BlockInfo, ChainInfo, ImportBlock,
+            ImportExportBlocks,
+        },
     },
-    Client, ClientConfig, ImportSealedBlock, PrepareOpenBlock,
+    ethereum,
+    executive::{Executive, TransactOptions},
+    io::IoChannel,
+    miner::{Miner, MinerService, PendingOrdering},
+    spec::Spec,
+    state::{self, CleanupMode, State, StateInfo},
+    test_helpers::{
+        self, generate_dummy_client, generate_dummy_client_with_data, get_bad_state_dummy_block,
+        get_good_dummy_block, get_good_dummy_block_seq, get_test_client_with_blocks,
+        push_blocks_to_client,
+    },
+    types::{
+        data_format::DataFormat,
+        filter::Filter,
+        ids::BlockId,
+        transaction::{Action, Condition, PendingTransaction, Transaction, TypedTransaction},
+        view,
+        views::BlockView,
+    },
+    verification::queue::kind::blocks::Unverified,
 };
 use crypto::publickey::KeyPair;
-use ethereum;
 use ethereum_types::{Address, U256};
-use executive::{Executive, TransactOptions};
 use hash::keccak;
-use io::IoChannel;
-use miner::{Miner, MinerService, PendingOrdering};
 use rustc_hex::ToHex;
-use spec::Spec;
-use state::{self, CleanupMode, State, StateInfo};
 use tempdir::TempDir;
-use test_helpers::{
-    self, generate_dummy_client, generate_dummy_client_with_data, get_bad_state_dummy_block,
-    get_good_dummy_block, get_good_dummy_block_seq, get_test_client_with_blocks,
-    push_blocks_to_client,
-};
-use types::{
-    data_format::DataFormat,
-    filter::Filter,
-    ids::BlockId,
-    transaction::{Action, Condition, PendingTransaction, Transaction, TypedTransaction},
-    view,
-    views::BlockView,
-};
-use verification::queue::kind::blocks::Unverified;
+
+use crate::exit::ShutdownManager;
 
 #[test]
 fn imports_from_empty() {
@@ -62,6 +67,7 @@ fn imports_from_empty() {
         db,
         Arc::new(Miner::new_for_tests(&spec, None)),
         IoChannel::disconnected(),
+        Arc::new(ShutdownManager::null()),
     )
     .unwrap();
     client.import_verified_blocks();
@@ -80,6 +86,7 @@ fn should_return_registrar() {
         db,
         Arc::new(Miner::new_for_tests(&spec, None)),
         IoChannel::disconnected(),
+        Arc::new(ShutdownManager::null()),
     )
     .unwrap();
     let params = client.additional_params();
@@ -100,6 +107,7 @@ fn imports_good_block() {
         db,
         Arc::new(Miner::new_for_tests(&spec, None)),
         IoChannel::disconnected(),
+        Arc::new(ShutdownManager::null()),
     )
     .unwrap();
     let good_block = get_good_dummy_block();
@@ -127,6 +135,7 @@ fn query_none_block() {
         db,
         Arc::new(Miner::new_for_tests(&spec, None)),
         IoChannel::disconnected(),
+        Arc::new(ShutdownManager::null()),
     )
     .unwrap();
     let non_existant = client.block_header(BlockId::Number(188));
@@ -329,6 +338,7 @@ fn change_history_size() {
             db.clone(),
             Arc::new(Miner::new_for_tests(&test_spec, None)),
             IoChannel::disconnected(),
+            Arc::new(ShutdownManager::null()),
         )
         .unwrap();
 
@@ -361,6 +371,7 @@ fn change_history_size() {
         db,
         Arc::new(Miner::new_for_tests(&test_spec, None)),
         IoChannel::disconnected(),
+        Arc::new(ShutdownManager::null()),
     )
     .unwrap();
     assert_eq!(client.state().balance(&address).unwrap(), 100.into());
@@ -426,7 +437,7 @@ fn does_not_propagate_delayed_transactions() {
 
 #[test]
 fn transaction_proof() {
-    use client::ProvingBlockChainClient;
+    use crate::client::ProvingBlockChainClient;
 
     let client = generate_dummy_client(0);
     let address = Address::random();
@@ -468,8 +479,8 @@ fn transaction_proof() {
         .1;
     let backend = state::backend::ProofCheck::new(&proof);
 
-    let mut factories = ::factory::Factories::default();
-    factories.accountdb = ::account_db::Factory::Plain; // raw state values, no mangled keys.
+    let mut factories = crate::factory::Factories::default();
+    factories.accountdb = crate::account_db::Factory::Plain; // raw state values, no mangled keys.
     let root = *client.best_block_header().state_root();
 
     let machine = test_spec.engine.machine();

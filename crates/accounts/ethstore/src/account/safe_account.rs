@@ -15,15 +15,13 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::crypto::Crypto;
-use account::Version;
+use crate::{account::Version, json, Error};
 use crypto::{
     self,
     publickey::{ecdh::agree, sign, Address, KeyPair, Message, Public, Secret, Signature},
 };
 use ethkey::Password;
-use json;
 use std::num::NonZeroU32;
-use Error;
 
 /// Account representation.
 #[derive(Debug, PartialEq, Clone)]

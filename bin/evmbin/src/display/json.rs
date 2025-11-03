@@ -19,11 +19,10 @@
 use std::{collections::HashMap, mem};
 
 use super::config::Config;
+use crate::{display, info as vm};
 use bytes::ToPretty;
-use display;
 use ethcore::trace;
 use ethereum_types::{BigEndianHash, H256, U256};
-use info as vm;
 
 /// JSON formatting informant.
 #[derive(Default)]
@@ -272,7 +271,7 @@ impl trace::VMTracer for Informant {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use info::tests::run_test;
+    use crate::info::tests::run_test;
     use serde_json;
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]

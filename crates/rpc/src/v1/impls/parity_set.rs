@@ -27,20 +27,22 @@ use fetch::{self, Fetch};
 use hash::keccak_buffer;
 use sync::ManageNetwork;
 
-use jsonrpc_core::{futures::Future, BoxFuture, Result};
-use v1::{
+use crate::v1::{
     helpers::errors,
     traits::ParitySet,
     types::{Bytes, Transaction},
 };
+use jsonrpc_core::{BoxFuture, Result, futures::Future};
 
 #[cfg(any(test, feature = "accounts"))]
 pub mod accounts {
     use super::*;
-    use accounts::AccountProvider;
-    use v1::{
-        helpers::{deprecated::DeprecationNotice, engine_signer::EngineSigner},
-        traits::ParitySetAccounts,
+    use crate::{
+        accounts::AccountProvider,
+        v1::{
+            helpers::{deprecated::DeprecationNotice, engine_signer::EngineSigner},
+            traits::ParitySetAccounts,
+        },
     };
 
     /// Parity-specific account-touching RPC interfaces.

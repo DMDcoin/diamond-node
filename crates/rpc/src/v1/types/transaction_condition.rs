@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use types::transaction;
+use crate::types::transaction;
 
 /// Represents condition on minimum block number or block timestamp.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]

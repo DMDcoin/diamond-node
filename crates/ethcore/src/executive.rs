@@ -15,20 +15,22 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Transaction Execution environment.
+pub use crate::executed::{Executed, ExecutionResult};
+use crate::{
+    executed::ExecutionError,
+    externalities::*,
+    factory::VmFactory,
+    machine::EthereumMachine as Machine,
+    state::{Backend as StateBackend, CleanupMode, State, Substate},
+    trace::{self, Tracer, VMTracer},
+    transaction_ext::Transaction,
+    types::transaction::{Action, SignedTransaction, TypedTransaction},
+};
 use bytes::{Bytes, BytesRef};
 use ethereum_types::{Address, H256, U256, U512};
 use evm::{CallType, FinalizationResult, Finalize};
-use executed::ExecutionError;
-pub use executed::{Executed, ExecutionResult};
-use externalities::*;
-use factory::VmFactory;
 use hash::keccak;
-use machine::EthereumMachine as Machine;
-use state::{Backend as StateBackend, CleanupMode, State, Substate};
 use std::{cmp, convert::TryFrom, sync::Arc};
-use trace::{self, Tracer, VMTracer};
-use transaction_ext::Transaction;
-use types::transaction::{Action, SignedTransaction, TypedTransaction};
 use vm::{
     self, AccessList, ActionParams, ActionValue, CleanDustMode, CreateContractAddress, EnvInfo,
     ResumeCall, ResumeCreate, ReturnData, Schedule, TrapError,
@@ -259,9 +261,7 @@ impl<'a> CallCreateExecutive<'a> {
     ) -> Self {
         trace!(
             "Executive::call(params={:?}) self.env_info={:?}, parent_static={}",
-            params,
-            info,
-            parent_static_flag
+            params, info, parent_static_flag
         );
 
         let gas = params.gas;
@@ -315,9 +315,7 @@ impl<'a> CallCreateExecutive<'a> {
     ) -> Self {
         trace!(
             "Executive::create(params={:?}) self.env_info={:?}, static={}",
-            params,
-            info,
-            static_flag
+            params, info, static_flag
         );
 
         let gas = params.gas;
@@ -884,135 +882,162 @@ impl<'a> CallCreateExecutive<'a> {
         let mut callstack: Vec<(Option<Address>, CallCreateExecutive<'a>)> = Vec::new();
         loop {
             match last_res {
-				None => {
-					match callstack.pop() {
-						Some((_, exec)) => {
-							let second_last = callstack.last_mut();
-							let parent_substate = match second_last {
-								Some((_, ref mut second_last)) => second_last.unconfirmed_substate().expect("Current stack value is created from second last item; second last item must be call or create; qed"),
+                None => match callstack.pop() {
+                    Some((_, exec)) => {
+                        let second_last = callstack.last_mut();
+                        let parent_substate = match second_last {
+								Some((_, second_last)) => second_last.unconfirmed_substate().expect("Current stack value is created from second last item; second last item must be call or create; qed"),
 								None => top_substate,
 							};
 
-							last_res = Some((exec.is_create, exec.gas, exec.exec(state, parent_substate, tracer, vm_tracer)));
-						},
-						None => panic!("When callstack only had one item and it was executed, this function would return; callstack never reaches zero item; qed"),
-					}
-				},
-				Some((is_create, gas, Ok(val))) => {
-					let current = callstack.pop();
+                        last_res = Some((
+                            exec.is_create,
+                            exec.gas,
+                            exec.exec(state, parent_substate, tracer, vm_tracer),
+                        ));
+                    }
+                    None => panic!(
+                        "When callstack only had one item and it was executed, this function would return; callstack never reaches zero item; qed"
+                    ),
+                },
+                Some((is_create, gas, Ok(val))) => {
+                    let current = callstack.pop();
 
-					match current {
-						Some((address, mut exec)) => {
-							if is_create {
-								let address = address.expect("If the last executed status was from a create executive, then the destination address was pushed to the callstack; address is_some if it is_create; qed");
+                    match current {
+                        Some((address, mut exec)) => {
+                            if is_create {
+                                let address = address.expect("If the last executed status was from a create executive, then the destination address was pushed to the callstack; address is_some if it is_create; qed");
 
-								match val {
-									Ok(ref val) if val.apply_state => {
-										tracer.done_trace_create(
-											gas - val.gas_left,
-											&val.return_data,
-											address
-										);
-									},
-									Ok(_) => {
-										tracer.done_trace_failed(&vm::Error::Reverted);
-									},
-									Err(ref err) => {
-										tracer.done_trace_failed(err);
-									},
-								}
+                                match val {
+                                    Ok(ref val) if val.apply_state => {
+                                        tracer.done_trace_create(
+                                            gas - val.gas_left,
+                                            &val.return_data,
+                                            address,
+                                        );
+                                    }
+                                    Ok(_) => {
+                                        tracer.done_trace_failed(&vm::Error::Reverted);
+                                    }
+                                    Err(ref err) => {
+                                        tracer.done_trace_failed(err);
+                                    }
+                                }
 
-								vm_tracer.done_subtrace();
+                                vm_tracer.done_subtrace();
 
-								let second_last = callstack.last_mut();
-								let parent_substate = match second_last {
-									Some((_, ref mut second_last)) => second_last.unconfirmed_substate().expect("Current stack value is created from second last item; second last item must be call or create; qed"),
+                                let second_last = callstack.last_mut();
+                                let parent_substate = match second_last {
+									Some((_, second_last)) => second_last.unconfirmed_substate().expect("Current stack value is created from second last item; second last item must be call or create; qed"),
 									None => top_substate,
 								};
 
-								let contract_create_result = into_contract_create_result(val, &address, exec.unconfirmed_substate().expect("Executive is resumed from a create; it has an unconfirmed substate; qed"));
-								last_res = Some((exec.is_create, exec.gas, exec.resume_create(
-									contract_create_result,
-									state,
-									parent_substate,
-									tracer,
-									vm_tracer
-								)));
-							} else {
-								match val {
-									Ok(ref val) if val.apply_state => {
-										tracer.done_trace_call(
-											gas - val.gas_left,
-											&val.return_data,
-										);
-									},
-									Ok(_) => {
-										tracer.done_trace_failed(&vm::Error::Reverted);
-									},
-									Err(ref err) => {
-										tracer.done_trace_failed(err);
-									},
-								}
+                                let contract_create_result = into_contract_create_result(val, &address, exec.unconfirmed_substate().expect("Executive is resumed from a create; it has an unconfirmed substate; qed"));
+                                last_res = Some((
+                                    exec.is_create,
+                                    exec.gas,
+                                    exec.resume_create(
+                                        contract_create_result,
+                                        state,
+                                        parent_substate,
+                                        tracer,
+                                        vm_tracer,
+                                    ),
+                                ));
+                            } else {
+                                match val {
+                                    Ok(ref val) if val.apply_state => {
+                                        tracer
+                                            .done_trace_call(gas - val.gas_left, &val.return_data);
+                                    }
+                                    Ok(_) => {
+                                        tracer.done_trace_failed(&vm::Error::Reverted);
+                                    }
+                                    Err(ref err) => {
+                                        tracer.done_trace_failed(err);
+                                    }
+                                }
 
-								vm_tracer.done_subtrace();
+                                vm_tracer.done_subtrace();
 
-								let second_last = callstack.last_mut();
-								let parent_substate = match second_last {
-									Some((_, ref mut second_last)) => second_last.unconfirmed_substate().expect("Current stack value is created from second last item; second last item must be call or create; qed"),
+                                let second_last = callstack.last_mut();
+                                let parent_substate = match second_last {
+									Some((_, second_last)) => second_last.unconfirmed_substate().expect("Current stack value is created from second last item; second last item must be call or create; qed"),
 									None => top_substate,
 								};
 
-								last_res = Some((exec.is_create, exec.gas, exec.resume_call(
-									into_message_call_result(val),
-									state,
-									parent_substate,
-									tracer,
-									vm_tracer
-								)));
-							}
-						},
-						None => return val,
-					}
-				},
-				Some((_, _, Err(TrapError::Call(subparams, resume)))) => {
-					tracer.prepare_trace_call(&subparams, resume.depth + 1, resume.machine.builtin(&subparams.address, resume.info.number).is_some());
-					vm_tracer.prepare_subtrace(subparams.code.as_ref().map_or_else(|| &[] as &[u8], |d| &*d as &[u8]));
+                                last_res = Some((
+                                    exec.is_create,
+                                    exec.gas,
+                                    exec.resume_call(
+                                        into_message_call_result(val),
+                                        state,
+                                        parent_substate,
+                                        tracer,
+                                        vm_tracer,
+                                    ),
+                                ));
+                            }
+                        }
+                        None => return val,
+                    }
+                }
+                Some((_, _, Err(TrapError::Call(subparams, resume)))) => {
+                    tracer.prepare_trace_call(
+                        &subparams,
+                        resume.depth + 1,
+                        resume
+                            .machine
+                            .builtin(&subparams.address, resume.info.number)
+                            .is_some(),
+                    );
+                    vm_tracer.prepare_subtrace(
+                        subparams
+                            .code
+                            .as_ref()
+                            .map_or_else(|| &[] as &[u8], |d| &*d as &[u8]),
+                    );
 
-					let sub_exec = CallCreateExecutive::new_call_raw(
-						subparams,
-						resume.info,
-						resume.machine,
-						resume.schedule,
-						resume.factory,
-						resume.depth + 1,
-						resume.stack_depth,
-						resume.static_flag,
-					);
+                    let sub_exec = CallCreateExecutive::new_call_raw(
+                        subparams,
+                        resume.info,
+                        resume.machine,
+                        resume.schedule,
+                        resume.factory,
+                        resume.depth + 1,
+                        resume.stack_depth,
+                        resume.static_flag,
+                    );
 
-					callstack.push((None, resume));
-					callstack.push((None, sub_exec));
-					last_res = None;
-				},
-				Some((_, _, Err(TrapError::Create(subparams, address, resume)))) => {
-					tracer.prepare_trace_create(&subparams);
-					vm_tracer.prepare_subtrace(subparams.code.as_ref().map_or_else(|| &[] as &[u8], |d| &*d as &[u8]));
+                    callstack.push((None, resume));
+                    callstack.push((None, sub_exec));
+                    last_res = None;
+                }
+                Some((_, _, Err(TrapError::Create(subparams, address, resume)))) => {
+                    tracer.prepare_trace_create(&subparams);
+                    vm_tracer.prepare_subtrace(
+                        subparams
+                            .code
+                            .as_ref()
+                            .map_or_else(|| &[] as &[u8], |d| &*d as &[u8]),
+                    );
 
-					let sub_exec = CallCreateExecutive::new_create_raw(
-						subparams,
-						resume.info,
-						resume.machine,
-						resume.schedule,
-						resume.factory,
-						resume.depth + 1,
-						resume.stack_depth,
-						resume.static_flag
-					);
+                    let sub_exec = CallCreateExecutive::new_create_raw(
+                        subparams,
+                        resume.info,
+                        resume.machine,
+                        resume.schedule,
+                        resume.factory,
+                        resume.depth + 1,
+                        resume.stack_depth,
+                        resume.static_flag,
+                    );
 
-					callstack.push((Some(address), resume));
-					callstack.push((None, sub_exec));
-					last_res = None;
-				},
-			}
+                    callstack.push((Some(address), resume));
+                    callstack.push((None, sub_exec));
+                    last_res = None;
+                }
+            }
         }
     }
 }
@@ -1531,22 +1556,31 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         let fees_value = fees_value.saturating_sub(burnt_fee);
 
-        trace!("exec::finalize: t.gas={}, sstore_refunds={}, suicide_refunds={}, refunds_bound={}, gas_left_prerefund={}, refunded={}, gas_left={}, gas_used={}, refund_value={}, fees_value={}\n",
-			t.tx().gas, sstore_refunds, suicide_refunds, refunds_bound, gas_left_prerefund, refunded, gas_left, gas_used, refund_value, fees_value);
+        trace!(
+            "exec::finalize: t.gas={}, sstore_refunds={}, suicide_refunds={}, refunds_bound={}, gas_left_prerefund={}, refunded={}, gas_left={}, gas_used={}, refund_value={}, fees_value={}\n",
+            t.tx().gas,
+            sstore_refunds,
+            suicide_refunds,
+            refunds_bound,
+            gas_left_prerefund,
+            refunded,
+            gas_left,
+            gas_used,
+            refund_value,
+            fees_value
+        );
 
         let sender = t.sender();
         trace!(
             "exec::finalize: Refunding refund_value={}, sender={}\n",
-            refund_value,
-            sender
+            refund_value, sender
         );
         // Below: NoEmpty is safe since the sender must already be non-null to have sent this transaction
         self.state
             .add_balance(&sender, &refund_value, CleanupMode::NoEmpty)?;
         trace!(
             "exec::finalize: Compensating author: fees_value={}, author={}\n",
-            fees_value,
-            &self.info.author
+            fees_value, &self.info.author
         );
         self.state.add_balance(
             &self.info.author,
@@ -1627,38 +1661,40 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 #[allow(dead_code)]
 mod tests {
     use super::*;
+    use crate::{
+        error::ExecutionError,
+        machine::EthereumMachine,
+        state::{CleanupMode, Substate},
+        test_helpers::{get_temp_state, get_temp_state_with_factory},
+        trace::{
+            ExecutiveTracer, ExecutiveVMTracer, FlatTrace, MemoryDiff, NoopTracer, NoopVMTracer,
+            StorageDiff, Tracer, VMExecutedOperation, VMOperation, VMTrace, VMTracer, trace,
+        },
+        types::transaction::{
+            AccessListTx, Action, EIP1559TransactionTx, Transaction, TypedTransaction,
+        },
+    };
     use crypto::publickey::{Generator, Random};
-    use error::ExecutionError;
     use ethereum_types::{Address, BigEndianHash, H160, H256, U256, U512};
-    use evm::{Factory, VMType};
-    use machine::EthereumMachine;
+    use evm::{Factory, VMType, evm_test, evm_test_ignore};
     use rustc_hex::FromHex;
-    use state::{CleanupMode, Substate};
     use std::{str::FromStr, sync::Arc};
-    use test_helpers::{get_temp_state, get_temp_state_with_factory};
-    use trace::{
-        trace, ExecutiveTracer, ExecutiveVMTracer, FlatTrace, MemoryDiff, NoopTracer, NoopVMTracer,
-        StorageDiff, Tracer, VMExecutedOperation, VMOperation, VMTrace, VMTracer,
-    };
-    use types::transaction::{
-        AccessListTx, Action, EIP1559TransactionTx, Transaction, TypedTransaction,
-    };
     use vm::{ActionParams, ActionValue, CallType, CreateContractAddress, EnvInfo};
 
     fn make_frontier_machine(max_depth: usize) -> EthereumMachine {
-        let mut machine = ::ethereum::new_frontier_test_machine();
+        let mut machine = crate::ethereum::new_frontier_test_machine();
         machine.set_schedule_creation_rules(Box::new(move |s, _| s.max_depth = max_depth));
         machine
     }
 
     fn make_byzantium_machine(max_depth: usize) -> EthereumMachine {
-        let mut machine = ::ethereum::new_byzantium_test_machine();
+        let mut machine = crate::ethereum::new_byzantium_test_machine();
         machine.set_schedule_creation_rules(Box::new(move |s, _| s.max_depth = max_depth));
         machine
     }
 
     fn make_london_machine(max_depth: usize) -> EthereumMachine {
-        let mut machine = ::ethereum::new_london_test_machine();
+        let mut machine = crate::ethereum::new_london_test_machine();
         machine.set_schedule_creation_rules(Box::new(move |s, _| s.max_depth = max_depth));
         machine
     }
@@ -2052,7 +2088,7 @@ mod tests {
             .add_balance(&sender, &U256::from(100), CleanupMode::NoEmpty)
             .unwrap();
         let info = EnvInfo::default();
-        let machine = ::ethereum::new_byzantium_test_machine();
+        let machine = crate::ethereum::new_byzantium_test_machine();
         let schedule = machine.schedule(info.number);
         let mut substate = Substate::new();
         let mut tracer = ExecutiveTracer::default();
@@ -2952,7 +2988,7 @@ mod tests {
         params.code = Some(Arc::new(code));
         params.value = ActionValue::Transfer(U256::zero());
         let info = EnvInfo::default();
-        let machine = ::ethereum::new_byzantium_test_machine();
+        let machine = crate::ethereum::new_byzantium_test_machine();
         let schedule = machine.schedule(info.number);
         let mut substate = Substate::new();
 
@@ -3014,7 +3050,7 @@ mod tests {
             .unwrap();
 
         let info = EnvInfo::default();
-        let machine = ::ethereum::new_constantinople_test_machine();
+        let machine = crate::ethereum::new_constantinople_test_machine();
         let schedule = machine.schedule(info.number);
 
         assert_eq!(
@@ -3105,7 +3141,7 @@ mod tests {
         info.number = 100;
 
         // Network with wasm activated at block 10
-        let machine = ::ethereum::new_kovan_wasm_test_machine();
+        let machine = crate::ethereum::new_kovan_wasm_test_machine();
 
         let mut output = [0u8; 20];
         let FinalizationResult {

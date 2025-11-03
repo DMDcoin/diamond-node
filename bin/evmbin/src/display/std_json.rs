@@ -19,33 +19,23 @@
 use std::{collections::HashMap, io};
 
 use super::config::Config;
+use crate::{display, info as vm};
 use bytes::ToPretty;
-use display;
 use ethcore::{pod_state, trace};
 use ethereum_types::{BigEndianHash, H256, U256};
-use info as vm;
 
 pub trait Writer: io::Write + Send + Sized {
     fn clone(&self) -> Self;
-    fn default() -> Self;
 }
 
 impl Writer for io::Stdout {
     fn clone(&self) -> Self {
         io::stdout()
     }
-
-    fn default() -> Self {
-        io::stdout()
-    }
 }
 
 impl Writer for io::Stderr {
     fn clone(&self) -> Self {
-        io::stderr()
-    }
-
-    fn default() -> Self {
         io::stderr()
     }
 }
@@ -132,7 +122,7 @@ impl<Trace: Writer, Out: Writer> Informant<Trace, Out> {
         root: H256,
         end_state: &Option<pod_state::PodState>,
     ) {
-        if let Some(ref end_state) = end_state {
+        if let Some(end_state) = end_state {
             let dump_data = json!({
                 "root": root,
                 "accounts": end_state,
@@ -165,7 +155,7 @@ impl<Trace: Writer, Out: Writer> vm::Informant for Informant<Trace, Out> {
     }
     fn finish(
         result: vm::RunResult<<Self as trace::VMTracer>::Output>,
-        (ref mut trace_sink, ref mut out_sink, _): &mut Self::Sink,
+        (trace_sink, out_sink, _): &mut Self::Sink,
     ) {
         match result {
             Ok(success) => {
@@ -290,7 +280,7 @@ impl<Trace: Writer, Out: Writer> trace::VMTracer for Informant<Trace, Out> {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use info::tests::run_test;
+    use crate::info::tests::run_test;
     use std::sync::{Arc, Mutex};
 
     #[derive(Debug, Clone, Default)]
@@ -299,9 +289,6 @@ pub mod tests {
     impl Writer for TestWriter {
         fn clone(&self) -> Self {
             Clone::clone(self)
-        }
-        fn default() -> Self {
-            Default::default()
         }
     }
 

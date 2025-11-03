@@ -16,7 +16,7 @@
 
 //! Generates Keccak-flavoured trie roots.
 
-extern crate ethereum_types;
+use ethereum_types;
 extern crate keccak_hasher;
 extern crate triehash;
 

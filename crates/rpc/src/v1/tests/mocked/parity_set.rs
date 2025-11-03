@@ -22,8 +22,8 @@ use ethcore::{client::TestBlockChainClient, miner::MinerService};
 use sync::ManageNetwork;
 
 use super::manage_network::TestManageNetwork;
+use crate::v1::{ParitySet, ParitySetClient, tests::helpers::TestMinerService};
 use jsonrpc_core::IoHandler;
-use v1::{tests::helpers::TestMinerService, ParitySet, ParitySetClient};
 
 use fake_fetch::FakeFetch;
 
@@ -178,7 +178,7 @@ fn rpc_parity_set_hash_content() {
 
 #[test]
 fn rpc_parity_remove_transaction() {
-    use types::transaction::{Action, Transaction, TypedTransaction};
+    use crate::types::transaction::{Action, Transaction, TypedTransaction};
 
     let miner = miner_service();
     let client = client_service();
@@ -210,9 +210,9 @@ fn rpc_parity_remove_transaction() {
 
 #[test]
 fn rpc_parity_set_engine_signer() {
+    use crate::v1::{impls::ParitySetAccountsClient, traits::ParitySetAccounts};
     use accounts::AccountProvider;
     use bytes::ToPretty;
-    use v1::{impls::ParitySetAccountsClient, traits::ParitySetAccounts};
 
     let account_provider = Arc::new(AccountProvider::transient_provider());
     account_provider
@@ -239,5 +239,8 @@ fn rpc_parity_set_engine_signer() {
         .sign(::hash::keccak("x"))
         .unwrap()
         .to_vec();
-    assert_eq!(&format!("{}", signature.pretty()), "6f46069ded2154af6e806706e4f7f6fd310ac45f3c6dccb85f11c0059ee20a09245df0a0008bb84a10882b1298284bc93058e7bc5938ea728e77620061687a6401");
+    assert_eq!(
+        &format!("{}", signature.pretty()),
+        "6f46069ded2154af6e806706e4f7f6fd310ac45f3c6dccb85f11c0059ee20a09245df0a0008bb84a10882b1298284bc93058e7bc5938ea728e77620061687a6401"
+    );
 }

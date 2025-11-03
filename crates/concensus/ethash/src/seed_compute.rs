@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use keccak::{keccak_256, H256};
-use shared;
+use crate::{
+    keccak::{H256, keccak_256},
+    shared,
+};
 
 use std::cell::Cell;
 

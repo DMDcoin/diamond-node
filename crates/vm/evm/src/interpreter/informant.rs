@@ -43,7 +43,7 @@ mod inner {
 
     use ethereum_types::U256;
 
-    use instructions::{Instruction, InstructionInfo};
+    use crate::instructions::{Instruction, InstructionInfo};
     use interpreter::stack::Stack;
     use CostType;
 

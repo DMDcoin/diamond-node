@@ -14,16 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use connection::Connection;
-use crypto::publickey::{ecdh, ecies, recover, sign, Generator, KeyPair, Public, Random, Secret};
+use crate::{
+    connection::Connection,
+    host::HostInfo,
+    io::{IoContext, StreamToken},
+    node_table::NodeId,
+};
+use crypto::publickey::{Generator, KeyPair, Public, Random, Secret, ecdh, ecies, recover, sign};
 use ethereum_types::{H256, H520};
-use host::HostInfo;
-use io::{IoContext, StreamToken};
 use mio::tcp::*;
 use network::{Error, ErrorKind};
-use node_table::NodeId;
 use parity_bytes::Bytes;
-use rand::{random, Rng};
+use rand::{Rng, random};
 use rlp::{Rlp, RlpStream};
 use std::time::Duration;
 
@@ -142,7 +144,13 @@ impl Handshake {
         while let Some(data) = self.connection.readable()? {
             match self.state {
                 HandshakeState::New => {}
-                HandshakeState::StartSession => {}
+                HandshakeState::StartSession => {
+                    error!(target: "network", "starting session, clearing timer for {}", self.connection.token);
+                    if let Err(e) = io.clear_timer(self.connection.token) {
+                        debug!(target: "network", "failed to clear timer for session: {} {e:?}", self.connection.token);
+                    }
+                    break;
+                }
                 HandshakeState::ReadingAuth => {
                     self.read_auth(io, host.secret(), &data)?;
                 }
@@ -155,10 +163,6 @@ impl Handshake {
                 HandshakeState::ReadingAckEip8 => {
                     self.read_ack_eip8(host.secret(), &data)?;
                 }
-            }
-            if self.state == HandshakeState::StartSession {
-                io.clear_timer(self.connection.token).ok();
-                break;
             }
         }
         Ok(())
@@ -239,7 +243,7 @@ impl Handshake {
     where
         Message: Send + Clone + Sync + 'static,
     {
-        trace!(target: "network", "Received EIP8 handshake auth from {:?}", self.connection.remote_addr_str());
+        trace!(target: "network", "{} Received EIP8 handshake auth from {:?}", self.connection.token,  self.connection.remote_addr_str());
         self.auth_cipher.extend_from_slice(data);
         let auth = ecies::decrypt(secret, &self.auth_cipher[0..2], &self.auth_cipher[2..])?;
         let rlp = Rlp::new(&auth);
@@ -271,6 +275,7 @@ impl Handshake {
                 self.remote_ephemeral = Public::from_slice(&ack[0..64]);
                 self.remote_nonce = H256::from_slice(&ack[64..(64 + 32)]);
                 self.state = HandshakeState::StartSession;
+                trace!(target: "network", "handshake completed for from {:?}", self.connection.remote_addr_str());
             }
             Err(_) => {
                 // Try to interpret as EIP-8 packet
@@ -288,7 +293,7 @@ impl Handshake {
     }
 
     fn read_ack_eip8(&mut self, secret: &Secret, data: &[u8]) -> Result<(), Error> {
-        trace!(target: "network", "Received EIP8 handshake auth from {:?}", self.connection.remote_addr_str());
+        trace!(target: "network", "{} Received EIP8 handshake auth from {:?}",self.connection.token, self.connection.remote_addr_str());
         self.ack_cipher.extend_from_slice(data);
         let ack = ecies::decrypt(secret, &self.ack_cipher[0..2], &self.ack_cipher[2..])?;
         let rlp = Rlp::new(&ack);
@@ -381,9 +386,9 @@ impl Handshake {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::io::*;
     use crypto::publickey::Public;
     use ethereum_types::{H256, H512};
-    use io::*;
     use mio::tcp::TcpStream;
     use rustc_hex::FromHex;
     use std::str::FromStr;

@@ -6,16 +6,17 @@ on:
     branches:
       - main
       - dev
+      - beta
 jobs:
   build-tests:
     name:                       Test and Build
     strategy:
       matrix:
         platform:
-          - ubuntu-latest
+          - ubuntu-22.04
         #  - macos-latest
         toolchain:
-          -  1.59
+          -  1.85
     runs-on:                    ${{ matrix.platform }}
     steps:
       - name:                   Checkout sources
@@ -32,9 +33,12 @@ jobs:
         uses:                   actions-rs/cargo@v1
         with:
           command:              test
-          args:                 --locked --all --release --features "json-tests" --verbose --no-run
+          #args: deactivated JSON Tests, so we do not run out of quota on CI tests for merge intesive time.  --locked --all --release --features "json-tests" --verbose --no-run
+          args:                 --locked --all --release --verbose --no-run
       - name:                   Run tests for ${{ matrix.platform }}
         uses:                   actions-rs/cargo@v1
         with:
           command:              test
-          args:                 --locked --all --release --features "json-tests" --verbose
+          #args: deactivated JSON Tests                --locked --all --release --features "json-tests" --verbose
+          args:                 --locked --all --release --verbose
+

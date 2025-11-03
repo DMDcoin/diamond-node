@@ -18,8 +18,8 @@
 
 use ethereum_types::H64;
 use jsonrpc_pubsub::{
-    typed::{Sink, Subscriber},
     SubscriptionId,
+    typed::{Sink, Subscriber},
 };
 use std::{collections::HashMap, ops, str};
 
@@ -54,9 +54,8 @@ mod random {
 
 #[cfg(test)]
 mod random {
-    extern crate rand_xorshift;
-    use self::rand_xorshift::XorShiftRng;
     use rand::SeedableRng;
+    use rand_xorshift::XorShiftRng;
     const RNG_SEED: [u8; 16] = [0u8; 16];
     pub type Rng = XorShiftRng;
     pub fn new() -> Rng {

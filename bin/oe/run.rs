@@ -17,7 +17,7 @@
 use std::{
     any::Any,
     str::FromStr,
-    sync::{atomic, Arc, Weak},
+    sync::{Arc, Weak, atomic},
     thread,
     time::{Duration, Instant},
 };
@@ -28,16 +28,16 @@ use crate::{
     db,
     helpers::{execute_upgrades, passwords_from_files, to_client_config},
     informant::{FullNodeInformantData, Informant},
-    metrics::{start_prometheus_metrics, MetricsConfiguration},
+    metrics::{MetricsConfiguration, start_prometheus_metrics},
     miner::{external::ExternalMiner, work_notify::WorkPoster},
     modules,
     params::{
-        fatdb_switch_to_bool, mode_switch_to_bool, tracing_switch_to_bool, AccountsConfig,
-        GasPricerConfig, MinerExtras, Pruning, SpecType, Switch,
+        AccountsConfig, GasPricerConfig, MinerExtras, Pruning, SpecType, Switch,
+        fatdb_switch_to_bool, mode_switch_to_bool, tracing_switch_to_bool,
     },
     reserved_peer_management::ReservedPeersWrapper,
     rpc, rpc_apis, secretstore, signer,
-    sync::{self, SyncConfig, SyncProvider},
+    sync::{self, SyncConfig, SyncProvider, SyncState},
     user_defaults::UserDefaults,
 };
 use ansi_term::Colour;
@@ -46,7 +46,8 @@ use ethcore::{
     client::{
         BlockChainClient, BlockInfo, ChainSyncing, Client, DatabaseCompactionProfile, Mode, VMType,
     },
-    miner::{self, stratum, Miner, MinerOptions, MinerService},
+    exit::ShutdownManager,
+    miner::{self, Miner, MinerOptions, MinerService, stratum},
     snapshot::{self, SnapshotConfiguration},
     verification::queue::VerifierSettings,
 };
@@ -55,7 +56,7 @@ use ethcore_service::ClientService;
 use ethereum_types::{H256, U64};
 use journaldb::Algorithm;
 use node_filter::NodeFilter;
-use parity_rpc::{informant, is_major_importing, NetworkSettings};
+use parity_rpc::{NetworkSettings, informant, is_major_importing};
 use parity_runtime::Runtime;
 use parity_version::version;
 
@@ -112,6 +113,7 @@ pub struct RunCmd {
     pub no_persistent_txqueue: bool,
     pub max_round_blocks_to_import: usize,
     pub metrics_conf: MetricsConfiguration,
+    pub shutdown_on_missing_block_import: Option<u64>,
 }
 
 // node info fetcher for the local store.
@@ -152,8 +154,23 @@ impl ChainSyncing for SyncProviderWrapper {
                 Some(client_arc) => {
                     is_major_importing(Some(sync_arc.status().state), client_arc.queue_info())
                 }
-                None => true,
+                None => {
+                    debug!(target: "sync", "is_major_syncing: Client has been destroyed.");
+                    true
+                }
             },
+            // We also indicate the "syncing" state when the SyncProvider has already been destroyed.
+            None => {
+                debug!(target: "sync", "is_major_syncing: sync_provider has been destroyed.");
+                true
+            }
+        }
+    }
+
+    /// are we syncing in any means ?
+    fn is_syncing(&self) -> bool {
+        match self.sync_provider.upgrade() {
+            Some(sync_arc) => sync_arc.status().state != SyncState::Idle,
             // We also indicate the "syncing" state when the SyncProvider has already been destroyed.
             None => true,
         }
@@ -163,7 +180,11 @@ impl ChainSyncing for SyncProviderWrapper {
 /// Executes the given run command.
 ///
 /// On error, returns what to print on stderr.
-pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient, String> {
+pub fn execute(
+    cmd: RunCmd,
+    logger: Arc<RotatingLogger>,
+    shutdown: Arc<ShutdownManager>,
+) -> Result<RunningClient, String> {
     // load spec
     let spec = cmd.spec.spec(&cmd.dirs.cache)?;
 
@@ -209,7 +230,7 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
 
     // create dirs used by parity
     cmd.dirs.create_dirs(
-        cmd.acc_conf.unlocked_accounts.len() == 0,
+        cmd.acc_conf.unlocked_accounts.is_empty(),
         cmd.secretstore_conf.enabled,
     )?;
 
@@ -348,6 +369,7 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
         cmd.pruning_memory,
         cmd.check_seal,
         cmd.max_round_blocks_to_import,
+        cmd.shutdown_on_missing_block_import,
     );
 
     client_config.queue.verifier_settings = cmd.verifier_settings;
@@ -378,6 +400,7 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
         restoration_db_handler,
         &cmd.dirs.ipc_path(),
         miner.clone(),
+        shutdown,
     )
     .map_err(|e| format!("Client service error: {:?}", e))?;
 
@@ -466,7 +489,7 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
     let (sync_provider, manage_network, chain_notify, priority_tasks, new_transaction_hashes) =
         modules::sync(
             sync_config,
-            net_conf.clone().into(),
+            net_conf.clone(),
             client.clone(),
             forks,
             snapshot_service.clone(),
@@ -499,7 +522,7 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
         {
             for hash in hashes {
                 new_transaction_hashes
-                    .send(hash.clone())
+                    .send(*hash)
                     .expect("new_transaction_hashes receiving side is disconnected");
             }
             let task =
@@ -520,7 +543,7 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
     let signer_service = Arc::new(signer::new_service(&cmd.ws_conf, &cmd.logger_config));
 
     let deps_for_rpc_apis = Arc::new(rpc_apis::FullDependencies {
-        signer_service: signer_service,
+        signer_service,
         snapshot: snapshot_service.clone(),
         client: client.clone(),
         sync: sync_provider.clone(),
@@ -693,6 +716,22 @@ impl RunningClient {
                 keep_alive,
             } => {
                 info!("Finishing work, please wait...");
+
+                // this is a backup thread that exits the process after 90 seconds,
+                // in case the shutdown routine does not finish in time.
+                std::thread::Builder::new()
+                    .name("diamond-node-force-quit".to_string())
+                    .spawn(move || {
+
+                        let duration_soft = 5;
+                        // we make a force quit if after 90 seconds, if this shutdown routine 
+                        std::thread::sleep(Duration::from_secs(duration_soft));
+                        warn!(target: "shutdown", "shutdown not happened within {duration_soft} seconds, starting force exiting the process.");
+                        std::thread::sleep(Duration::from_secs(1));
+                        std::process::exit(1);
+                    })
+                    .expect("Failed to spawn Force shutdown thread");
+
                 // Create a weak reference to the client so that we can wait on shutdown
                 // until it is dropped
                 let weak_client = Arc::downgrade(&client);
@@ -738,8 +777,8 @@ fn print_running_environment(data_dir: &str, dirs: &Directories, db_dirs: &Datab
 
 fn wait_for_drop<T>(w: Weak<T>) {
     const SLEEP_DURATION: Duration = Duration::from_secs(1);
-    const WARN_TIMEOUT: Duration = Duration::from_secs(60);
-    const MAX_TIMEOUT: Duration = Duration::from_secs(300);
+    const WARN_TIMEOUT: Duration = Duration::from_secs(30);
+    const MAX_TIMEOUT: Duration = Duration::from_secs(60);
 
     let instant = Instant::now();
     let mut warned = false;

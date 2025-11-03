@@ -1,5 +1,5 @@
 use super::NodeId;
-use hbbft::{crypto::Signature, threshold_sign::ThresholdSign, NetworkInfo};
+use hbbft::{NetworkInfo, crypto::Signature, threshold_sign::ThresholdSign};
 use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
 use std::{result, sync::Arc};
 
@@ -72,12 +72,12 @@ impl Decodable for RlpSig<Signature> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_065;
+    use rand;
     use rlp;
 
     #[test]
     fn test_rlp_signature() {
-        let sig: Signature = rand_065::random();
+        let sig: Signature = rand::random();
         let encoded = rlp::encode(&RlpSig(&sig));
         let decoded: RlpSig<Signature> = rlp::decode(&encoded).expect("decode RlpSignature");
         assert_eq!(decoded.0, sig);

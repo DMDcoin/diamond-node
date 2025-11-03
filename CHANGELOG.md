@@ -1,3 +1,178 @@
+## Diamond Node Software 4.0.0
+
+Official Node Software start version for the DMD Diamond network version 4.
+see Whitepaper: https://github.com/DMDcoin/whitepaper/wiki
+
+## Diamond Node Software 0.12.9
+
+- [Phoenix Protocol Bugfix for Validators](https://github.com/DMDcoin/openethereum-3.x/issues/52)
+
+## Diamond Node Software 0.12.8
+
+- [Phoenix Protocol](https://github.com/DMDcoin/openethereum-3.x/issues/52)
+
+## Diamond Node Software 0.12.7
+
+- [hbbft key generation: double transactions / missing transactions](https://github.com/DMDcoin/diamond-node/issues/290)
+
+## Diamond Node Software 0.12.6
+
+- reduced Trace Log output for tracing devp2p propagation
+- removed tests for supporting for outdated clients that do not support large requests
+
+
+## Diamond Node Software 0.12.5
+
+- now announcing availability before announcing IP address 
+
+## Diamond Node Software 0.12.4
+
+- [Key Gen Transaction do not require block triggers anymore, there is now also a time trigger](https://github.com/DMDcoin/diamond-node/issues/160)
+
+## Diamond Node Software 0.12.3
+
+- Refactored KeyGenTransactions.
+- Nonces from the Queue are now respected for Key Gen Transactions.
+
+## Diamond Node Software 0.12.2
+
+- [Hotfix: Nodes not fast enough to write parts (keygen)](https://github.com/DMDcoin/diamond-node/issues/280)
+
+## Diamond Node Software 0.12.1
+
+- Logging improvements
+- Fixed a bug, where handshakes, that get upgraded to sessions, deregister there stream.  
+
+
+## Diamond Node Software 0.12.0
+
+- New Versioning Scheme: Since Open Ethereum did not get a new update, diamond-node will not mention 3.3.5 anymore
+- [race condition: Incoming data from peer that gets disconnected leads to crash](https://github.com/DMDcoin/diamond-node/issues/275)
+- [not joining hbbft epoch after sync has finished](https://github.com/DMDcoin/diamond-node/issues/270)
+- [diamond front running resistance](https://github.com/DMDcoin/diamond-node/issues/89)
+- [Transaction fees distribution](https://github.com/DMDcoin/diamond-node/issues/40)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.8
+-  [deregister_session_stream can cause deadlocks](https://github.com/DMDcoin/diamond-node/issues/267)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.7
+- [Handshake and Session Management improvements](https://github.com/DMDcoin/diamond-node/issues/262)
+- [Reliable Message Broadcast Protocol: message_cache of SyncProtocolHandler does not get cleaned up](https://github.com/DMDcoin/diamond-node/issues/261)
+- reduced log outputs for RMBP cached messages
+- Fix possible deadlock in deregister_session_stream in combination with session_readable
+- reduce timings for shutdown from 90 seconds to 5 seconds, so auto restart of nodes in deadlock cases is faster
+
+## Diamond Node Software 3.3.5-hbbft-0.11.6
+- [session double kill problem.](https://github.com/DMDcoin/diamond-node/issues/252)
+- [Network Host logic: peer_id to NodeID consistency](https://github.com/DMDcoin/diamond-node/issues/251)
+- [sealing messages probably not received](https://github.com/DMDcoin/diamond-node/issues/248)
+- [disconnected from reservered peers](https://github.com/DMDcoin/diamond-node/issues/247)
+- [separate handshakes and encrypted connections](https://github.com/DMDcoin/diamond-node/issues/254)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.5
+- [Improved reliability of Hbbft targeted message delivery](https://github.com/DMDcoin/diamond-node/issues/248)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.4
+- [Balanced lock approach for solving the lock problems in devp2p](https://github.com/DMDcoin/diamond-node/issues/236)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.3
+
+- [deadlocks in transaction pools](https://github.com/DMDcoin/diamond-node/issues/236)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.2
+
+- [shutdown on deadlock](https://github.com/DMDcoin/diamond-node/issues/231)
+- [deadlock possibility in reserved peers management](https://github.com/DMDcoin/diamond-node/issues/229)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.1
+
+- [caching of SyncStatus to prevent deadlocks](https://github.com/DMDcoin/diamond-node/issues/223)
+
+## Diamond Node Software 3.3.5-hbbft-0.11.0
+
+- [Fixed: Compile error on newer Linux Versions](https://github.com/DMDcoin/diamond-node/issues/145)
+- [rust update to  1.85 and rust edition 2024](https://github.com/DMDcoin/diamond-node/issues/191)
+- [updated dependencies](https://github.com/DMDcoin/diamond-node/issues/107)
+- [Fixed: Service Transaction not allowed:](https://github.com/DMDcoin/diamond-node/issues/185)
+- [reduced network usage:](https://github.com/DMDcoin/diamond-node/issues/163) 
+- [additional prometheus counter and gauges, most of them for analysing](https://github.com/DMDcoin/diamond-node/issues/163) 
+- [Improved transaction propagation for clients that are syncing](https://github.com/DMDcoin/diamond-node/issues/173)
+
+## Diamond Node Software 3.3.5-hbbft-0.10.1
+
+- Emergency fix to improve blockimports: only one block at a time is now requested throught the devp2p block sync protocol. https://github.com/DMDcoin/diamond-node/issues/209
+
+
+## Diamond Node Software 3.3.5-hbbft-0.10.0
+
+- Bonus Score finalization
+
+## Diamond Node Software 3.3.5-hbbft-0.9.8
+
+- Improved Hbbft "No Session Exists" handling: https://github.com/DMDcoin/diamond-node/issues/150
+- Lock overhead reduction for validator actions
+- Connect & Disconnect Report management: fixed double sending of reports: https://github.com/DMDcoin/diamond-node/issues/157
+- Stage 3 Verification: Fixed State Pruning related error. https://github.com/DMDcoin/diamond-node/issues/161
+- Added Network and DevP2P related Information to the Prometheus Metrics: https://github.com/DMDcoin/diamond-node/issues/163
+- Early Epoch End: Treat any HBBFT Message as being a responsive partner node: https://github.com/DMDcoin/diamond-node/issues/87
+
+## Diamond Node Software 3.3.5-hbbft-0.9.7
+
+- [Nodes that are not a active validator seem to try to send connectivity reports] (https://github.com/DMDcoin/diamond-node/issues/153)
+
+## Diamond Node Software 3.3.5-hbbft-0.9.6
+
+- [Early Epoch End: only report disconnectivities that exist for longer than 60 Minutes] (https://github.com/DMDcoin/diamond-node/issues/87)
+- [Improved Logging for Hbbft Session Management] (https://github.com/DMDcoin/diamond-node/issues/150)
+
+## Diamond Node Software 3.3.5-hbbft-0.9.5
+
+- [Improved Logging of ] (https://github.com/DMDcoin/diamond-node/issues/147)
+- [Early Epoch end: Applying new time based rules]  (https://github.com/DMDcoin/diamond-node/issues/87)
+
+
+
+## Diamond Node Software 3.3.5-hbbft-0.9.5
+
+- [Improved Logging for Stage 5 Errors] (https://github.com/DMDcoin/diamond-node/issues/147)
+- [Early Epoch end: Applying new time based rules]  (https://github.com/DMDcoin/diamond-node/issues/87)
+
+
+## Diamond Node Software 3.3.5-hbbft-0.9.4
+
+- [Fixed: is major syncing information is wrong.] (https://github.com/DMDcoin/diamond-node/issues/73)
+- [Improvements for HBBFT Message Tracking] (https://github.com/DMDcoin/openethereum-3.x/issues/17)
+
+## Diamond Node Software 3.3.5-hbbft-0.9.3
+
+[Autoshutdown after a period without block import] https://github.com/DMDcoin/diamond-node/issues/78
+
+Those examples show how to confige the node to activate this feature, restarting the node if no block import has been detected for 1800 seconds (30 minutes)
+
+to activate feature via CLI Arg:
+`--shutdown-on-missing-block-import=1800`
+
+or in node.toml
+node.toml:
+```
+[Misc]
+shutdown_on_missing_block_import = 1800
+```
+
+## Diamond Node Software 3.3.5-hbbft-0.9.2
+
+- [FIXED: pruning as root cause for stage 3 errors] https://github.com/DMDcoin/diamond-node/issues/68
+
+## Diamond Node Software 3.3.5-hbbft-0.9.1
+
+- [pruning protection for hbbft engine] https://github.com/DMDcoin/diamond-node/issues/62
+- [reported fault: UnknownSender] https://github.com/DMDcoin/diamond-node/issues/69
+
+## Diamond Node Software 3.3.5-hbbft-0.9.0
+
+- Start of Alpha 2 Testnet
+- Improved Stability
+- Feature preparation for Hbbft Block Reward support
 
 ## Diamond Node Software 3.3.5-hbbft-0.8.9
 

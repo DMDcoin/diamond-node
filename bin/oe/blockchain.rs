@@ -20,10 +20,10 @@ use crate::{
     bytes::ToPretty,
     cache::CacheConfig,
     db,
-    hash::{keccak, KECCAK_NULL_RLP},
+    hash::{KECCAK_NULL_RLP, keccak},
     helpers::{execute_upgrades, to_client_config},
     informant::{FullNodeInformantData, Informant, MillisecondDuration},
-    params::{fatdb_switch_to_bool, tracing_switch_to_bool, Pruning, SpecType, Switch},
+    params::{Pruning, SpecType, Switch, fatdb_switch_to_bool, tracing_switch_to_bool},
     types::data_format::DataFormat,
     user_defaults::UserDefaults,
 };
@@ -34,6 +34,7 @@ use ethcore::{
         Balance, BlockChainClient, BlockChainReset, BlockId, DatabaseCompactionProfile,
         ImportExportBlocks, Mode, Nonce, VMType,
     },
+    exit::ShutdownManager,
     miner::Miner,
     verification::queue::VerifierSettings,
 };
@@ -192,6 +193,7 @@ fn execute_import(cmd: ImportBlockchain) -> Result<(), String> {
         cmd.pruning_memory,
         cmd.check_seal,
         12,
+        None,
     );
 
     client_config.queue.verifier_settings = cmd.verifier_settings;
@@ -212,6 +214,7 @@ fn execute_import(cmd: ImportBlockchain) -> Result<(), String> {
         // TODO [ToDr] don't use test miner here
         // (actually don't require miner at all)
         Arc::new(Miner::new_for_tests(&spec, None)),
+        Arc::new(ShutdownManager::null()),
     )
     .map_err(|e| format!("Client service error: {:?}", e))?;
 
@@ -253,15 +256,16 @@ fn execute_import(cmd: ImportBlockchain) -> Result<(), String> {
     let report = client.report();
 
     let ms = timer.elapsed().as_milliseconds();
-    info!("Import completed in {} seconds, {} blocks, {} blk/s, {} transactions, {} tx/s, {} Mgas, {} Mgas/s",
-		ms / 1000,
-		report.blocks_imported,
-		(report.blocks_imported * 1000) as u64 / ms,
-		report.transactions_applied,
-		(report.transactions_applied * 1000) as u64 / ms,
-		report.gas_processed / 1_000_000,
-		(report.gas_processed / (ms * 1000)).low_u64(),
-	);
+    info!(
+        "Import completed in {} seconds, {} blocks, {} blk/s, {} transactions, {} tx/s, {} Mgas, {} Mgas/s",
+        ms / 1000,
+        report.blocks_imported,
+        (report.blocks_imported * 1000) as u64 / ms,
+        report.transactions_applied,
+        (report.transactions_applied * 1000) as u64 / ms,
+        report.gas_processed / 1_000_000,
+        (report.gas_processed / (ms * 1000)).low_u64(),
+    );
     Ok(())
 }
 
@@ -277,6 +281,8 @@ fn start_client(
     cache_config: CacheConfig,
     require_fat_db: bool,
     max_round_blocks_to_import: usize,
+    shutdown_on_missing_block_import: Option<u64>,
+    shutdown: Arc<ShutdownManager>,
 ) -> Result<ClientService, String> {
     // load spec file
     let spec = spec.spec(&dirs.cache)?;
@@ -330,6 +336,7 @@ fn start_client(
         pruning_memory,
         true,
         max_round_blocks_to_import,
+        shutdown_on_missing_block_import,
     );
 
     let restoration_db_handler = db::restoration_db_handler(&client_path, &client_config);
@@ -347,6 +354,7 @@ fn start_client(
         // It's fine to use test version here,
         // since we don't care about miner parameters at all
         Arc::new(Miner::new_for_tests(&spec, None)),
+        shutdown,
     )
     .map_err(|e| format!("Client service error: {:?}", e))?;
 
@@ -367,6 +375,8 @@ fn execute_export(cmd: ExportBlockchain) -> Result<(), String> {
         cmd.cache_config,
         false,
         cmd.max_round_blocks_to_import,
+        None,
+        Arc::new(ShutdownManager::null()),
     )?;
     let client = service.client();
 
@@ -396,6 +406,8 @@ fn execute_export_state(cmd: ExportState) -> Result<(), String> {
         cmd.cache_config,
         true,
         cmd.max_round_blocks_to_import,
+        None,
+        Arc::new(ShutdownManager::null()),
     )?;
 
     let client = service.client();
@@ -425,8 +437,8 @@ fn execute_export_state(cmd: ExportState) -> Result<(), String> {
             let balance = client
                 .balance(&account, at.into())
                 .unwrap_or_else(U256::zero);
-            if cmd.min_balance.map_or(false, |m| balance < m)
-                || cmd.max_balance.map_or(false, |m| balance > m)
+            if cmd.min_balance.is_some_and(|m| balance < m)
+                || cmd.max_balance.is_some_and(|m| balance > m)
             {
                 last = Some(account);
                 continue; //filtered out
@@ -514,6 +526,8 @@ fn execute_reset(cmd: ResetBlockchain) -> Result<(), String> {
         cmd.cache_config,
         false,
         0,
+        None,
+        Arc::new(ShutdownManager::null()),
     )?;
 
     let client = service.client();

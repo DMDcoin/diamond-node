@@ -16,13 +16,13 @@
 
 //! Traces specific rpc interface.
 
-use ethereum_types::H256;
-use jsonrpc_core::Result;
-use jsonrpc_derive::rpc;
-use v1::types::{
+use crate::v1::types::{
     BlockNumber, Bytes, CallRequest, Index, LocalizedTrace, TraceFilter, TraceOptions,
     TraceResults, TraceResultsWithTransactionHash,
 };
+use ethereum_types::H256;
+use jsonrpc_core::Result;
+use jsonrpc_derive::rpc;
 
 /// Traces specific rpc interface.
 #[rpc(server)]
@@ -46,7 +46,7 @@ pub trait Traces {
     /// Executes the given call and returns a number of possible traces for it.
     #[rpc(name = "trace_call")]
     fn call(&self, _: CallRequest, _: TraceOptions, _: Option<BlockNumber>)
-        -> Result<TraceResults>;
+    -> Result<TraceResults>;
 
     /// Executes all given calls and returns a number of possible traces for each of it.
     #[rpc(name = "trace_callMany")]

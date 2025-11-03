@@ -17,7 +17,7 @@
 use parking_lot::Mutex;
 use std::{cmp, collections::VecDeque, sync::Arc, thread};
 
-use ethstore::{ethkey::Password, Error, PresaleWallet};
+use ethstore::{Error, PresaleWallet, ethkey::Password};
 use num_cpus;
 
 pub fn run(passwords: VecDeque<Password>, wallet_path: &str) -> Result<(), Error> {

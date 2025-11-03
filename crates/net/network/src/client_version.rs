@@ -14,22 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
-#![warn(missing_docs)]
-
 //! Parse ethereum client ID strings and provide querying functionality
 
-use semver::{Identifier, Version};
+use semver::Version;
 use std::fmt;
 
 /// Parity client string prefix
 const LEGACY_CLIENT_ID_PREFIX: &str = "Parity-Ethereum";
 const CURRENT_CLIENT_ID_PREFIX: &str = "OpenEthereum";
-
-lazy_static! {
-/// Parity versions starting from this will accept block bodies requests
-/// of 256 bodies
-    static ref PARITY_CLIENT_LARGE_REQUESTS_VERSION: Version = Version::parse("2.4.0").unwrap();
-}
 
 /// Description of the software version running in a peer
 /// according to https://github.com/ethereum/wiki/wiki/Client-Version-Strings
@@ -57,9 +49,6 @@ impl ParityClientData {
         os: String,
         compiler: String,
     ) -> Self {
-        // Flags logic
-        let can_handle_large_requests = &semver >= &PARITY_CLIENT_LARGE_REQUESTS_VERSION;
-
         // Instantiate and return
         ParityClientData {
             name: name,
@@ -67,8 +56,7 @@ impl ParityClientData {
             semver: semver,
             os: os,
             compiler: compiler,
-
-            can_handle_large_requests: can_handle_large_requests,
+            can_handle_large_requests: true, // all diamond-nodes can handle large requests
         }
     }
 
@@ -122,7 +110,7 @@ impl Default for ClientVersion {
 /// Provide information about what a particular version of a
 /// peer software can do
 pub trait ClientCapabilities {
-    /// Parity versions before PARITY_CLIENT_LARGE_REQUESTS_VERSION would not
+    /// Old Parity versions would not
     /// check the accumulated size of a packet when building a response to a
     /// GET_BLOCK_BODIES request. If the packet was larger than a given limit,
     /// instead of sending fewer blocks no packet would get sent at all. Query
@@ -157,17 +145,7 @@ impl ClientCapabilities for ClientVersion {
     fn is_hbbft(&self) -> bool {
         match self {
             ClientVersion::ParityClient(client) => {
-                for id in client.semver.pre.iter() {
-                    match id {
-                        Identifier::AlphaNumeric(alpha) => {
-                            if alpha.contains("hbbft") {
-                                return true;
-                            }
-                        }
-                        Identifier::Numeric(_) => {}
-                    }
-                }
-                return false;
+                return client.name() == parity_version::NODE_SOFTWARE_NAME;
             }
             ClientVersion::ParityUnknownFormat(_) => false,
             ClientVersion::Other(_) => false,
@@ -179,6 +157,7 @@ impl ClientCapabilities for ClientVersion {
 fn is_parity(client_id: &str) -> bool {
     client_id.starts_with(LEGACY_CLIENT_ID_PREFIX)
         || client_id.starts_with(CURRENT_CLIENT_ID_PREFIX)
+        || client_id.starts_with(parity_version::NODE_SOFTWARE_NAME)
 }
 
 fn is_nethermind(client_id: &str) -> bool {
@@ -391,8 +370,8 @@ pub mod tests {
     }
 
     #[test]
-    pub fn client_version_when_str_parity_long_format_and_valid_and_identity_multiple_tokens_then_all_fields_match(
-    ) {
+    pub fn client_version_when_str_parity_long_format_and_valid_and_identity_multiple_tokens_then_all_fields_match()
+     {
         let client_version_string = make_multitoken_identity_long_version_string();
 
         if let ClientVersion::ParityClient(client_version) =
@@ -434,8 +413,8 @@ pub mod tests {
     }
 
     #[test]
-    pub fn client_version_when_parity_format_and_invalid_then_equals_parity_unknown_client_version_string(
-    ) {
+    pub fn client_version_when_parity_format_and_invalid_then_equals_parity_unknown_client_version_string()
+     {
         // This is invalid because version has no leading 'v'
         let client_version_string = format!(
             "{}/{}/{}/{}",
@@ -453,8 +432,8 @@ pub mod tests {
     }
 
     #[test]
-    pub fn client_version_when_parity_format_without_identity_and_missing_compiler_field_then_equals_parity_unknown_client_version_string(
-    ) {
+    pub fn client_version_when_parity_format_without_identity_and_missing_compiler_field_then_equals_parity_unknown_client_version_string()
+     {
         let client_version_string = format!(
             "{}/v{}/{}",
             CURRENT_CLIENT_ID_PREFIX, PARITY_CLIENT_SEMVER, PARITY_CLIENT_OS,
@@ -468,8 +447,8 @@ pub mod tests {
     }
 
     #[test]
-    pub fn client_version_when_parity_format_with_identity_and_missing_compiler_field_then_equals_parity_unknown_client_version_string(
-    ) {
+    pub fn client_version_when_parity_format_with_identity_and_missing_compiler_field_then_equals_parity_unknown_client_version_string()
+     {
         let client_version_string = format!(
             "{}/{}/v{}/{}",
             CURRENT_CLIENT_ID_PREFIX,
@@ -513,28 +492,6 @@ pub mod tests {
         let client_version = ClientVersion::from("Other");
 
         assert_eq!(client_version.to_string(), client_version_string);
-    }
-
-    #[test]
-    pub fn client_capabilities_when_parity_old_version_then_handles_large_requests_false() {
-        let client_version_string: String = make_old_semver_version_string();
-
-        let client_version = ClientVersion::from(client_version_string.as_str());
-
-        assert!(!client_version.can_handle_large_requests());
-    }
-
-    #[test]
-    pub fn client_capabilities_when_parity_beta_version_then_not_handles_large_requests_true() {
-        let client_version_string: String = format!(
-            "{}/v{}/{}/{}",
-            "Parity-Ethereum", "2.4.0-beta", "x86_64-linux-gnu", "rustc1.31.1"
-        )
-        .to_string();
-
-        let client_version = ClientVersion::from(client_version_string.as_str());
-
-        assert!(!client_version.can_handle_large_requests());
     }
 
     #[test]

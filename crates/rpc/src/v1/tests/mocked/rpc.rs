@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::v1::{Rpc, RpcClient};
 use jsonrpc_core::IoHandler;
 use std::collections::BTreeMap;
-use v1::{Rpc, RpcClient};
 
 fn rpc_client() -> RpcClient {
     let mut modules = BTreeMap::new();

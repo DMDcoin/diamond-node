@@ -19,20 +19,22 @@
 //! Documentation of the format can be found at
 //! https://openethereum.github.io/Warp-Sync-Snapshot-Format
 
-use hash::{keccak, KECCAK_EMPTY, KECCAK_NULL_RLP};
+use hash::{KECCAK_EMPTY, KECCAK_NULL_RLP, keccak};
 use std::{
     cmp,
     collections::{HashMap, HashSet},
     sync::{
-        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
 };
 
-use account_db::{AccountDB, AccountDBMut};
-use blockchain::{BlockChain, BlockProvider};
-use engines::EthEngine;
-use types::{header::Header, ids::BlockId};
+use crate::{
+    account_db::{AccountDB, AccountDBMut},
+    blockchain::{BlockChain, BlockProvider},
+    engines::EthEngine,
+    types::{header::Header, ids::BlockId},
+};
 
 use bytes::Bytes;
 use db::{DBValue, KeyValueDB};
@@ -50,7 +52,7 @@ use trie::{Trie, TrieMut};
 use self::io::SnapshotWriter;
 
 use crossbeam_utils::thread;
-use rand::{rngs::OsRng, Rng};
+use rand::{Rng, rngs::OsRng};
 
 pub use self::error::Error;
 
@@ -60,7 +62,7 @@ pub use self::{
     traits::SnapshotService,
     watcher::Watcher,
 };
-pub use types::{
+pub use crate::types::{
     basic_account::BasicAccount, creation_status::CreationStatus,
     restoration_status::RestorationStatus, snapshot_manifest::ManifestData,
 };
@@ -447,7 +449,7 @@ impl StateRebuilder {
     }
 
     /// Feed an uncompressed state chunk into the rebuilder.
-    pub fn feed(&mut self, chunk: &[u8], flag: &AtomicBool) -> Result<(), ::error::Error> {
+    pub fn feed(&mut self, chunk: &[u8], flag: &AtomicBool) -> Result<(), crate::error::Error> {
         let rlp = Rlp::new(chunk);
         let mut pairs = Vec::with_capacity(rlp.item_count()?);
 
@@ -513,7 +515,11 @@ impl StateRebuilder {
     /// Finalize the restoration. Check for accounts missing code and make a dummy
     /// journal entry.
     /// Once all chunks have been fed, there should be nothing missing.
-    pub fn finalize(mut self, era: u64, id: H256) -> Result<Box<dyn JournalDB>, ::error::Error> {
+    pub fn finalize(
+        mut self,
+        era: u64,
+        id: H256,
+    ) -> Result<Box<dyn JournalDB>, crate::error::Error> {
         let missing = self.missing_code.keys().cloned().collect::<Vec<_>>();
         if !missing.is_empty() {
             return Err(Error::MissingCode(missing).into());
@@ -548,7 +554,7 @@ fn rebuild_accounts(
     known_code: &HashMap<H256, H256>,
     known_storage_roots: &mut HashMap<H256, H256>,
     abort_flag: &AtomicBool,
-) -> Result<RebuiltStatus, ::error::Error> {
+) -> Result<RebuiltStatus, crate::error::Error> {
     let mut status = RebuiltStatus::default();
     for (account_rlp, out) in account_fat_rlps.into_iter().zip(out_chunk.iter_mut()) {
         if !abort_flag.load(Ordering::SeqCst) {
@@ -616,10 +622,10 @@ pub fn verify_old_block(
     engine: &dyn EthEngine,
     chain: &BlockChain,
     always: bool,
-) -> Result<(), ::error::Error> {
+) -> Result<(), crate::error::Error> {
     engine.verify_block_basic(header)?;
 
-    if always || rng.gen::<f32>() <= POW_VERIFY_RATE {
+    if always || rng.r#gen::<f32>() <= POW_VERIFY_RATE {
         engine.verify_block_unordered(header)?;
         match chain.block_header_data(header.parent_hash()) {
             Some(parent) => engine

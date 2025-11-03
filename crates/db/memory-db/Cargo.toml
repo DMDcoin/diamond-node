@@ -17,6 +17,7 @@ authors = ["Parity Technologies <admin@parity.io>"]
 description = "In-memory implementation of hash-db, useful for tests"
 license = "Apache-2.0"
 repository = "https://github.com/paritytech/parity-common"
+edition = "2024"
 
 [[bench]]
 name = "bench"

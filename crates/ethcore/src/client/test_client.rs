@@ -20,16 +20,35 @@ use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrder},
         Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrder},
     },
+    time::Duration,
 };
 
-use blockchain::{BlockReceipts, TreeRoute};
+use crate::{
+    blockchain::{BlockReceipts, TreeRoute},
+    types::{
+        BlockNumber,
+        basic_account::BasicAccount,
+        encoded,
+        filter::Filter,
+        header::Header,
+        log_entry::LocalizedLogEntry,
+        pruning_info::PruningInfo,
+        receipt::{LegacyReceipt, LocalizedReceipt, TransactionOutcome, TypedReceipt},
+        transaction::{
+            self, Action, LocalizedTransaction, SignedTransaction, Transaction, TypedTransaction,
+            TypedTxId,
+        },
+        view,
+        views::BlockView,
+    },
+};
 use bytes::Bytes;
 use crypto::publickey::{Generator, Random};
 use db::{COL_STATE, NUM_COLUMNS};
-use ethcore_miner::pool::VerifiedTransaction;
+use ethcore_miner::pool::{VerifiedTransaction, local_transactions::Status};
 use ethereum_types::{Address, H256, H512, U256};
 use ethtrie;
 use hash::keccak;
@@ -38,46 +57,32 @@ use kvdb::DBValue;
 use parking_lot::{Mutex, RwLock};
 use rlp::RlpStream;
 use rustc_hex::FromHex;
-use types::{
-    basic_account::BasicAccount,
-    encoded,
-    filter::Filter,
-    header::Header,
-    log_entry::LocalizedLogEntry,
-    pruning_info::PruningInfo,
-    receipt::{LegacyReceipt, LocalizedReceipt, TransactionOutcome, TypedReceipt},
-    transaction::{
-        self, Action, LocalizedTransaction, SignedTransaction, Transaction, TypedTransaction,
-        TypedTxId,
-    },
-    view,
-    views::BlockView,
-    BlockNumber,
-};
 use vm::Schedule;
 
-use block::{ClosedBlock, OpenBlock, SealedBlock};
-use call_contract::{CallContract, RegistryInfo};
-use client::{
-    traits::{ForceUpdateSealing, TransactionRequest},
-    AccountData, BadBlocks, Balance, BlockChain, BlockChainClient, BlockChainInfo, BlockId,
-    BlockInfo, BlockProducer, BlockStatus, BroadcastProposalBlock, Call, CallAnalytics, ChainInfo,
-    EngineInfo, ImportBlock, ImportSealedBlock, IoClient, LastHashes, Mode, Nonce,
-    PrepareOpenBlock, ProvingBlockChainClient, ReopenBlock, ScheduleInfo, SealedBlockImporter,
-    StateClient, StateOrBlock, TraceFilter, TraceId, TransactionId, TransactionInfo, UncleId,
+use crate::{
+    block::{ClosedBlock, OpenBlock, SealedBlock},
+    client::{
+        AccountData, BadBlocks, Balance, BlockChain, BlockChainClient, BlockChainInfo, BlockId,
+        BlockInfo, BlockProducer, BlockStatus, BroadcastProposalBlock, Call, CallAnalytics,
+        ChainInfo, EngineInfo, ImportBlock, ImportSealedBlock, IoClient, LastHashes, Mode, Nonce,
+        PrepareOpenBlock, ProvingBlockChainClient, ReopenBlock, ScheduleInfo, SealedBlockImporter,
+        StateClient, StateOrBlock, TraceFilter, TraceId, TransactionId, TransactionInfo, UncleId,
+        traits::{ForceUpdateSealing, TransactionRequest},
+    },
+    engines::EthEngine,
+    error::{Error, EthcoreResult},
+    executed::CallError,
+    executive::Executed,
+    miner::{self, Miner, MinerService},
+    spec::Spec,
+    state::StateInfo,
+    state_db::StateDB,
+    trace::LocalizedTrace,
+    verification::queue::{QueueInfo, kind::blocks::Unverified},
 };
-use engines::EthEngine;
-use error::{Error, EthcoreResult};
-use executed::CallError;
-use executive::Executed;
+use call_contract::{CallContract, RegistryInfo};
 use journaldb;
-use miner::{self, Miner, MinerService};
-use spec::Spec;
-use state::StateInfo;
-use state_db::StateDB;
 use stats::{PrometheusMetrics, PrometheusRegistry};
-use trace::LocalizedTrace;
-use verification::queue::{kind::blocks::Unverified, QueueInfo};
 
 use super::ReservedPeersManagement;
 
@@ -422,6 +427,7 @@ impl TestBlockChainClient {
         self.disabled.load(AtomicOrder::SeqCst)
     }
 
+    /// Sets the producer for new transaction hashes.
     pub fn set_new_transaction_hashes_producer(
         &self,
         new_transaction_hashes: crossbeam_channel::Sender<H256>,
@@ -497,8 +503,8 @@ impl BroadcastProposalBlock for TestBlockChainClient {
 
 impl SealedBlockImporter for TestBlockChainClient {}
 
-impl ::miner::TransactionVerifierClient for TestBlockChainClient {}
-impl ::miner::BlockChainClient for TestBlockChainClient {}
+impl crate::miner::TransactionVerifierClient for TestBlockChainClient {}
+impl crate::miner::BlockChainClient for TestBlockChainClient {}
 
 impl Nonce for TestBlockChainClient {
     fn nonce(&self, address: &Address, id: BlockId) -> Option<U256> {
@@ -954,11 +960,7 @@ impl BlockChainClient for TestBlockChainClient {
                         blocks.push(hash.clone());
                     }
                 }
-                if adding {
-                    Vec::new()
-                } else {
-                    blocks
-                }
+                if adding { Vec::new() } else { blocks }
             },
             is_from_route_finalized: false,
         })
@@ -1105,12 +1107,22 @@ impl BlockChainClient for TestBlockChainClient {
             .import_own_transaction(self, signed.into(), false)
     }
 
-    fn transact_silently(&self, tx_request: TransactionRequest) -> Result<(), transaction::Error> {
+    fn transact_silently(
+        &self,
+        tx_request: TransactionRequest,
+    ) -> Result<H256, transaction::Error> {
         let signed = self.create_transaction(tx_request)?;
-        self.miner.import_own_transaction(self, signed.into(), true)
+        let hash = signed.hash();
+        self.miner
+            .import_own_transaction(self, signed.into(), true)
+            .map(|_| hash)
     }
 
     fn is_major_syncing(&self) -> bool {
+        false
+    }
+
+    fn is_syncing(&self) -> bool {
         false
     }
 
@@ -1147,6 +1159,14 @@ impl BlockChainClient for TestBlockChainClient {
 
     fn transaction(&self, tx_hash: &H256) -> Option<Arc<VerifiedTransaction>> {
         self.miner.transaction(tx_hash)
+    }
+
+    fn transaction_if_readable(
+        &self,
+        hash: &H256,
+        max_lock_duration: &Duration,
+    ) -> Option<Arc<VerifiedTransaction>> {
+        self.miner.transaction_if_readable(hash, max_lock_duration)
     }
 
     /// Returns the devp2p network endpoint IP and Port information that is used to communicate with other peers.
@@ -1212,13 +1232,18 @@ impl super::traits::EngineClient for TestBlockChainClient {
         }
     }
 
-    fn broadcast_consensus_message(&self, _message: Bytes) {}
+    fn broadcast_consensus_message(&self, _future_block_id: u64, _message: Bytes) {}
 
-    fn send_consensus_message(&self, _message: Bytes, _node_id: Option<H512>) {
+    fn send_consensus_message(
+        &self,
+        _future_block_id: u64,
+        _message: Bytes,
+        _node_id: Option<H512>,
+    ) {
         // TODO: allow test to intercept the message to relay it to other test clients
     }
 
-    fn epoch_transition_for(&self, _block_hash: H256) -> Option<::engines::EpochTransition> {
+    fn epoch_transition_for(&self, _block_hash: H256) -> Option<crate::engines::EpochTransition> {
         None
     }
 
@@ -1246,6 +1271,12 @@ impl super::traits::EngineClient for TestBlockChainClient {
     ) -> Option<Header> {
         self.miner
             .create_pending_block_at(self, txns, timestamp, block_number)
+    }
+
+    fn demand_shutdown(&self) {}
+
+    fn local_transaction_status(&self, tx_hash: &H256) -> Option<Status> {
+        self.miner.local_transaction_status(tx_hash)
     }
 }
 

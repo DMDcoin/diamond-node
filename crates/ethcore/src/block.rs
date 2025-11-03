@@ -36,24 +36,26 @@ use std::{cmp, collections::HashSet, ops, sync::Arc};
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256, U256};
 
-use engines::EthEngine;
-use error::{BlockError, Error};
-use factory::Factories;
-use state::State;
-use state_db::StateDB;
-use trace::Tracing;
+use crate::{
+    engines::EthEngine,
+    error::{BlockError, Error},
+    factory::Factories,
+    state::State,
+    state_db::StateDB,
+    trace::Tracing,
+    verification::PreverifiedBlock,
+};
 use triehash::ordered_trie_root;
 use unexpected::{Mismatch, OutOfBounds};
-use verification::PreverifiedBlock;
 use vm::{EnvInfo, LastHashes};
 
-use hash::keccak;
-use rlp::{encode_list, RlpStream};
-use types::{
+use crate::types::{
     header::{ExtendedHeader, Header},
     receipt::{TransactionOutcome, TypedReceipt},
     transaction::{Error as TransactionError, SignedTransaction},
 };
+use hash::keccak;
+use rlp::{RlpStream, encode_list};
 
 /// Block that is ready for transactions to be added.
 ///
@@ -627,15 +629,17 @@ pub fn enact_verified(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engines::EthEngine;
-    use error::Error;
+    use crate::{
+        engines::EthEngine,
+        error::Error,
+        factory::Factories,
+        state_db::StateDB,
+        test_helpers::get_temp_state_db,
+        types::{header::Header, transaction::SignedTransaction, view, views::BlockView},
+        verification::queue::kind::blocks::Unverified,
+    };
     use ethereum_types::Address;
-    use factory::Factories;
-    use state_db::StateDB;
     use std::sync::Arc;
-    use test_helpers::get_temp_state_db;
-    use types::{header::Header, transaction::SignedTransaction, view, views::BlockView};
-    use verification::queue::kind::blocks::Unverified;
     use vm::LastHashes;
 
     /// Enact the block given by `block_bytes` using `engine` on the database `db` with given `parent` block header
@@ -721,7 +725,7 @@ mod tests {
 
     #[test]
     fn open_block() {
-        use spec::*;
+        use crate::spec::*;
         let spec = Spec::new_test();
         let genesis_header = spec.genesis_header();
         let db = spec
@@ -748,7 +752,7 @@ mod tests {
 
     #[test]
     fn enact_block() {
-        use spec::*;
+        use crate::spec::*;
         let spec = Spec::new_test();
         let engine = &*spec.engine;
         let genesis_header = spec.genesis_header();
@@ -809,7 +813,7 @@ mod tests {
 
     #[test]
     fn enact_block_with_uncle() {
-        use spec::*;
+        use crate::spec::*;
         let spec = Spec::new_test();
         let engine = &*spec.engine;
         let genesis_header = spec.genesis_header();

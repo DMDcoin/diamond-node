@@ -20,7 +20,7 @@ use std::sync::Arc;
 use jsonrpc_core;
 use jsonrpc_pubsub::{PubSubMetadata, Session};
 
-use v1::types::Origin;
+use crate::v1::types::Origin;
 
 /// RPC methods metadata.
 #[derive(Clone, Default, Debug)]

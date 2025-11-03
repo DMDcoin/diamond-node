@@ -28,7 +28,6 @@ extern crate ethcore_io as io;
 extern crate ethcore_network as network;
 extern crate ethcore_network_devp2p as devp2p;
 extern crate ethereum_forkid;
-extern crate ethereum_types;
 extern crate ethkey;
 extern crate ethstore;
 extern crate fastmap;
@@ -61,7 +60,6 @@ extern crate macros;
 extern crate log;
 #[macro_use]
 extern crate trace_time;
-extern crate ethcore_miner;
 
 mod block_sync;
 mod blocks;
@@ -75,7 +73,9 @@ mod tests;
 
 mod api;
 
-pub use api::*;
-pub use chain::{SyncState, SyncStatus};
+pub use crate::{
+    api::*,
+    chain::{SyncState, SyncStatus},
+};
 pub use devp2p::validate_node_url;
 pub use network::{ConnectionDirection, ConnectionFilter, Error, ErrorKind, NonReservedPeerMode};

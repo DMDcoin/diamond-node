@@ -1,12 +1,14 @@
-use client::{
-    traits::{EngineClient, TransactionRequest},
-    BlockChainClient,
+use crate::{
+    client::{
+        BlockChainClient,
+        traits::{EngineClient, TransactionRequest},
+    },
+    engines::hbbft::utils::bound_contract::{BoundContract, CallError},
+    types::{ids::BlockId, transaction::Error},
 };
 use crypto::publickey::Public;
-use engines::hbbft::utils::bound_contract::{BoundContract, CallError};
 use ethereum_types::{Address, U256};
 use std::{collections::BTreeMap, net::SocketAddr, str::FromStr};
-use types::{ids::BlockId, transaction::Error};
 
 use_contract!(
     validator_set_hbbft,
@@ -79,7 +81,7 @@ pub fn is_pending_validator(
     call_const_validator!(c, is_pending_validator, staking_address.clone())
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum KeyGenMode {
     WritePart,
     WriteAck,
@@ -153,7 +155,7 @@ pub fn set_validator_internet_address(
         .gas(U256::from(100_000))
         .nonce(nonce);
 
-    info!(target:"consensus", "set_validator_internet_address: ip: {} nonce: {}", socket_addr, nonce);
+    info!(target:"consensus", "set_validator_internet_address: ip: {} with nonce: {}", socket_addr, nonce);
     full_client.transact_silently(transaction)?;
     Ok(())
 }
@@ -166,17 +168,18 @@ pub fn send_tx_announce_availability(
     // we need to get the real latest nonce.
     //let nonce_from_full_client =  full_client.nonce(address,BlockId::Latest);
 
-    let mut nonce = full_client.next_nonce(&address);
+    let nonce = full_client.next_nonce(&address);
 
-    match full_client.nonce(address, BlockId::Latest) {
-        Some(new_nonce) => {
-            if new_nonce != nonce {
-                info!(target:"consensus", "got better nonce for announce availability: {} => {}", nonce, new_nonce);
-                nonce = new_nonce;
-            }
-        }
-        None => {}
-    }
+    // match full_client.nonce(address, BlockId::Latest) {
+    //     Some(current_nonce) => {
+
+    //         if new_nonce != nonce {
+    //             info!(target:"consensus", "got better nonce for announce availability: {} => {}", nonce, new_nonce);
+    //             nonce = new_nonce;
+    //         }
+    //     }
+    //     None => {}
+    // }
 
     match full_client.block_number(BlockId::Latest) {
         Some(block_number) => match full_client.block_hash(BlockId::Number(block_number)) {
@@ -190,10 +193,12 @@ pub fn send_tx_announce_availability(
                 );
                 let transaction = TransactionRequest::call(*VALIDATOR_SET_ADDRESS, send_data.0)
                     .gas(U256::from(1_000_000))
+                    .gas_price(U256::from(0))
                     .nonce(nonce);
 
                 info!(target:"consensus", "sending announce availability with nonce: {}", nonce);
-                full_client.transact_silently(transaction)?;
+                let hash = full_client.transact_silently(transaction)?;
+                info!(target:"consensus", "sending announce availability with nonce: {} hash: {}", nonce, hash);
                 return Ok(());
             }
         },

@@ -18,25 +18,27 @@
 
 use std::fmt;
 
+use crate::types::{
+    header::Header,
+    transaction::{self, SignedTransaction, UnverifiedTransaction},
+};
 use ethcore_miner::{
     local_accounts::LocalAccounts, pool, pool::client::NonceClient,
     service_transaction_checker::ServiceTransactionChecker,
 };
 use ethereum_types::{Address, H256, U256};
-use types::{
-    header::Header,
-    transaction::{self, SignedTransaction, UnverifiedTransaction},
-};
 
-use call_contract::CallContract;
-use client::{Balance, BlockId, BlockInfo, Nonce, TransactionId};
-use engines::EthEngine;
-use ethcore_miner::pool::client::BalanceClient;
-use miner::{
-    self,
-    cache::{Cache, CachedClient},
+use crate::{
+    client::{Balance, BlockId, BlockInfo, Nonce, TransactionId},
+    engines::EthEngine,
+    miner::{
+        self,
+        cache::{Cache, CachedClient},
+    },
+    transaction_ext::Transaction,
 };
-use transaction_ext::Transaction;
+use call_contract::CallContract;
+use ethcore_miner::pool::client::BalanceClient;
 
 pub(crate) struct CachedNonceClient<'a, C: 'a> {
     cached_client: CachedClient<'a, C, Address, U256>,
@@ -134,7 +136,7 @@ impl<'a, C: 'a> Clone for PoolClient<'a, C> {
             cached_nonces: self.cached_nonces.clone(),
             cached_balances: self.cached_balances.clone(),
             engine: self.engine,
-            accounts: self.accounts.clone(),
+            accounts: self.accounts,
             best_block_header: self.best_block_header.clone(),
             service_transaction_checker: self.service_transaction_checker.clone(),
         }

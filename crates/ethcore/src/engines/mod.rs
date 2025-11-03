@@ -38,9 +38,9 @@ pub use self::{
 };
 
 // TODO [ToDr] Remove re-export (#10130)
-pub use types::engines::{
-    epoch::{self, Transition as EpochTransition},
+pub use crate::types::engines::{
     ForkChoice,
+    epoch::{self, Transition as EpochTransition},
 };
 
 use std::{
@@ -49,23 +49,27 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use builtin::Builtin;
-use error::Error;
-use snapshot::SnapshotComponents;
-use spec::CommonParams;
-use types::{
-    header::{ExtendedHeader, Header},
-    transaction::{self, SignedTransaction, UnverifiedTransaction},
-    BlockNumber,
+use crate::{
+    error::Error,
+    snapshot::SnapshotComponents,
+    spec::CommonParams,
+    types::{
+        BlockNumber,
+        header::{ExtendedHeader, Header},
+        transaction::{self, SignedTransaction, UnverifiedTransaction},
+    },
 };
+use builtin::Builtin;
 use vm::{ActionValue, CallType, CreateContractAddress, EnvInfo, Schedule};
 
-use block::ExecutedBlock;
+use crate::{
+    block::ExecutedBlock,
+    machine::{self, AuxiliaryData, AuxiliaryRequest, Machine},
+    types::ancestry_action::AncestryAction,
+};
 use bytes::Bytes;
 use crypto::publickey::Signature;
-use ethereum_types::{Address, H256, H512, H64, U256};
-use machine::{self, AuxiliaryData, AuxiliaryRequest, Machine};
-use types::ancestry_action::AncestryAction;
+use ethereum_types::{Address, H64, H256, H512, U256};
 use unexpected::{Mismatch, OutOfBounds};
 
 /// Default EIP-210 contract code.
@@ -221,8 +225,8 @@ pub enum SystemOrCodeCallKind {
 
 /// Default SystemOrCodeCall implementation.
 pub fn default_system_or_code_call<'a>(
-    machine: &'a ::machine::EthereumMachine,
-    block: &'a mut ::block::ExecutedBlock,
+    machine: &'a crate::machine::EthereumMachine,
+    block: &'a mut crate::block::ExecutedBlock,
 ) -> impl FnMut(SystemOrCodeCallKind, Vec<u8>) -> Result<Vec<u8>, String> + 'a {
     move |to, data| {
         let result = match to {
@@ -301,6 +305,18 @@ pub enum EpochChange<M: Machine> {
     Yes(Proof<M>),
 }
 
+/// who shall author a new Block ?
+pub enum BlockAuthorOption {
+    /// use the Zero address as block author.
+    ZeroBlockAuthor,
+
+    /// use the block author from the config.
+    ConfiguredBlockAuthor,
+
+    /// use the block author provivided by the EngineClient.
+    EngineBlockAuthor(Address),
+}
+
 /// A consensus mechanism for the chain. Generally either proof-of-work or proof-of-stake-based.
 /// Provides hooks into each of the major parts of block import.
 pub trait Engine<M: Machine>: Sync + Send {
@@ -360,7 +376,7 @@ pub trait Engine<M: Machine>: Sync + Send {
     }
 
     /// Allow mutating the header during seal generation. Currently only used by Clique.
-    fn on_seal_block(&self, _block: &mut ExecutedBlock) -> Result<(), Error> {
+    fn on_seal_block(&self, _block: &mut ExecutedBlock) -> Result<(), crate::error::Error> {
         Ok(())
     }
 
@@ -492,6 +508,12 @@ pub trait Engine<M: Machine>: Sync + Send {
         true
     }
 
+    /// Some Engine might define the minimum gas price by themselve.
+    /// (for example: contract)
+    fn minimum_gas_price(&self) -> Option<U256> {
+        None
+    }
+
     /// Sign using the EngineSigner, to be used for consensus tx signing.
     fn sign(&self, _hash: H256) -> Result<Signature, M::Error> {
         unimplemented!()
@@ -571,8 +593,14 @@ pub trait Engine<M: Machine>: Sync + Send {
     }
 
     /// Use the author as signer as well as block author.
-    fn use_block_author(&self) -> bool {
-        true
+    fn use_block_author(&self) -> BlockAuthorOption {
+        BlockAuthorOption::ConfiguredBlockAuthor
+    }
+
+    /// allows engines to define a block that should not get pruned in the DB.
+    /// This is useful for engines that need to keep a certain block in the DB.
+    fn pruning_protection_block_number(&self) -> Option<u64> {
+        None
     }
 
     /// Optional entry point for adding engine specific metrics.
@@ -592,7 +620,7 @@ pub fn total_difficulty_fork_choice(new: &ExtendedHeader, best: &ExtendedHeader)
 // TODO: make this a _trait_ alias when those exist.
 // fortunately the effect is largely the same since engines are mostly used
 // via trait objects.
-pub trait EthEngine: Engine<::machine::EthereumMachine> {
+pub trait EthEngine: Engine<crate::machine::EthereumMachine> {
     /// Get the general parameters of the chain.
     fn params(&self) -> &CommonParams {
         self.machine().params()
@@ -703,16 +731,10 @@ pub trait EthEngine: Engine<::machine::EthereumMachine> {
     fn allow_non_eoa_sender(&self, best_block_number: BlockNumber) -> bool {
         self.params().eip3607_transition > best_block_number
     }
-
-    /// Some Engine might define the minimum gas price by themselve.
-    /// (for example: contract)
-    fn minimum_gas_price(&self) -> Option<U256> {
-        None
-    }
 }
 
 // convenience wrappers for existing functions.
-impl<T> EthEngine for T where T: Engine<::machine::EthereumMachine> {}
+impl<T> EthEngine for T where T: Engine<crate::machine::EthereumMachine> {}
 
 /// Verifier for all blocks within an epoch with self-contained state.
 pub trait EpochVerifier<M: machine::Machine>: Send + Sync {

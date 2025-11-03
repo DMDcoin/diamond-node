@@ -25,11 +25,12 @@ use std::{
 use crate::{hash::keccak, types::ids::BlockId};
 use ethcore::{
     client::{DatabaseCompactionProfile, Mode, VMType},
+    exit::ShutdownManager,
     miner::Miner,
     snapshot::{
+        Progress, RestorationStatus, SnapshotConfiguration, SnapshotService as SS,
         io::{PackedReader, PackedWriter, SnapshotReader},
         service::Service as SnapshotService,
-        Progress, RestorationStatus, SnapshotConfiguration, SnapshotService as SS,
     },
 };
 use ethcore_service::ClientService;
@@ -38,7 +39,7 @@ use crate::{
     cache::CacheConfig,
     db,
     helpers::{execute_upgrades, to_client_config},
-    params::{fatdb_switch_to_bool, tracing_switch_to_bool, Pruning, SpecType, Switch},
+    params::{Pruning, SpecType, Switch, fatdb_switch_to_bool, tracing_switch_to_bool},
     user_defaults::UserDefaults,
 };
 use dir::Directories;
@@ -220,6 +221,7 @@ impl SnapshotCommand {
             self.pruning_memory,
             true,
             self.max_round_blocks_to_import,
+            None,
         );
 
         client_config.snapshot = self.snapshot_conf;
@@ -239,6 +241,7 @@ impl SnapshotCommand {
             // TODO [ToDr] don't use test miner here
             // (actually don't require miner at all)
             Arc::new(Miner::new_for_tests(&spec, None)),
+            Arc::new(ShutdownManager::null()),
         )
         .map_err(|e| format!("Client service error: {:?}", e))?;
 
@@ -317,7 +320,7 @@ impl SnapshotCommand {
             }
         });
 
-        if let Err(e) = service.client().take_snapshot(writer, block_at, &*progress) {
+        if let Err(e) = service.client().take_snapshot(writer, block_at, &progress) {
             let _ = ::std::fs::remove_file(&file_path);
             return Err(format!(
                 "Encountered fatal error while creating snapshot: {}",

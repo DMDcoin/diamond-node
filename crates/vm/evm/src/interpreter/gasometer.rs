@@ -19,9 +19,11 @@ use ethereum_types::{Address, BigEndianHash, U256};
 use std::cmp;
 
 use super::stack::VecStack;
-use evm;
-use instructions::{self, Instruction, InstructionInfo};
-use interpreter::stack::Stack;
+use crate::{
+    evm,
+    instructions::{self, Instruction, InstructionInfo},
+    interpreter::stack::Stack,
+};
 use vm::{self, Schedule};
 
 macro_rules! overflowing {
@@ -34,7 +36,7 @@ macro_rules! overflowing {
     }};
 }
 
-enum Request<Cost: ::evm::CostType> {
+enum Request<Cost: crate::evm::CostType> {
     Gas(Cost),
     GasMem(Cost, Cost),
     GasMemProvide(Cost, Cost, Option<U256>),

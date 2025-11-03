@@ -44,7 +44,7 @@ impl<'a> BlockView<'a> {
     /// #[macro_use]
     /// extern crate common_types as types;
     ///
-    /// use types::views::{BlockView};
+    /// use crate::types::views::{BlockView};
     ///
     /// fn main() {
     /// let bytes : &[u8] = &[];

@@ -18,17 +18,17 @@ use std::sync::Arc;
 
 use accounts::AccountProvider;
 use crypto::{
-    publickey::{verify_public, KeyPair, Signature},
     DEFAULT_MAC,
+    publickey::{KeyPair, Signature, verify_public},
 };
 use ethereum_types::H256;
 
+use crate::v1::{
+    SecretStoreClient, helpers::secretstore::ordered_servers_keccak, metadata::Metadata,
+    traits::secretstore::SecretStore, types::EncryptedDocumentKey,
+};
 use jsonrpc_core::{IoHandler, Success};
 use serde_json;
-use v1::{
-    helpers::secretstore::ordered_servers_keccak, metadata::Metadata,
-    traits::secretstore::SecretStore, types::EncryptedDocumentKey, SecretStoreClient,
-};
 
 struct Dependencies {
     pub accounts: Arc<AccountProvider>,
@@ -195,13 +195,14 @@ fn rpc_secretstore_generate_document_key() {
         serde_json::from_str(&generation_response).unwrap();
 
     // the only thing we can check is that 'encrypted_key' can be decrypted by passed account
-    assert!(deps
-        .accounts
-        .decrypt(
-            "00dfE63B22312ab4329aD0d28CaD8Af987A01932".parse().unwrap(),
-            Some("password".into()),
-            &DEFAULT_MAC,
-            &generation_response.encrypted_key.0
-        )
-        .is_ok());
+    assert!(
+        deps.accounts
+            .decrypt(
+                "00dfE63B22312ab4329aD0d28CaD8Af987A01932".parse().unwrap(),
+                Some("password".into()),
+                &DEFAULT_MAC,
+                &generation_response.encrypted_key.0
+            )
+            .is_ok()
+    );
 }

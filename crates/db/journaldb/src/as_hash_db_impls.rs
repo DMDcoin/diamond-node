@@ -15,15 +15,13 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Impls of the `AsHashDB` upcast trait for all different variants of DB
-use crate::{AsKeyedHashDB, KeyedHashDB};
-use archivedb::ArchiveDB;
-use earlymergedb::EarlyMergeDB;
+use crate::{
+    AsKeyedHashDB, KeyedHashDB, archivedb::ArchiveDB, earlymergedb::EarlyMergeDB,
+    overlaydb::OverlayDB, overlayrecentdb::OverlayRecentDB, refcounteddb::RefCountedDB,
+};
 use hash_db::{AsHashDB, HashDB};
 use keccak_hasher::KeccakHasher;
 use kvdb::DBValue;
-use overlaydb::OverlayDB;
-use overlayrecentdb::OverlayRecentDB;
-use refcounteddb::RefCountedDB;
 
 impl AsHashDB<KeccakHasher, DBValue> for ArchiveDB {
     fn as_hash_db(&self) -> &dyn HashDB<KeccakHasher, DBValue> {

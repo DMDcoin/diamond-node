@@ -145,13 +145,13 @@ impl<F: Fetch> Client<F> {
 
 #[cfg(test)]
 mod test {
+    use crate::Client;
     use fake_fetch::FakeFetch;
     use parity_runtime::{Executor, Runtime};
     use std::sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     };
-    use Client;
 
     fn price_info_ok(response: &str, executor: Executor) -> Client<FakeFetch<String>> {
         Client::new(
