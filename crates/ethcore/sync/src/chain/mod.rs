@@ -1447,10 +1447,20 @@ impl ChainSync {
                 // and if we have nothing else to do, get the peer to give us at least some of announced but unfetched transactions
                 let mut to_send = H256FastSet::default();
                 if let Some(peer) = self.peers.get_mut(&peer_id) {
-                    // info: this check should do nothing, if everything is tracked correctly,
-
-                    peer.unfetched_pooled_transactions
-                        .retain(|h| !self.lately_received_transactions.contains(h));
+                    // remove lately received transactions from unfetched list
+                    // depending witch collection is larger, we choose the appropriate method.
+                    if self.lately_received_transactions.len() > 0 {
+                        if peer.unfetched_pooled_transactions.len()
+                            > self.lately_received_transactions.len()
+                        {
+                            self.lately_received_transactions.iter().for_each(|h| {
+                                peer.unfetched_pooled_transactions.remove(h);
+                            });
+                        } else {
+                            peer.unfetched_pooled_transactions
+                                .retain(|h| !self.lately_received_transactions.contains(h));
+                        }
+                    }
 
                     if peer.asking_pooled_transactions.is_empty() {
                         // todo: we might just request the same transactions from  multiple peers here, at the same time.
