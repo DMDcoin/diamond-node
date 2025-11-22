@@ -261,8 +261,8 @@ impl HbbftEarlyEpochEndManager {
         }
     }
 
-    /// decides on the memorium data if we should update to contract data.
-    /// end executes them.
+    /// decides on the memorium data if we should update to contract data,
+    /// end sends out transactions to do so.
     pub fn decide(
         &mut self,
         memorium: &HbbftMessageMemorium,

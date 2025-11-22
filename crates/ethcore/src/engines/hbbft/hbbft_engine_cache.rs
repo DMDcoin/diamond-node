@@ -1,9 +1,13 @@
 use crate::{client::EngineClient, error::Error};
 use ethereum_types::Address;
+use hash::H256;
 use parking_lot::Mutex;
+use types::ids::BlockId;
 
 #[derive(Debug, Clone)]
 pub struct HbbftEngineCacheData {
+    pub block_last_update: H256,
+
     pub signer_address: Address,
 
     pub is_staked: bool,
@@ -14,6 +18,7 @@ pub struct HbbftEngineCacheData {
 impl HbbftEngineCacheData {
     pub fn new() -> Self {
         HbbftEngineCacheData {
+            block_last_update: H256::zero(),
             signer_address: Address::zero(),
             is_staked: false,
             is_available: false,
@@ -53,24 +58,35 @@ impl HbbftEngineCache {
     ) -> Result<(), Error> {
         //self.is_staked = false;
 
-        let mut new_data = HbbftEngineCacheData::new();
-        new_data.signer_address = signer_address;
-        let is_available = self.calc_is_available(signer_address, engine_client)?;
-        new_data.is_available = is_available;
-        new_data.is_staked = self.calc_is_staked(signer_address, engine_client)?;
+        // we lock the data to avoid double update.
+        let mut data_lock = self.data.lock();
 
-        self.data.lock().clone_from(&new_data);
+        let last_update_block_hash =
+            if let Some(header) = engine_client.block_header(BlockId::Latest) {
+                let hash = header.hash();
+                if data_lock.block_last_update == header.hash() {
+                    // already up to date.
+                    return Ok(());
+                }
+                hash
+            } else {
+                return Err("Unable to retrieve latest block".into());
+            };
+
+        data_lock.signer_address = signer_address;
+        data_lock.is_available = Self::calc_is_available(signer_address, engine_client)?;
+        data_lock.is_staked = Self::calc_is_staked(signer_address, engine_client)?;
+
+        // this is done as a last step.
+        data_lock.block_last_update = last_update_block_hash;
 
         return Ok(());
     }
 
     fn calc_is_available(
-        &mut self,
         signer_address: Address,
         engine_client: &dyn EngineClient,
     ) -> Result<bool, Error> {
-        let engine_client = engine_client;
-
         if signer_address.is_zero() {
             // debug!(target: "consensus", "is_available: not available because mining address is zero: ");
             return Ok(false);
@@ -93,7 +109,6 @@ impl HbbftEngineCache {
 
     /// refreshes cache, if node is staked.
     fn calc_is_staked(
-        &self,
         mining_address: Address,
         engine_client: &dyn EngineClient,
     ) -> Result<bool, Error> {
