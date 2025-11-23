@@ -60,7 +60,7 @@ use super::{
     sealing::{self, RlpSig, Sealing},
 };
 use crate::engines::hbbft::hbbft_message_memorium::HbbftMessageDispatcher;
-use std::{ops::Deref, sync::atomic::Ordering};
+use std::sync::atomic::Ordering;
 
 // Internal representation for storing deferred outgoing consensus messages.
 struct StoredOutgoingMessage {
@@ -193,6 +193,8 @@ const ENGINE_DELAYED_UNITL_SYNCED_TOKEN: TimerToken = 3;
 const ENGINE_VALIDATOR_CANDIDATE_ACTIONS: TimerToken = 4;
 // Check for current Phoenix Protocol phase
 const ENGINE_PHOENIX_CHECK: TimerToken = 5;
+
+const HBBFT_CONNECTIVITY_TOKEN: TimerToken = 6;
 
 impl TransitionHandler {
     fn handle_shutdown_on_missing_block_import(
@@ -383,6 +385,12 @@ impl IoHandler<()> for TransitionHandler {
             .unwrap_or_else(
                 |e| warn!(target: "consensus", "ENGINE_PHOENIX_CHECK Timer failed: {}.", e),
             );
+
+        // early epoch end connecitity token should be the same length then the max blocktime.
+        io.register_timer(HBBFT_CONNECTIVITY_TOKEN, Duration::from_secs(300))
+            .unwrap_or_else(
+                |e| warn!(target: "consensus", "ENGINE_PHOENIX_CHECK Timer failed: {}.", e),
+            );
     }
 
     fn timeout(&self, io: &IoContext<()>, timer: TimerToken) {
@@ -472,6 +480,10 @@ impl IoHandler<()> for TransitionHandler {
             }
         } else if timer == ENGINE_PHOENIX_CHECK {
             self.engine.handle_phoenix_recovery_protocol();
+        } else if timer == HBBFT_CONNECTIVITY_TOKEN {
+            if let Err(err) = self.engine.do_validator_engine_early_epoch_end_actions() {
+                error!(target: "consensus", "do_validator_engine_early_epoch_end_actions failed: {:?}", err);
+            }
         }
     }
 }
@@ -884,7 +896,7 @@ impl HoneyBadgerBFT {
                 self.hbbft_message_dispatcher.report_seal_bad(
                     &sender_id,
                     block_num,
-                    BadSealReason::ErrorTresholdSignStep,
+                    BadSealReason::ErrorThresholdSignStep,
                 );
             }
         }
@@ -1224,27 +1236,95 @@ impl HoneyBadgerBFT {
                     return Ok(());
                 }
 
-                // If we have no signer there is nothing for us to send.
-                let mining_address = match self.signer.read().as_ref() {
-                    Some(signer) => signer.address(),
-                    None => {
-                        // we do not have a signer on Full and RPC nodes.
-                        // here is a possible performance improvement:
-                        // this won't change during the lifetime of the application ?!
-                        return Ok(());
-                    }
-                };
+                self.hbbft_peers_service
+                    .channel()
+                    .send(HbbftConnectToPeersMessage::AnnounceAvailability)?;
 
-                let engine_client = client_arc.as_ref();
-                if let Err(err) = self
-                    .hbbft_engine_cache
-                    .lock()
-                    .refresh_cache(mining_address, engine_client)
-                {
-                    trace!(target: "engine", "do_validator_engine_actions: data could not get updated, follow up tasks might fail: {:?}", err);
+                self.hbbft_peers_service
+                    .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
+
+                if self.should_connect_to_validator_set() {
+                    // we just keep those variables here, because we need them in the early_epoch_end_manager.
+                    // this is just an optimization, so we do not acquire the lock for that much time.
+                    let mut validator_set: Vec<NodeId> = Vec::new();
+
+                    {
+                        let hbbft_state_option =
+                            self.hbbft_state.try_read_for(Duration::from_millis(250));
+                        match hbbft_state_option {
+                            Some(hbbft_state) => {
+                                //hbbft_state.is_validator();
+
+                                validator_set = hbbft_state.get_validator_set();
+                            }
+                            None => {
+                                // maybe improve here, to return with a result, that triggers a retry soon.
+                                debug!(target: "engine", "Unable to do_validator_engine_actions: Could not acquire read lock for hbbft state. Unable to decide about early epoch end. retrying soon.");
+                            }
+                        };
+                    } // drop lock for hbbft_state
+
+                    if !validator_set.is_empty() {
+                        self.hbbft_peers_service.send_message(
+                            HbbftConnectToPeersMessage::ConnectToCurrentPeers(validator_set),
+                        )?;
+                    }
                 }
 
-                let engine_client = client_arc.deref();
+                self.do_keygen();
+
+                return Ok(());
+            }
+
+            None => {
+                // client arc not ready yet,
+                // can happen during initialization and shutdown.
+                return Ok(());
+            }
+        }
+    }
+
+    /// refreshes engine cache and returns the mining address.
+    fn refresh_engine_cache(&self, engine_client: &dyn EngineClient) -> Option<Address> {
+        let mining_address = match self.signer.read().as_ref() {
+            Some(signer) => signer.address(),
+            None => {
+                // we do not have a signer on Full and RPC nodes.
+                // here is a possible performance improvement:
+                // this won't change during the lifetime of the application ?!
+                return None;
+            }
+        };
+
+        if let Err(err) = self
+            .hbbft_engine_cache
+            .lock()
+            .refresh_cache(mining_address, engine_client)
+        {
+            warn!(target: "engine", "do_validator_engine_actions: data could not get updated, follow up tasks might fail: {:?}", err);
+        }
+
+        return Some(mining_address);
+    }
+
+    /// hbbft early epoch end actions are executed on a different timing than the regular validator engine steps
+    fn do_validator_engine_early_epoch_end_actions(&self) -> Result<(), Error> {
+        // here we need to differentiate the different engine functions,
+        // that requires different levels of access to the client.
+        trace!(target: "engine", "do_validator_engine_actions.");
+        match self.client_arc() {
+            Some(client_arc) => {
+                if self.is_syncing(&client_arc) {
+                    // we are syncing - do not do anything.
+                    trace!(target: "engine", "do_validator_engine_actions: skipping because we are syncing.");
+                    return Ok(());
+                }
+
+                let engine_client = client_arc.as_ref();
+                let mining_address = match self.refresh_engine_cache(engine_client) {
+                    Some(h) => h,
+                    None => return Ok(()),
+                };
 
                 let block_chain_client = match engine_client.as_full_client() {
                     Some(block_chain_client) => block_chain_client,
@@ -1253,73 +1333,38 @@ impl HoneyBadgerBFT {
                     }
                 };
 
-                let should_connect_to_validator_set = self.should_connect_to_validator_set();
-                let mut should_handle_early_epoch_end = false;
-
-                // we just keep those variables here, because we need them in the early_epoch_end_manager.
-                // this is just an optimization, so we do not acquire the lock for that much time.
-                let mut validator_set: Vec<NodeId> = Vec::new();
-                let mut epoch_start_block: u64 = 0;
-                let mut epoch_num: u64 = 0;
-
-                {
-                    let hbbft_state_option =
-                        self.hbbft_state.try_read_for(Duration::from_millis(250));
-                    match hbbft_state_option {
-                        Some(hbbft_state) => {
-                            should_handle_early_epoch_end = hbbft_state.is_validator();
-
-                            // if we are a pending validator, we will also do the reserved peers management.
-                            if should_handle_early_epoch_end {
-                                // we already remember here stuff the early epoch manager needs,
-                                // so we do not have to acquire the lock for that long.
-                                epoch_num = hbbft_state.get_current_posdao_epoch();
-                                epoch_start_block =
-                                    hbbft_state.get_current_posdao_epoch_start_block();
-                                validator_set = hbbft_state.get_validator_set();
-                            }
+                let hbbft_state_option = self.hbbft_state.try_read_for(Duration::from_millis(250));
+                match hbbft_state_option {
+                    Some(hbbft_state) => {
+                        if !hbbft_state.is_validator() {
+                            // we are not known as validator, we dont have to further process early epoch end actions.
+                            return Ok(());
                         }
-                        None => {
-                            // maybe improve here, to return with a result, that triggers a retry soon.
-                            debug!(target: "engine", "Unable to do_validator_engine_actions: Could not acquire read lock for hbbft state. Unable to decide about early epoch end. retrying soon.");
-                        }
-                    };
-                } // drop lock for hbbft_state
 
-                // if we do not have to do anything, we can return early.
-                if !(should_connect_to_validator_set || should_handle_early_epoch_end) {
-                    return Ok(());
-                }
+                        // if we are a pending validator, we will also do the reserved peers management.
+                        // we already remember here stuff the early epoch manager needs,
+                        // so we do not have to acquire the lock for that long.
+                        let epoch_num = hbbft_state.get_current_posdao_epoch();
+                        let epoch_start_block = hbbft_state.get_current_posdao_epoch_start_block();
+                        let validator_set = hbbft_state.get_validator_set();
 
-                self.hbbft_peers_service
-                    .channel()
-                    .send(HbbftConnectToPeersMessage::AnnounceAvailability)?;
-
-                self.hbbft_peers_service
-                    .send_message(HbbftConnectToPeersMessage::AnnounceOwnInternetAddress)?;
-
-                if should_connect_to_validator_set {
-                    self.hbbft_peers_service.send_message(
-                        HbbftConnectToPeersMessage::ConnectToCurrentPeers(validator_set.clone()),
-                    )?;
-                }
-
-                if should_handle_early_epoch_end {
-                    self.handle_early_epoch_end(
-                        block_chain_client,
-                        engine_client,
-                        &mining_address,
-                        epoch_start_block,
-                        epoch_num,
-                        &validator_set,
-                    );
-                }
-
-                self.do_keygen();
+                        self.handle_early_epoch_end(
+                            block_chain_client,
+                            engine_client,
+                            &mining_address,
+                            epoch_start_block,
+                            epoch_num,
+                            &validator_set,
+                        );
+                    }
+                    None => {
+                        // maybe improve here, to return with a result, that triggers a retry soon.
+                        debug!(target: "engine", "Unable to do_validator_engine_early_epoch_end_actions: Could not acquire read lock for hbbft state. Unable to decide about early epoch end. retrying soon.");
+                    }
+                };
 
                 return Ok(());
             }
-
             None => {
                 // client arc not ready yet,
                 // can happen during initialization and shutdown.
@@ -1417,14 +1462,19 @@ impl HoneyBadgerBFT {
         }
     }
 
-    /** returns if the signer of hbbft is tracked as available in the hbbft contracts..*/
+    /// returns if the signer of hbbft is tracked as available in the hbbft contracts.
     pub fn is_available(&self) -> bool {
         self.hbbft_engine_cache.lock().is_available()
     }
 
-    /** returns if the signer of hbbft is stacked. */
+    /// returns if the signer of hbbft is stacked.
     pub fn is_staked(&self) -> bool {
         self.hbbft_engine_cache.lock().is_staked()
+    }
+
+    /// returns if the signer of hbbft is a current validator.
+    pub fn is_validator(&self) -> bool {
+        self.hbbft_state.read().is_validator()
     }
 
     fn start_hbbft_epoch_if_ready(&self) {
