@@ -262,7 +262,7 @@ impl HbbftEarlyEpochEndManager {
     }
 
     /// decides on the memorium data if we should update to contract data,
-    /// end sends out transactions to do so.
+    /// and sends out transactions to do so.
     pub fn decide(
         &mut self,
         memorium: &HbbftMessageMemorium,
@@ -300,10 +300,9 @@ impl HbbftEarlyEpochEndManager {
         // this should hold true.
         if now >= block_time {
             let elapsed_since_last_block = now - block_time;
-            // todo:
-            // this is max blocktime (hartbeat) x 2.
-            // on phoenix protocol triggers, this would also skip the block production.
-            if elapsed_since_last_block > 10 {
+            // todo: this is max blocktime (heartbeat) x 2, better read the maximum blocktime.
+            // on phoenix protocol triggers, this would also skip the sending of disconnectivity reports.
+            if elapsed_since_last_block > 10 * 60 {
                 info!(target:"engine", "skipping early-epoch-end: now {now} ; block_time {block_time}: Block WAS created in the future ?!?! :-x. not sending early epoch end reports.");
                 return;
             }
@@ -319,19 +318,19 @@ impl HbbftEarlyEpochEndManager {
         // end of implementation for:
         // https://github.com/DMDcoin/diamond-node/issues/243
 
-        let treshold: u64 = 2;
+        let threshold: u64 = 2;
 
         // todo: read this out from contracts: ConnectivityTrackerHbbft -> reportDisallowPeriod
         // requires us to update the Contracts ABIs:
         // https://github.com/DMDcoin/diamond-node/issues/115
-        let treshold_time = Duration::from_secs(12 * 60); // 12 Minutes = 1 times the heartbeat + 2 minutes as grace period.
+        let threshold_time = Duration::from_secs(12 * 60); // 12 Minutes = 1 times the heartbeat + 2 minutes as grace period.
 
-        if self.start_time.elapsed() < treshold_time {
-            debug!(target: "engine", "early-epoch-end: no decision: Treshold time not reached.");
+        if self.start_time.elapsed() < threshold_time {
+            debug!(target: "engine", "early-epoch-end: no decision: Threshold time not reached.");
             return;
         }
 
-        if block_num < self.start_block + treshold {
+        if block_num < self.start_block + threshold {
             // not enought blocks have passed this epoch,
             // to judge other nodes.
             debug!(target: "engine", "early-epoch-end: no decision: not enough blocks.");
@@ -355,7 +354,7 @@ impl HbbftEarlyEpochEndManager {
                 if let Some(node_history) = epoch_history.get_history_for_node(validator) {
                     let last_message_time = node_history.get_last_good_message_time();
                     let last_message_time_lateness = last_message_time.elapsed();
-                    if last_message_time_lateness > treshold_time {
+                    if last_message_time_lateness > threshold_time {
                         // we do not have to send notification, if we already did so.
                         if !self.is_reported(client, validator_address) {
                             // this function will also add the validator to the list of flagged validators.

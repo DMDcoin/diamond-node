@@ -595,7 +595,7 @@ struct StakingEpochRange {
 
 #[derive(Debug, Clone)]
 pub enum BadSealReason {
-    ErrorTresholdSignStep,
+    ErrorThresholdSignStep,
     MismatchedNetworkInfo,
 }
 

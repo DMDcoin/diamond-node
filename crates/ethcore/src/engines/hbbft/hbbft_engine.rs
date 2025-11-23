@@ -386,7 +386,7 @@ impl IoHandler<()> for TransitionHandler {
                 |e| warn!(target: "consensus", "ENGINE_PHOENIX_CHECK Timer failed: {}.", e),
             );
 
-        // ealry epoch end connecitity token should be the same lenght then the max blocktime.
+        // early epoch end connecitity token should be the same length then the max blocktime.
         io.register_timer(HBBFT_CONNECTIVITY_TOKEN, Duration::from_secs(300))
             .unwrap_or_else(
                 |e| warn!(target: "consensus", "ENGINE_PHOENIX_CHECK Timer failed: {}.", e),
@@ -896,7 +896,7 @@ impl HoneyBadgerBFT {
                 self.hbbft_message_dispatcher.report_seal_bad(
                     &sender_id,
                     block_num,
-                    BadSealReason::ErrorTresholdSignStep,
+                    BadSealReason::ErrorThresholdSignStep,
                 );
             }
         }
@@ -1264,7 +1264,7 @@ impl HoneyBadgerBFT {
                         };
                     } // drop lock for hbbft_state
 
-                    if validator_set.len() > 0 {
+                    if !validator_set.is_empty() {
                         self.hbbft_peers_service.send_message(
                             HbbftConnectToPeersMessage::ConnectToCurrentPeers(validator_set),
                         )?;
@@ -1310,7 +1310,7 @@ impl HoneyBadgerBFT {
     /// hbbft early epoch end actions are executed on a different timing than the regular validator engine steps
     fn do_validator_engine_early_epoch_end_actions(&self) -> Result<(), Error> {
         // here we need to differentiate the different engine functions,
-        // that requre different levels of access to the client.
+        // that requires different levels of access to the client.
         trace!(target: "engine", "do_validator_engine_actions.");
         match self.client_arc() {
             Some(client_arc) => {
@@ -1462,17 +1462,17 @@ impl HoneyBadgerBFT {
         }
     }
 
-    /** returns if the signer of hbbft is tracked as available in the hbbft contracts..*/
+    /// returns if the signer of hbbft is tracked as available in the hbbft contracts.
     pub fn is_available(&self) -> bool {
         self.hbbft_engine_cache.lock().is_available()
     }
 
-    /** returns if the signer of hbbft is stacked. */
+    /// returns if the signer of hbbft is stacked.
     pub fn is_staked(&self) -> bool {
         self.hbbft_engine_cache.lock().is_staked()
     }
 
-    /** returns if the signer of hbbft is a current validator. */
+    /// returns if the signer of hbbft is a current validator.
     pub fn is_validator(&self) -> bool {
         self.hbbft_state.read().is_validator()
     }
