@@ -9,7 +9,7 @@ use crate::{
 };
 use std::{
     collections::BTreeMap,
-    time::{Duration, Instant},
+    time::{Duration, Instant, UNIX_EPOCH},
 };
 
 use super::{
@@ -286,14 +286,41 @@ impl HbbftEarlyEpochEndManager {
             debug!(target: "engine", "early-epoch-end: detected attempt to break because of is_major_syncing() instead of is_synincg()no decision: syncing");
         }
 
-        let block_num = if let Some(block) = full_client.block(BlockId::Latest) {
-            block.number()
+        let (block_num, block_time) = if let Some(block) = full_client.block(BlockId::Latest) {
+            (block.number(), block.timestamp())
         } else {
             error!(target:"engine", "early-epoch-end: could not retrieve latest block.");
             return;
         };
 
+        // start of implementation for:
+        // https://github.com/DMDcoin/diamond-node/issues/243
+        // connectivity reports should not trigger if there is no block production
+        let now = UNIX_EPOCH.elapsed().expect("Time not available").as_secs();
+        // this should hold true.
+        if now >= block_time {
+            let elapsed_since_last_block = now - block_time;
+            // todo:
+            // this is max blocktime (hartbeat) x 2.
+            // on phoenix protocol triggers, this would also skip the block production.
+            if elapsed_since_last_block > 10 {
+                info!(target:"engine", "skipping early-epoch-end: now {now} ; block_time {block_time}: Block WAS created in the future ?!?! :-x. not sending early epoch end reports.");
+                return;
+            }
+        } else {
+            // if the newest block is from the future, something very problematic happened.
+            // the system clock could be wrong.
+            // or the blockchain really produces blocks from the future.
+            // we are just not sending reports in this case.
+
+            error!(target:"engine", "early-epoch-end: now {now} ; block_time {block_time}: Block WAS created in the future ?!?! :-x. not sending early epoch end reports.");
+            return;
+        }
+        // end of implementation for:
+        // https://github.com/DMDcoin/diamond-node/issues/243
+
         let treshold: u64 = 2;
+
         // todo: read this out from contracts: ConnectivityTrackerHbbft -> reportDisallowPeriod
         // requires us to update the Contracts ABIs:
         // https://github.com/DMDcoin/diamond-node/issues/115
