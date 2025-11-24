@@ -2,7 +2,7 @@
 description = "Diamond Node"
 name = "diamond-node"
 # NOTE Make sure to update util/version/Cargo.toml as well
-version = "4.0.0"
+version = "4.0.1"
 license = "GPL-3.0"
 authors = [
 	"bit.diamonds developers",
