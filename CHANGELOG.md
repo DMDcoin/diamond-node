@@ -4,7 +4,7 @@ First hotfix
 Mitigates the transaction spam caused by flaws in the transaction management of report disconnectivity transactions.
 
 - [Reduce Intervals for connectivity checks](https://github.com/DMDcoin/diamond-node/issues/313)
-- [seperate Engine Actions to different timers](https://github.com/DMDcoin/diamond-node/issues/312)
+- [connectivity reports should not trigger if there is no block production](https://github.com/DMDcoin/diamond-node/issues/243)
 
 ## Diamond Node Software 4.0.0
 
