@@ -1,3 +1,11 @@
+## Diamond Node Software 4.0.1
+
+First hotfix
+Mitigates the transaction spam caused by flaws in the transaction management of report disconnectivity transactions.
+
+- [Reduce Intervals for connectivity checks](https://github.com/DMDcoin/diamond-node/issues/313)
+- [connectivity reports should not trigger if there is no block production](https://github.com/DMDcoin/diamond-node/issues/243)
+
 ## Diamond Node Software 4.0.0
 
 Official Node Software start version for the DMD Diamond network version 4.
