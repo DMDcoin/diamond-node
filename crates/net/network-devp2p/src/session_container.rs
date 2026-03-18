@@ -198,7 +198,7 @@ impl SessionContainer {
                 if let Some(existing_session_mutex) = existing_session_mutex_o {
                     let session = existing_session_mutex.lock();
                     if let Some(id_from_session) = &session.info.id {
-                        if session.info.id == Some(*node_id) {
+                        if id_from_session == node_id {
                             // we got already got a session for the specified node.
                             // maybe the old session is already scheduled for getting deleted.
                             if !session.expired() {
@@ -208,13 +208,22 @@ impl SessionContainer {
                                 )
                                 .into());
                             }
+                            // if the session it expired, we will create a Handshake, so it can get restablished.
                         } else {
-                            error!(target: "network", "host cache inconsistency: Session node id mismatch. expected: {} is {}.", existing_peer_id, id_from_session);
-                            return Err(ErrorKind::HostCacheInconsistency.into());
+                            return Err(ErrorKind::HostCacheInconsistencySessionMissmatch(
+                                node_id.clone(),
+                                existing_peer_id.clone(),
+                                id_from_session.clone(),
+                            )
+                            .into());
                         }
                     } else {
-                        error!(target: "network", "host cache inconsistency: Session has no Node_id defined where it should for {}", existing_peer_id);
-                        return Err(ErrorKind::HostCacheInconsistency.into());
+                        error!(target: "network", "Host cache inconsistency: Session has no Node_id defined where it should for {}", existing_peer_id);
+                        return Err(ErrorKind::HostCacheInconsistencyNodeIDMissing(
+                            node_id.clone(),
+                            existing_peer_id.clone(),
+                        )
+                        .into());
                     }
                     // session guard is dropped here
                 }
@@ -310,11 +319,10 @@ impl SessionContainer {
         let node_id = match id {
             Some(id) => id.clone(),
             None => {
-                error!(target: "network", "Tried to register finalized handshake without node id");
                 // We have no Node ID, so we can't promote it to a full session mapped by Node ID.
                 // This might indicate an error state, or a handshake that failed to yield a Node ID.
                 // For now, we'll just log and return.
-                return Err(ErrorKind::HostCacheInconsistency.into());
+                return Err(ErrorKind::HandshakeFinalisationMissingNodeId(token).into());
             }
         };
 
@@ -361,7 +369,7 @@ impl SessionContainer {
             }
             return Ok(upgraded_token);
         } else {
-            return Err(ErrorKind::HostCacheInconsistency.into());
+            return Err(ErrorKind::HandshakeNotRemoved(token).into());
         }
     }
 

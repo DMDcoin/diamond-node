@@ -173,9 +173,33 @@ error_chain! {
         }
 
         #[doc = "A connection to the specified NodeId exists, but there is a mismatch in the host cache."]
-        HostCacheInconsistency {
-            description("A connection to the specified nodeId already exists."),
-            display("A connection to the specified NodeId exists, but there is a mismatch in the host cache."),
+        HostCacheInconsistencySessionMissmatch(wanted_node: crate::NodeId, peer_id_from_cache: usize, actual_session_node: crate::NodeId) {
+            description("A HostCache mapping points to a wrong session"),
+            display("A connection to the specified NodeId {wanted_node:?} exists, but the real session on peer ID {peer_id_from_cache} points to NodeId: {actual_session_node:?}"),
+        }
+
+        #[doc = "A connection to the specified NodeId exists, but there is no NodeId defined on the session."]
+        HostCacheInconsistencyNodeIDMissing(wanted_node: crate::NodeId, peer_id_from_cache: usize) {
+            description("A HostCache mapping points to a session, that does not have a NodeID defined."),
+            display("A connection to the specified NodeId {wanted_node:?} exists with peer_id {peer_id_from_cache}, but the Session information does not have NodeID Information."),
+        }
+
+        #[doc = "A handshake can not get finalized."]
+        HandshakeFinalisationMissingNodeId(peer_id: usize) {
+            description("Tried to register finalized handshake without a node id"),
+            display("Tried to register finalized handshake for peer {peer_id} without a node id"),
+        }
+
+        #[doc = "A handshake state is wrong."]
+        SessionStateInconsistency(stream_token: usize) {
+            description("A Session state is wrong."),
+            display("A Session state is wrong for stream id {stream_token}"),
+        }
+
+        #[doc = "A handshake could not get removed."]
+        HandshakeNotRemoved(stream_token: usize) {
+            description("Tried to remove a Handshake, but the session was not found."),
+            display("Tried to remove a Handshake for id {stream_token}, but the session was not found."),
         }
 
         #[doc = "An unknown IO error occurred."]
