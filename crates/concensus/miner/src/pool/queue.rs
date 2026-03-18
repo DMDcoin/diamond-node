@@ -475,6 +475,13 @@ impl TransactionQueue {
                 .read()
                 .pending(block_number, current_timestamp, nonce_cap.as_ref(), max_len)
         {
+            // Returning a cached pending set here,
+            // could lead to a situation where the cache was constructed before
+            // the cleanup of the pool did finish for the last block import.
+            // this could lead to "pending" transactions that were already
+            // included in the last set,
+            // if there is no mechanism that removes the transactions from that pool.
+
             return pending;
         }
 

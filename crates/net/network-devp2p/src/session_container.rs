@@ -202,7 +202,11 @@ impl SessionContainer {
                             // we got already got a session for the specified node.
                             // maybe the old session is already scheduled for getting deleted.
                             if !session.expired() {
-                                return Err(ErrorKind::AlreadyExists.into());
+                                return Err(ErrorKind::AlreadyExists(
+                                    *node_id,
+                                    existing_peer_id.clone(),
+                                )
+                                .into());
                             }
                         } else {
                             error!(target: "network", "host cache inconsistency: Session node id mismatch. expected: {} is {}.", existing_peer_id, id_from_session);

@@ -303,7 +303,7 @@ impl HbbftEarlyEpochEndManager {
             // todo: this is max blocktime (heartbeat) x 2, better read the maximum blocktime.
             // on phoenix protocol triggers, this would also skip the sending of disconnectivity reports.
             if elapsed_since_last_block > 10 * 60 {
-                info!(target:"engine", "skipping early-epoch-end: now {now} ; block_time {block_time}: Block WAS created in the future ?!?! :-x. not sending early epoch end reports.");
+                info!(target:"engine", "skipping early-epoch-end: elapsed time since last block: {elapsed_since_last_block}. not sending early epoch end reports if there is no block production.");
                 return;
             }
         } else {

@@ -161,9 +161,9 @@ error_chain! {
         }
 
         #[doc = "A connection to the specified nodeId already exists."]
-        AlreadyExists {
-            description("A connection to the specified nodeId already exists."),
-            display("A connection to the specified nodeId already exists."),
+        AlreadyExists(node_id: crate::NodeId, existing_peer_id: usize) {
+            description("A connection to specified node already exists."),
+            display("A connection to {} already exists. PeerID: {}", node_id, existing_peer_id),
         }
 
         #[doc = "Reached maximum connections"]

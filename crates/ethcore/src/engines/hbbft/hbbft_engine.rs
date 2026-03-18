@@ -1082,8 +1082,23 @@ impl HoneyBadgerBFT {
         if let Some(block_header) = client.block_header(BlockId::Latest) {
             let target_min_timestamp = block_header.timestamp() + self.params.minimum_block_time;
             let now = unix_now_secs();
+
+            // todo:
+            // empty blocks
+            // there could be cases, where the transactions that got included in the last block,
+            // have not been removed from the mem pool yet.
+            // we could check here the completion of the transaction pool maintenance,
+            // and either wait, or just do nothing in this case, since the next engine tick,
+            // will just call this again.
+
             // we could implement a cheaper way to get the number of queued transaction, that does not require this intensive locking.
             // see: https://github.com/DMDcoin/diamond-node/issues/237
+
+            // what is the best set of transactions ??
+            // pending_transactions() vs queued_transactions() vs ready_transactions()
+            // the proposal generation is done with "queued_transactions()"
+            // queued transactions = transaction_queue.pending
+
             let queue_length = client.queued_transactions().len();
             (self.params.minimum_block_time == 0 || target_min_timestamp <= now)
                 && queue_length >= self.params.transaction_queue_size_trigger
@@ -1594,28 +1609,6 @@ impl Engine<EthereumMachine> for HoneyBadgerBFT {
         }
 
         *self.signer.write() = signer;
-
-        if let Some(client) = self.client_arc() {
-            // client.as_full_client().and_then(|c| {
-            //     self.peers_management.lock().set_peers_management(self.peers_management.clone());
-            //     None
-            //     }
-            // );
-            // setting peers management here.
-
-            warn!(target: "engine", "set_signer - update_honeybadger...");
-            if let None = self.hbbft_state.write().update_honeybadger(
-                client,
-                &self.signer,
-                &self.hbbft_peers_service,
-                &self.early_epoch_manager,
-                &self.current_minimum_gas_price,
-                BlockId::Latest,
-                true,
-            ) {
-                info!(target: "engine", "HoneyBadger Algorithm could not be created, Client possibly not set yet.");
-            }
-        }
     }
 
     fn sign(&self, hash: H256) -> Result<Signature, Error> {

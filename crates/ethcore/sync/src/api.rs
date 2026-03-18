@@ -764,7 +764,7 @@ impl ChainNotify for EthSync {
                 ChainMessageType::Consensus(block, message) => {
                     let send_result = self.eth_handler.sync.write().send_consensus_packet(&mut sync_io, message.clone(), node_id);
                     if let Err(e) = send_result {
-                        info!(target: "consensus", "Error sending consensus message to peer - caching message {:?}: {:?}", node_id, e);
+                        debug!(target: "consensus", "Error sending consensus message to peer {node_id} caching message {}: {:?}", node_id, e);
                         // If we failed to send the message, cache it for later
                         let mut lock = self.eth_handler.message_cache.write();
                         lock.entry(Some(node_id.clone())).or_default().push(ChainMessageType::Consensus(block, message));
