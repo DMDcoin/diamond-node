@@ -39,7 +39,9 @@ use crate::configuration;
 #[derive(Debug, PartialEq, Default)]
 pub enum SpecType {
     #[default]
-    Foundation,
+    Diamond,
+    DiamondTestnet,
+    Ethereum,
     Poanet,
     Xdai,
     Volta,
@@ -64,7 +66,9 @@ impl str::FromStr for SpecType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let spec = match s {
-            "eth" | "ethereum" | "foundation" | "mainnet" => SpecType::Foundation,
+            "diamond" | "dmd" => SpecType::Diamond,
+            "diamond-testnet" | "dmd-testnet" => SpecType::DiamondTestnet,
+            "eth" | "ethereum" | "foundation" | "mainnet" => SpecType::Ethereum,
             "poanet" | "poacore" => SpecType::Poanet,
             "xdai" => SpecType::Xdai,
             "volta" => SpecType::Volta,
@@ -90,7 +94,9 @@ impl str::FromStr for SpecType {
 impl fmt::Display for SpecType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(match *self {
-            SpecType::Foundation => "foundation",
+            SpecType::Diamond => "diamond",
+            SpecType::DiamondTestnet => "diamond-testnet",
+            SpecType::Ethereum => "ethereum",
             SpecType::Poanet => "poanet",
             SpecType::Xdai => "xdai",
             SpecType::Volta => "volta",
@@ -116,7 +122,9 @@ impl SpecType {
     pub fn spec<'a, T: Into<SpecParams<'a>>>(&self, params: T) -> Result<Spec, String> {
         let params = params.into();
         match *self {
-            SpecType::Foundation => Ok(ethereum::new_foundation(params)),
+            SpecType::Ethereum => Ok(ethereum::new_ethereum(params)),
+            SpecType::Diamond => Ok(ethereum::new_diamond(params)),
+            SpecType::DiamondTestnet => Ok(ethereum::new_diamond_testnet(params)),
             SpecType::Poanet => Ok(ethereum::new_poanet(params)),
             SpecType::Xdai => Ok(ethereum::new_xdai(params)),
             SpecType::Volta => Ok(ethereum::new_volta(params)),

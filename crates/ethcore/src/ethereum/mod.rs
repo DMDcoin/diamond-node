@@ -45,10 +45,26 @@ fn load_machine(b: &[u8]) -> EthereumMachine {
 }
 
 /// Create a new Foundation mainnet chain spec.
-pub fn new_foundation<'a, T: Into<SpecParams<'a>>>(params: T) -> Spec {
+pub fn new_ethereum<'a, T: Into<SpecParams<'a>>>(params: T) -> Spec {
     load(
         params.into(),
-        include_bytes!("../../res/chainspec/foundation.json"),
+        include_bytes!("../../res/chainspec/ethereum.json"),
+    )
+}
+
+/// Create a new Foundation mainnet chain spec.
+pub fn new_diamond<'a, T: Into<SpecParams<'a>>>(params: T) -> Spec {
+    load(
+        params.into(),
+        include_bytes!("../../res/chainspec/diamond.json"),
+    )
+}
+
+/// Create a new Foundation mainnet chain spec.
+pub fn new_diamond_testnet<'a, T: Into<SpecParams<'a>>>(params: T) -> Spec {
+    load(
+        params.into(),
+        include_bytes!("../../res/chainspec/diamond-testnet.json"),
     )
 }
 

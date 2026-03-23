@@ -493,9 +493,14 @@ impl Importer {
 
         // Check the block isn't so old we won't be able to enact it.
         // t_nb 7.1 check if block is older then last pruned block
-        let best_block_number = client.chain.read().best_block_number();
+        let (best_block_number, best_block_hash) = {
+            let chain = client.chain.read();
+
+            (chain.best_block_number(), chain.best_block_hash())
+        };
+
         if client.pruning_info().earliest_state > header.number() {
-            warn!(target: "client", "Block import failed for #{} ({})\nBlock is ancient (current best block: #{}).", header.number(), header.hash(), best_block_number);
+            warn!(target: "client", "Block import failed for #{} ({})\nBlock is ancient (current best block: #{} {}).", header.number(), header.hash(), best_block_number, best_block_hash);
             bail!("Block is ancient");
         }
 

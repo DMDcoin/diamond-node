@@ -533,7 +533,7 @@ impl SyncProtocolHandler {
                         match send_consensus_result {
                             Ok(_) => {}
                             Err(e) => {
-                                info!(target: "consensus", "Error sending cached consensus message to peer (re-adding) {:?}: {:?}", node_id, e);
+                                debug!(target: "consensus", "Error sending cached consensus message to peer (re-adding) {:?}: {:?}", node_id, e);
                                 failed_messages.push(ChainMessageType::Consensus(block, message));
                             }
                         }

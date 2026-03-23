@@ -333,18 +333,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bn"
-version = "0.4.4"
-source = "git+https://github.com/paritytech/bn#6079255e65793038b9a6e5292203eab482737cc2"
-dependencies = [
- "byteorder",
- "crunchy 0.2.2",
- "lazy_static",
- "rand 0.5.6",
- "rustc-hex 2.1.0",
-]
-
-[[package]]
 name = "bstr"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -850,7 +838,7 @@ dependencies = [
 
 [[package]]
 name = "diamond-node"
-version = "4.0.2"
+version = "4.0.3-rc1"
 dependencies = [
  "ansi_term 0.10.2",
  "atty",
@@ -1354,7 +1342,6 @@ dependencies = [
 name = "ethcore-builtin"
 version = "0.1.0"
 dependencies = [
- "bn",
  "byteorder",
  "eip-152",
  "eth_pairings",
@@ -1370,6 +1357,7 @@ dependencies = [
  "parity-bytes",
  "parity-crypto",
  "rustc-hex 1.0.0",
+ "substrate-bn",
 ]
 
 [[package]]
@@ -2788,6 +2776,9 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+dependencies = [
+ "spin",
+]
 
 [[package]]
 name = "lazycell"
@@ -4097,6 +4088,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+dependencies = [
+ "rand_core 0.6.4",
+]
+
+[[package]]
 name = "rand_chacha"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4139,6 +4139,12 @@ checksum = "90bde5296fc891b0cef12a6d03ddccc162ce7b2aff54160af9338f8d40df6d19"
 dependencies = [
  "getrandom 0.1.13",
 ]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 
 [[package]]
 name = "rand_derive"
@@ -4839,6 +4845,18 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "substrate-bn"
+version = "0.6.0"
+source = "git+https://github.com/dmdcoin/bn#63f8c587356a67b33c7396af98e065b66fca5dda"
+dependencies = [
+ "byteorder",
+ "crunchy 0.2.2",
+ "lazy_static",
+ "rand 0.8.5",
+ "rustc-hex 2.1.0",
+]
 
 [[package]]
 name = "subtle"
