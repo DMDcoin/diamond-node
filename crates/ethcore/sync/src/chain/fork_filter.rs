@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn ethereum_spec() {
         test_spec(
-            || ethereum::new_foundation(&String::new()),
+            || ethereum::new_ethereum(&String::new()),
             vec![
                 1_150_000, 1_920_000, 2_463_000, 2_675_000, 4_370_000, 7_280_000, 9_069_000,
                 9_200_000, 12_244_000, 12_965_000, 13_773_000,

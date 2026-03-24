@@ -198,7 +198,7 @@ impl TestRunner {
                 |test: &DifficultyTests, path: &Path, json: &[u8]| {
                     let spec = match &test.chainspec {
                         TestChainSpec::Foundation => {
-                            crate::ethereum::new_foundation(&tempdir().unwrap().path())
+                            crate::ethereum::new_ethereum(&tempdir().unwrap().path())
                         }
                         TestChainSpec::ByzantiumTest => crate::ethereum::new_byzantium_test(),
                         TestChainSpec::FrontierTest => crate::ethereum::new_frontier_test(),

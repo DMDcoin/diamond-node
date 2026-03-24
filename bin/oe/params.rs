@@ -41,7 +41,7 @@ pub enum SpecType {
     #[default]
     Diamond,
     DiamondTestnet,
-    Ethereum,
+    Foundation,
     Poanet,
     Xdai,
     Volta,
@@ -68,7 +68,7 @@ impl str::FromStr for SpecType {
         let spec = match s {
             "diamond" | "dmd" => SpecType::Diamond,
             "diamond-testnet" | "dmd-testnet" => SpecType::DiamondTestnet,
-            "eth" | "ethereum" | "foundation" | "mainnet" => SpecType::Ethereum,
+            "eth" | "ethereum" | "foundation" | "mainnet" => SpecType::Foundation,
             "poanet" | "poacore" => SpecType::Poanet,
             "xdai" => SpecType::Xdai,
             "volta" => SpecType::Volta,
@@ -96,7 +96,7 @@ impl fmt::Display for SpecType {
         f.write_str(match *self {
             SpecType::Diamond => "diamond",
             SpecType::DiamondTestnet => "diamond-testnet",
-            SpecType::Ethereum => "ethereum",
+            SpecType::Foundation => "ethereum",
             SpecType::Poanet => "poanet",
             SpecType::Xdai => "xdai",
             SpecType::Volta => "volta",
@@ -122,7 +122,7 @@ impl SpecType {
     pub fn spec<'a, T: Into<SpecParams<'a>>>(&self, params: T) -> Result<Spec, String> {
         let params = params.into();
         match *self {
-            SpecType::Ethereum => Ok(ethereum::new_ethereum(params)),
+            SpecType::Foundation => Ok(ethereum::new_ethereum(params)),
             SpecType::Diamond => Ok(ethereum::new_diamond(params)),
             SpecType::DiamondTestnet => Ok(ethereum::new_diamond_testnet(params)),
             SpecType::Poanet => Ok(ethereum::new_poanet(params)),

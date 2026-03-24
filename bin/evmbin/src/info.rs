@@ -279,7 +279,7 @@ pub mod tests {
         params.gas = gas.into();
 
         let tempdir = TempDir::new("").unwrap();
-        let spec = ::ethcore::ethereum::new_foundation(&tempdir.path());
+        let spec = ::ethcore::ethereum::new_ethereum(&tempdir.path());
         let result = run_action(&spec, params, informant, TrieSpec::Secure);
         match result {
             Ok(Success { traces, .. }) => compare(traces, expected),

@@ -461,7 +461,7 @@ mod tests {
 
     #[test]
     fn frontier() {
-        let frontier = new_foundation(&::std::env::temp_dir());
+        let frontier = new_ethereum(&::std::env::temp_dir());
 
         assert_eq!(
             frontier.state_root(),

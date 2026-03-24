@@ -689,7 +689,7 @@ impl Configuration {
 
         if let Some(dec) = self.args.arg_min_gas_price {
             return Ok(GasPricerConfig::Fixed(U256::from(dec)));
-        } else if self.chain()? != SpecType::Ethereum {
+        } else if self.chain()? != SpecType::Foundation {
             return Ok(GasPricerConfig::Fixed(U256::zero()));
         }
 
