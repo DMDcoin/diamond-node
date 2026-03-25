@@ -3570,7 +3570,7 @@ dependencies = [
 
 [[package]]
 name = "parity-version"
-version = "4.0.2"
+version = "4.0.3-rc1"
 dependencies = [
  "parity-bytes",
  "rlp",
