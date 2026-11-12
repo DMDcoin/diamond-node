@@ -1,20 +1,28 @@
-on: [push, pull_request]
-
 name: rustfmt
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   fmt:
     name: Rustfmt
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          profile: minimal
-          toolchain: 1.85
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
         with:
-          command: fmt
-          args: --all -- --check --config imports_granularity=Crate
+          toolchain: "1.85.1"
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check --config imports_granularity=Crate

@@ -1,4 +1,4 @@
-name:                           Build and Test Suite
+name: Build and Test Suite
 
 on:
   pull_request:
@@ -7,38 +7,26 @@ on:
       - main
       - dev
       - beta
+
+permissions:
+  contents: read
+
 jobs:
   build-tests:
-    name:                       Test and Build
-    strategy:
-      matrix:
-        platform:
-          - ubuntu-22.04
-        #  - macos-latest
-        toolchain:
-          -  1.85
-    runs-on:                    ${{ matrix.platform }}
-    steps:
-      - name:                   Checkout sources
-        uses:                   actions/checkout@main
-        with:
-          submodules:           true
-      - name:                   Install toolchain
-        uses:                   actions-rs/toolchain@v1
-        with:
-          toolchain:            ${{ matrix.toolchain }}
-          profile:              minimal
-          override:             true
-      - name:                   Build tests
-        uses:                   actions-rs/cargo@v1
-        with:
-          command:              test
-          #args: deactivated JSON Tests, so we do not run out of quota on CI tests for merge intesive time.  --locked --all --release --features "json-tests" --verbose --no-run
-          args:                 --locked --all --release --verbose --no-run
-      - name:                   Run tests for ${{ matrix.platform }}
-        uses:                   actions-rs/cargo@v1
-        with:
-          command:              test
-          #args: deactivated JSON Tests                --locked --all --release --features "json-tests" --verbose
-          args:                 --locked --all --release --verbose
+    name: Test and Build
+    runs-on: ubuntu-24.04
 
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
+        with:
+          toolchain: "1.85.1"
+
+      - name: Run workspace tests (including JSON)
+        run: cargo test --locked --workspace --release --features ethcore/json-tests --verbose
