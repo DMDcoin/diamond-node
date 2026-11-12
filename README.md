@@ -37,13 +37,16 @@ By default, diamond-node runs a JSON-RPC HTTP server on port `:8545` and a Web-S
 
 If you run into problems while using diamond-node, feel free to [file an issue in this repository](https://github.com/dmdcoind/diamond-node/issues/new), or hop on our [Slack](https://dmdcoin.slack.com/), [Telegram](https://t.me/DMDcoin) or [Discord](https://discord.gg/TStv6gm) chat room to ask a question. We are glad to help!
 
-We do not provide binaries and suggest to build from source.
+Tagged binary releases provide Linux amd64 and arm64 archives on
+[GitHub Releases](https://github.com/DMDcoin/diamond-node/releases). Each archive
+contains the node and setup utilities. See [binary releases](docs/releases.md)
+for supported systems, signature verification, and the maintainer release process.
 
 ## 3. Building <a id="chapter-003"></a>
 
 ### 3.1 Build Dependencies <a id="chapter-0031"></a>
 
-diamond-node requires **latest stable Rust version** to build.
+diamond-node requires **Rust 1.85 or newer** to build. Binary release CI uses Rust 1.85.1.
 
 We recommend installing Rust through [rustup](https://www.rustup.rs/). If you don't already have `rustup`, you can install it like this:
 
