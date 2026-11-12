@@ -28,5 +28,5 @@ jobs:
         with:
           toolchain: "1.85.1"
 
-      - name: Run workspace tests (including JSON)
-        run: cargo test --locked --workspace --release --features ethcore/json-tests --verbose
+      - name: Run workspace tests
+        run: cargo test --locked --all --release --verbose
