@@ -2,9 +2,7 @@
 
 Node client for the protocol version 4 of the bit.diamonds network.
 
-[![Build and Test][pipeline-badge]][pipeline-url] [![GPL licensed][license-badge]][license-url]
-
-[![](https://dcbadge.limes.pink/api/server/INVITE)](https://discord.gg/WEN5a2hqPu)
+[![Build and Test][pipeline-badge]][pipeline-url] [![GPL licensed][license-badge]][license-url] [![](https://dcbadge.limes.pink/api/server/WEN5a2hqPu?style=flat)](https://discord.gg/WEN5a2hqPu)
 
 [license-badge]: https://img.shields.io/badge/license-GPL_v3-green.svg
 [license-url]: ./LICENSE
