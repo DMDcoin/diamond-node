@@ -12,7 +12,6 @@ defaults:
     shell: bash
 
 env:
-  RUST_VERSION: "1.85.1"
   CARGO_INCREMENTAL: "0"
 
 concurrency:
@@ -26,6 +25,7 @@ jobs:
     timeout-minutes: 10
 
     outputs:
+      rust_version: ${{ steps.release.outputs.rust_version }}
       version: ${{ steps.release.outputs.version }}
       release_channel: ${{ steps.release.outputs.release_channel }}
       features: ${{ steps.release.outputs.features }}
@@ -43,29 +43,9 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-
-      - name: Validate tag and versions
+      - name: Prepare release
         id: release
-        run: |
-          metadata=$(cargo metadata --locked --no-deps --format-version 1)
-          for package in diamond-node parity-version; do
-            version=$(jq -er --arg name "$package" '.packages[] | select(.name == $name) | .version' <<< "$metadata")
-            if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
-              echo "::error::$package version must match $GITHUB_REF_NAME"
-              exit 1
-            fi
-          done
-          release_channel=stable
-          features=diamond-node/final
-          if [[ "${version%%+*}" == *-* ]]; then
-            release_channel=unstable
-            features=
-          fi
-          printf 'version=%s\nrelease_channel=%s\nfeatures=%s\n' "$version" "$release_channel" "$features" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/prepare-release
 
   build:
     name: Build (linux-${{ matrix.arch }})
@@ -98,7 +78,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
         with:
-          toolchain: ${{ env.RUST_VERSION }}
+          toolchain: ${{ needs.prepare.outputs.rust_version }}
 
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
