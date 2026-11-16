@@ -1,0 +1,49 @@
+name: Prepare release
+description: Install Rust and validate package versions against the selected release tag.
+
+inputs:
+  rust-version:
+    description: Rust version used for release validation and builds.
+    default: "1.85.1"
+
+outputs:
+  rust_version:
+    description: Rust version to use in subsequent build jobs.
+    value: ${{ inputs.rust-version }}
+  version:
+    description: Validated package version without the v prefix.
+    value: ${{ steps.release.outputs.version }}
+  release_channel:
+    description: Release channel, stable or unstable.
+    value: ${{ steps.release.outputs.release_channel }}
+  features:
+    description: Cargo features to enable for this release.
+    value: ${{ steps.release.outputs.features }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
+      with:
+        toolchain: ${{ inputs.rust-version }}
+
+    - name: Validate tag and versions
+      id: release
+      shell: bash
+      run: |
+        metadata=$(cargo metadata --locked --no-deps --format-version 1)
+        for package in diamond-node parity-version; do
+          version=$(jq -er --arg name "$package" '.packages[] | select(.name == $name) | .version' <<< "$metadata")
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::$package version must match $GITHUB_REF_NAME"
+            exit 1
+          fi
+        done
+        release_channel=stable
+        features=diamond-node/final
+        if [[ "${version%%+*}" == *-* ]]; then
+          release_channel=unstable
+          features=
+        fi
+        printf 'version=%s\nrelease_channel=%s\nfeatures=%s\n' "$version" "$release_channel" "$features" >> "$GITHUB_OUTPUT"

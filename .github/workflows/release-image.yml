@@ -1,0 +1,136 @@
+# Build tagged container images on request and publish them to GHCR.
+name: Release image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: release-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    outputs:
+      rust_version: ${{ steps.release.outputs.rust_version }}
+      version: ${{ steps.release.outputs.version }}
+      image: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.image.outputs.image_tag }}
+      features: ${{ steps.release.outputs.features }}
+
+    steps:
+      - name: Require existing tag
+        if: github.ref_type != 'tag'
+        run: |
+          echo "::error::Request this workflow for an existing release tag."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Prepare release
+        id: release
+        uses: ./.github/actions/prepare-release
+
+      - name: Prepare image name and tag
+        id: image
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          image_tag="${VERSION//+/_}"
+          if [[ ! "$image_tag" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo "::error::Version cannot be represented as a Docker image tag."
+            exit 1
+          fi
+          printf 'image=%s\nimage_tag=%s\n' "$image" "$image_tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build and publish image
+    needs: prepare
+    uses: docker/github-builder/.github/workflows/build.yml@58cb9f5b71b1836d6f690c1e95effdeb9b98cb8a # v1.17.0
+    permissions:
+      contents: read
+      packages: write
+    with:
+      output: image
+      push: true
+      platforms: linux/amd64,linux/arm64
+      runner: |
+        default=ubuntu-24.04
+        linux/arm64=ubuntu-24.04-arm
+      sign: "false" # Image signing is handled by actions/attest below.
+      build-args: |
+        RUST_VERSION=${{ needs.prepare.outputs.rust_version }}
+        FEATURES=${{ needs.prepare.outputs.features }}
+      meta-images: ${{ needs.prepare.outputs.image }}
+      meta-tags: type=raw,value=${{ needs.prepare.outputs.image_tag }}
+      meta-flavor: latest=false
+      set-meta-labels: true
+      set-meta-annotations: true
+      meta-labels: |
+        org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+        org.opencontainers.image.licenses=GPL-3.0-or-later
+      cache: true
+      cache-scope: release-image
+      cache-mode: max
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+  attest:
+    name: Attest and verify image
+    needs: [ prepare, build ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    env:
+      IMAGE: ${{ needs.prepare.outputs.image }}
+      IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
+      DIGEST: ${{ needs.build.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Attest image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ env.DIGEST }}
+          push-to-registry: true
+          create-storage-record: false
+
+      - name: Verify image attestation
+        run: |
+          identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/release-image.yml@$GITHUB_REF"
+          gh attestation verify "oci://$IMAGE@$DIGEST" --repo "$GITHUB_REPOSITORY" \
+            --cert-identity "$identity" --source-ref "$GITHUB_REF" \
+            --source-digest "$GITHUB_SHA" --deny-self-hosted-runners
+          printf 'Published: `%s:%s`\n\nDigest: `%s@%s`\n' \
+            "$IMAGE" "$IMAGE_TAG" "$IMAGE" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
